@@ -11,6 +11,10 @@ const EnvSchema = z.object({
   KANBAN_CORS_ORIGINS: z.string().optional(),
   KANBAN_SEED_USERS: z.string().optional(),
   KANBAN_STATIC_DIR: z.string().optional(),
+  KANBAN_DEMO_MODE: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .default("false"),
   KANBAN_DEMO_RESET_MINUTES: z.coerce.number().int().positive().default(10),
 });
 
@@ -61,7 +65,7 @@ export function loadConfig(
           })
       : [],
     staticDir: parsed.KANBAN_STATIC_DIR ?? null,
-    demo: overrides.demo ?? false,
+    demo: overrides.demo ?? parsed.KANBAN_DEMO_MODE,
     demoResetMinutes: overrides.demoResetMinutes ?? parsed.KANBAN_DEMO_RESET_MINUTES,
   };
 }
