@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.gitignore
+*.log
+*.db
+*.db-journal
+data
+.vscode
+.idea
+coverage
+.DS_Store

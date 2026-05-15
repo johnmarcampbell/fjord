@@ -1,0 +1,104 @@
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api.js";
+import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
+import { useUsers } from "../lib/queries.js";
+
+export function UserPicker() {
+  const { data: users = [], isLoading } = useUsers();
+  const [current, setCurrent] = useState<string | null>(getCurrentUserId());
+  const [creating, setCreating] = useState(false);
+  const [newId, setNewId] = useState("");
+  const [newKind, setNewKind] = useState<"human" | "agent">("human");
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!current && users.length > 0) {
+      const first = users[0]!.id;
+      setCurrentUserId(first);
+      setCurrent(first);
+    }
+  }, [users, current]);
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      api.createUser({ id: newId, display_name: newId, kind: newKind }),
+    onSuccess: (u) => {
+      setCurrentUserId(u.id);
+      setCurrent(u.id);
+      setNewId("");
+      setCreating(false);
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
+  if (isLoading) return <div className="text-sm text-slate-400">Loading…</div>;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-400">Acting as:</span>
+      <select
+        value={current ?? ""}
+        onChange={(e) => {
+          setCurrentUserId(e.target.value || null);
+          setCurrent(e.target.value || null);
+        }}
+        className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+      >
+        <option value="" disabled>
+          (none)
+        </option>
+        {users.map((u) => (
+          <option key={u.id} value={u.id}>
+            {u.display_name} {u.kind === "agent" ? "(agent)" : ""}
+          </option>
+        ))}
+      </select>
+      {creating ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newId.trim()) createMutation.mutate();
+          }}
+          className="flex items-center gap-1"
+        >
+          <input
+            value={newId}
+            onChange={(e) => setNewId(e.target.value)}
+            placeholder="id"
+            className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm w-24"
+            autoFocus
+          />
+          <select
+            value={newKind}
+            onChange={(e) => setNewKind(e.target.value as "human" | "agent")}
+            className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+          >
+            <option value="human">human</option>
+            <option value="agent">agent</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded bg-blue-600 px-2 py-1 text-sm hover:bg-blue-500"
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating(false)}
+            className="text-xs text-slate-400 hover:text-slate-200"
+          >
+            cancel
+          </button>
+        </form>
+      ) : (
+        <button
+          onClick={() => setCreating(true)}
+          className="text-xs text-slate-400 hover:text-slate-200"
+        >
+          + new user
+        </button>
+      )}
+    </div>
+  );
+}
