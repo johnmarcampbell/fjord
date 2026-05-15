@@ -36,6 +36,13 @@ export function DateTimePicker({
   const [timeStr, setTimeStr] = useState<string>(value ? toTimeString(value) : "00:00");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Refs so the close handler always sees the latest buffered values without
+  // being re-registered on every state change.
+  const selectedDateRef = useRef(selectedDate);
+  const timeStrRef = useRef(timeStr);
+  selectedDateRef.current = selectedDate;
+  timeStrRef.current = timeStr;
+
   useEffect(() => {
     if (value) {
       setSelectedDate(new Date(value));
@@ -46,15 +53,26 @@ export function DateTimePicker({
     }
   }, [value]);
 
+  function commitAndClose() {
+    const date = selectedDateRef.current;
+    if (date) {
+      const [h, m] = timeStrRef.current.split(":").map(Number);
+      const result = new Date(date);
+      result.setHours(h, m, 0, 0);
+      onChange(result.toISOString());
+    }
+    setOpen(false);
+  }
+
   useEffect(() => {
     if (!open) return;
     function handleMouseDown(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        commitAndClose();
       }
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") commitAndClose();
     }
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -62,25 +80,7 @@ export function DateTimePicker({
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
-
-  function commit(date: Date | undefined, time: string) {
-    if (!date) return;
-    const [h, m] = time.split(":").map(Number);
-    const result = new Date(date);
-    result.setHours(h, m, 0, 0);
-    onChange(result.toISOString());
-  }
-
-  function handleDaySelect(day: Date | undefined) {
-    setSelectedDate(day);
-    if (day) commit(day, timeStr);
-  }
-
-  function handleTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setTimeStr(e.target.value);
-    if (selectedDate) commit(selectedDate, e.target.value);
-  }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClear() {
     setSelectedDate(undefined);
@@ -108,7 +108,7 @@ export function DateTimePicker({
           <DayPicker
             mode="single"
             selected={selectedDate}
-            onSelect={handleDaySelect}
+            onSelect={setSelectedDate}
             classNames={{
               root: "text-sm",
               months: "",
@@ -127,8 +127,7 @@ export function DateTimePicker({
               day: "p-0",
               day_button:
                 "mx-auto flex h-8 w-8 items-center justify-center rounded-lg text-sm transition-colors hover:bg-surface-hover",
-              selected:
-                "bg-accent text-accent-fg rounded-lg hover:bg-accent",
+              selected: "bg-accent text-accent-fg rounded-lg hover:bg-accent",
               today: "font-bold text-accent",
               outside: "opacity-30",
               disabled: "opacity-30 cursor-not-allowed",
@@ -142,8 +141,8 @@ export function DateTimePicker({
             <input
               type="time"
               value={timeStr}
-              onChange={handleTimeChange}
-              className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+              onChange={(e) => setTimeStr(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
 
