@@ -6,8 +6,8 @@ import { api } from "../lib/api.js";
 import { useProjects } from "../lib/queries.js";
 
 const PRESET_COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
-  "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#4A7FA5", "#6B9E8A", "#C9A94A", "#6B7F8E",
+  "#9E4B4B", "#4A6B5A", "#7B9AAF", "#8B7355",
 ];
 
 interface FilterBarProps {
