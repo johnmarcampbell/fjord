@@ -21,6 +21,7 @@ declare module "fastify" {
   interface FastifyInstance {
     db: DB;
     events: EventBus;
+    demo: boolean;
   }
 }
 
@@ -49,6 +50,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
 
   app.decorate("db", dbHandle.db);
   app.decorate("events", new EventBus());
+  app.decorate("demo", config.demo);
 
   if (config.demo) {
     const resetter = new DemoResetter(config.demoResetMinutes * 60 * 1000);

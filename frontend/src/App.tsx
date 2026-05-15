@@ -58,7 +58,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-bg">
       {serverConfig?.demo && (
-        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-amber-300">
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-[rgb(202,168,55)]">
           Demo mode — changes will revert after a short time
         </div>
       )}

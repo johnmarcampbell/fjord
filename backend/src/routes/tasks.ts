@@ -35,8 +35,12 @@ function requireActor(req: FastifyRequest, reply: any): string | null {
   }
   const exists = req.server.db.select().from(users).where(eq(users.id, actor)).get();
   if (!exists) {
-    reply.code(400).send({ error: `Unknown user in ${ACTOR_HEADER}: ${actor}` });
-    return null;
+    if (req.server.demo) {
+      req.server.db.insert(users).values({ id: actor, displayName: actor, kind: "human", createdAt: nowIso() }).run();
+    } else {
+      reply.code(400).send({ error: `Unknown user in ${ACTOR_HEADER}: ${actor}` });
+      return null;
+    }
   }
   return actor;
 }
