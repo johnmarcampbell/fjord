@@ -10,6 +10,11 @@ interface Props {
   onOpen: () => void;
 }
 
+function withAlpha(hex: string, alpha: number): string {
+  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  return `${hex}${a}`;
+}
+
 export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
@@ -18,6 +23,7 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.45 : 1,
+    backgroundColor: project ? withAlpha(project.color, 0.12) : undefined,
   };
 
   return (
@@ -35,13 +41,6 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="font-semibold text-ink text-sm leading-snug truncate">{task.title}</div>
-        {project && (
-          <span
-            className="mt-0.5 inline-block h-2 w-2 flex-shrink-0 rounded-full"
-            style={{ background: project.color }}
-            title={project.name}
-          />
-        )}
       </div>
 
       <div className="mt-1.5 flex items-center justify-between gap-1 text-xs text-ink-muted">
