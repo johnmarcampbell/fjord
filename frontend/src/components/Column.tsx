@@ -1,16 +1,17 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Column as ColumnKey, Task } from "@agentic-kanban/shared";
+import type { Column as ColumnKey, Project, Task } from "@agentic-kanban/shared";
 import { TaskCard } from "./TaskCard.js";
 
 interface Props {
   column: ColumnKey;
   tasks: Task[];
   blockedIds: Set<string>;
+  projectById: Map<string, Project>;
   onOpenTask: (id: string) => void;
 }
 
-export function ColumnView({ column, tasks, blockedIds, onOpenTask }: Props) {
+export function ColumnView({ column, tasks, blockedIds, projectById, onOpenTask }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${column}`,
     data: { type: "column", column },
@@ -39,6 +40,7 @@ export function ColumnView({ column, tasks, blockedIds, onOpenTask }: Props) {
                 key={task.id}
                 task={task}
                 isBlocked={blockedIds.has(task.id)}
+                project={task.project_id ? projectById.get(task.project_id) : undefined}
                 onOpen={() => onOpenTask(task.id)}
               />
             ))}

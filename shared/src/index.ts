@@ -17,6 +17,15 @@ export interface User {
   created_at: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  description: string;
+  due_at: string | null;
+  created_at: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -26,6 +35,8 @@ export interface Task {
   reported_by: string;
   assigned_to: string | null;
   due_at: string | null;
+  project_id: string | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
   version: number;
@@ -41,7 +52,9 @@ export type EventKind =
   | "reported_by_changed"
   | "due_date_changed"
   | "blocker_added"
-  | "blocker_removed";
+  | "blocker_removed"
+  | "project_changed"
+  | "tags_changed";
 
 export interface TaskEvent {
   id: string;
@@ -61,12 +74,28 @@ export interface CreateUserRequest {
   kind: UserKind;
 }
 
+export interface CreateProjectRequest {
+  name: string;
+  color?: string;
+  description?: string;
+  due_at?: string | null;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  color?: string;
+  description?: string;
+  due_at?: string | null;
+}
+
 export interface CreateTaskRequest {
   title: string;
   description?: string;
   column?: Column;
   assigned_to?: string | null;
   due_at?: string | null;
+  project_id?: string | null;
+  tags?: string[];
 }
 
 export interface UpdateTaskRequest {
@@ -77,6 +106,8 @@ export interface UpdateTaskRequest {
   position?: number;
   assigned_to?: string | null;
   due_at?: string | null;
+  project_id?: string | null;
+  tags?: string[];
 }
 
 export interface AddCommentRequest {

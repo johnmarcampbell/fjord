@@ -9,7 +9,7 @@ import type {
   UpdateTaskRequest,
 } from "@agentic-kanban/shared";
 import { COLUMNS } from "@agentic-kanban/shared";
-import { taskDependencies, taskEvents, tasks, users } from "../db/schema.js";
+import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
 import {
   columnHeadPosition,
   columnTailPosition,
@@ -101,6 +101,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
             column: { type: "string", enum: [...COLUMNS] },
             assigned_to: { type: ["string", "null"] },
             due_at: { type: ["string", "null"], format: "date-time" },
+            project_id: { type: ["string", "null"] },
+            tags: { type: "array", items: { type: "string" } },
           },
         },
       },
@@ -116,6 +118,11 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         if (!u) return reply.code(400).send({ error: "Unknown assigned_to user" });
       }
 
+      if (body.project_id) {
+        const p = app.db.select().from(projects).where(eq(projects.id, body.project_id)).get();
+        if (!p) return reply.code(400).send({ error: "Unknown project_id" });
+      }
+
       const id = newId();
       const now = nowIso();
       const position = columnHeadPosition(app.db, column);
@@ -128,6 +135,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         reportedBy: actor,
         assignedTo: body.assigned_to ?? null,
         dueAt: body.due_at ?? null,
+        projectId: body.project_id ?? null,
+        tags: JSON.stringify(body.tags ?? []),
         createdAt: now,
         updatedAt: now,
         version: 1,
@@ -150,7 +159,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
 
       app.events.publish({ type: "task.created", task_id: id });
       reply.code(201);
-      return hydrateTask(app.db, row);
+      return hydrateTask(app.db, { ...row });
     },
   );
 
@@ -176,6 +185,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
             position: { type: "number" },
             assigned_to: { type: ["string", "null"] },
             due_at: { type: ["string", "null"], format: "date-time" },
+            project_id: { type: ["string", "null"] },
+            tags: { type: "array", items: { type: "string" } },
           },
         },
       },
@@ -200,6 +211,11 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         if (!u) return reply.code(400).send({ error: "Unknown assigned_to user" });
       }
 
+      if (body.project_id !== undefined && body.project_id !== null) {
+        const p = app.db.select().from(projects).where(eq(projects.id, body.project_id)).get();
+        if (!p) return reply.code(400).send({ error: "Unknown project_id" });
+      }
+
       const now = nowIso();
       const nextColumn = (body.column ?? existing.column) as Column;
       let nextPosition = existing.position;
@@ -208,6 +224,11 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       } else if (body.column && body.column !== existing.column) {
         nextPosition = columnTailPosition(app.db, nextColumn);
       }
+
+      const newProjectId = body.project_id === undefined ? existing.projectId : body.project_id;
+      const newTagsArr = body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
+      const newTagsStr = JSON.stringify(newTagsArr);
+
       const updates = {
         title: body.title ?? existing.title,
         description: body.description ?? existing.description,
@@ -215,6 +236,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         position: nextPosition,
         assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
         dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
+        projectId: newProjectId,
+        tags: newTagsStr,
         updatedAt: now,
         version: existing.version + 1,
       };
@@ -244,6 +267,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       }
       if (updates.dueAt !== existing.dueAt) {
         eventRows.push(mkEvent("due_date_changed", existing.dueAt, updates.dueAt));
+      }
+      if (updates.projectId !== existing.projectId) {
+        eventRows.push(mkEvent("project_changed", existing.projectId, updates.projectId));
+      }
+      if (updates.tags !== existing.tags) {
+        eventRows.push(mkEvent("tags_changed", existing.tags, updates.tags));
       }
       if (eventRows.length) {
         app.db.insert(taskEvents).values(eventRows).run();

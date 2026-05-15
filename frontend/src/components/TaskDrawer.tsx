@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
-import { useUsers } from "../lib/queries.js";
+import { useUsers, useProjects } from "../lib/queries.js";
 
 interface Props {
   taskId: string;
@@ -22,6 +22,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
     queryFn: () => api.listEvents(taskId),
   });
   const { data: users = [] } = useUsers();
+  const { data: projects = [] } = useProjects();
 
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -96,6 +97,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
   }
 
   const taskById = new Map(allTasks.map((t) => [t.id, t]));
+  const allTags = Array.from(new Set(allTasks.flatMap((t) => t.tags))).sort();
 
   return (
     <div
@@ -185,6 +187,37 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                 })
               }
               className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
+            />
+          </Field>
+          <Field label="Project">
+            <select
+              value={task.project_id ?? ""}
+              onChange={(e) =>
+                updateMutation.mutate({
+                  version: task.version,
+                  project_id: e.target.value || null,
+                })
+              }
+              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
+            >
+              <option value="">— none —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="mt-3 text-sm">
+          <Field label="Tags">
+            <TagInput
+              value={task.tags}
+              allTags={allTags}
+              onChange={(tags) =>
+                updateMutation.mutate({ version: task.version, tags })
+              }
             />
           </Field>
         </div>
@@ -301,7 +334,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
           </h3>
           <div className="space-y-2">
             {events.map((e) => (
-              <EventItem key={e.id} event={e} allTasks={allTasks} />
+              <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
             ))}
           </div>
           <form
@@ -345,6 +378,90 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
   );
 }
 
+function TagInput({
+  value,
+  allTags,
+  onChange,
+}: {
+  value: string[];
+  allTags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const suggestions = allTags.filter(
+    (t) => t.toLowerCase().includes(input.toLowerCase()) && !value.includes(t),
+  );
+
+  function addTag(tag: string) {
+    const clean = tag.trim().toLowerCase();
+    if (clean && !value.includes(clean)) {
+      onChange([...value, clean]);
+    }
+    setInput("");
+    setShowSuggestions(false);
+  }
+
+  function removeTag(tag: string) {
+    onChange(value.filter((t) => t !== tag));
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex min-h-[32px] flex-wrap items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1">
+        {value.map((tag) => (
+          <span
+            key={tag}
+            className="flex items-center gap-0.5 rounded-full bg-slate-600 px-2 py-0.5 text-xs"
+          >
+            {tag}
+            <button
+              onClick={() => removeTag(tag)}
+              className="ml-0.5 text-slate-400 hover:text-slate-200"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === ",") && input.trim()) {
+              e.preventDefault();
+              addTag(input);
+            }
+            if (e.key === "Backspace" && !input && value.length) {
+              removeTag(value[value.length - 1]);
+            }
+          }}
+          placeholder={value.length === 0 ? "Add tags…" : ""}
+          className="min-w-[80px] flex-1 bg-transparent text-xs outline-none placeholder:text-slate-500"
+        />
+      </div>
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded border border-slate-700 bg-slate-800 shadow-lg">
+          {suggestions.slice(0, 6).map((tag) => (
+            <button
+              key={tag}
+              onMouseDown={() => addTag(tag)}
+              className="block w-full px-2 py-1 text-left text-xs hover:bg-slate-700"
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -359,12 +476,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function EventItem({
   event,
   allTasks,
+  projects,
 }: {
   event: TaskEvent;
   allTasks: Task[];
+  projects: import("@agentic-kanban/shared").Project[];
 }) {
   const title = (id: string | null) =>
     allTasks.find((t) => t.id === id)?.title ?? id?.slice(0, 8) ?? "?";
+  const projectName = (id: string | null) =>
+    projects.find((p) => p.id === id)?.name ?? id ?? "(none)";
   const time = new Date(event.created_at).toLocaleString();
   if (event.kind === "comment") {
     return (
@@ -401,6 +522,14 @@ function EventItem({
       break;
     case "blocker_removed":
       summary = `removed blocker: ${title(event.blocker_id)}`;
+      break;
+    case "project_changed":
+      summary = event.to_value
+        ? `project set to ${projectName(event.to_value)}`
+        : "project cleared";
+      break;
+    case "tags_changed":
+      summary = `tags updated`;
       break;
   }
   return (

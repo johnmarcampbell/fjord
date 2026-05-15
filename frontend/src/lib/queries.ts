@@ -9,6 +9,10 @@ export function useUsers() {
   return useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
 }
 
+export function useProjects() {
+  return useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
+}
+
 export function useTaskEvents(taskId: string | null) {
   return useQuery({
     queryKey: ["task-events", taskId],

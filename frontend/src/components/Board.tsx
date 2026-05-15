@@ -14,26 +14,54 @@ import {
   type Task,
 } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
-import { useTasks } from "../lib/queries.js";
+import { useTasks, useProjects } from "../lib/queries.js";
 import { ColumnView } from "./Column.js";
 import { TaskDrawer } from "./TaskDrawer.js";
+import { FilterBar } from "./FilterBar.js";
 
 export function Board({ openTaskId, setOpenTaskId }: {
   openTaskId: string | null;
   setOpenTaskId: (id: string | null) => void;
 }) {
   const { data: tasks = [], isLoading, isError, error } = useTasks();
+  const { data: projects = [] } = useProjects();
   const queryClient = useQueryClient();
   const [_, setDragging] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
+  const projectById = useMemo(
+    () => new Map(projects.map((p) => [p.id, p])),
+    [projects],
+  );
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      for (const tag of t.tags) tagSet.add(tag);
+    }
+    return Array.from(tagSet).sort();
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+    if (selectedProject) {
+      result = result.filter((t) => t.project_id === selectedProject);
+    }
+    if (selectedTags.length > 0) {
+      result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
+    }
+    return result;
+  }, [tasks, selectedProject, selectedTags]);
+
   const byColumn = useMemo(() => {
     const map = new Map<Column, Task[]>();
     for (const c of COLUMNS) map.set(c, []);
-    for (const t of tasks) {
+    for (const t of filteredTasks) {
       const col = (COLUMNS as readonly string[]).includes(t.column)
         ? (t.column as Column)
         : "Backlog";
@@ -43,7 +71,7 @@ export function Board({ openTaskId, setOpenTaskId }: {
       map.get(c)!.sort((a, b) => a.position - b.position);
     }
     return map;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const blockedIds = useMemo(() => {
     const taskById = new Map(tasks.map((t) => [t.id, t]));
@@ -141,30 +169,40 @@ export function Board({ openTaskId, setOpenTaskId }: {
   if (isLoading) return <div className="p-4 text-slate-400">Loading…</div>;
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={() => setDragging(true)}
-      onDragCancel={() => setDragging(false)}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex h-full gap-3 overflow-x-auto p-4">
-        {COLUMNS.map((c) => (
-          <ColumnView
-            key={c}
-            column={c}
-            tasks={byColumn.get(c) ?? []}
-            blockedIds={blockedIds}
-            onOpenTask={setOpenTaskId}
+    <div className="flex h-full flex-col">
+      <FilterBar
+        selectedProject={selectedProject}
+        selectedTags={selectedTags}
+        onProjectChange={setSelectedProject}
+        onTagsChange={setSelectedTags}
+        allTags={allTags}
+      />
+      <DndContext
+        sensors={sensors}
+        onDragStart={() => setDragging(true)}
+        onDragCancel={() => setDragging(false)}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex flex-1 gap-3 overflow-x-auto p-4">
+          {COLUMNS.map((c) => (
+            <ColumnView
+              key={c}
+              column={c}
+              tasks={byColumn.get(c) ?? []}
+              blockedIds={blockedIds}
+              projectById={projectById}
+              onOpenTask={setOpenTaskId}
+            />
+          ))}
+        </div>
+        {openTaskId && (
+          <TaskDrawer
+            taskId={openTaskId}
+            allTasks={tasks}
+            onClose={() => setOpenTaskId(null)}
           />
-        ))}
-      </div>
-      {openTaskId && (
-        <TaskDrawer
-          taskId={openTaskId}
-          allTasks={tasks}
-          onClose={() => setOpenTaskId(null)}
-        />
-      )}
-    </DndContext>
+        )}
+      </DndContext>
+    </div>
   );
 }

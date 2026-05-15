@@ -12,6 +12,7 @@ import { users } from "./db/schema.js";
 import { EventBus } from "./event_bus.js";
 import { usersRoutes } from "./routes/users.js";
 import { tasksRoutes } from "./routes/tasks.js";
+import { projectsRoutes } from "./routes/projects.js";
 import { streamRoutes } from "./routes/stream.js";
 import { nowIso } from "./services/tasks.js";
 
@@ -63,6 +64,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
       },
       tags: [
         { name: "tasks", description: "Task CRUD and timeline" },
+        { name: "projects", description: "Project management" },
         { name: "users", description: "User management" },
         { name: "stream", description: "Server-sent event stream" },
       ],
@@ -77,6 +79,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
 
   await app.register(usersRoutes);
   await app.register(tasksRoutes);
+  await app.register(projectsRoutes);
   await app.register(streamRoutes);
 
   if (config.staticDir) {

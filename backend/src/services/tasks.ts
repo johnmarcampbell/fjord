@@ -35,6 +35,8 @@ export function hydrateTask(
     reported_by: row.reportedBy,
     assigned_to: row.assignedTo,
     due_at: row.dueAt,
+    project_id: row.projectId ?? null,
+    tags: JSON.parse(row.tags) as string[],
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     version: row.version,

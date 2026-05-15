@@ -7,6 +7,15 @@ export const users = sqliteTable("users", {
   createdAt: text("created_at").notNull(),
 });
 
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#6366f1"),
+  description: text("description").notNull().default(""),
+  dueAt: text("due_at"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const tasks = sqliteTable(
   "tasks",
   {
@@ -18,6 +27,8 @@ export const tasks = sqliteTable(
     reportedBy: text("reported_by").notNull().references(() => users.id),
     assignedTo: text("assigned_to").references(() => users.id),
     dueAt: text("due_at"),
+    projectId: text("project_id").references(() => projects.id),
+    tags: text("tags").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     version: integer("version").notNull().default(1),

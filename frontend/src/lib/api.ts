@@ -1,10 +1,13 @@
 import type {
   AddBlockerRequest,
   AddCommentRequest,
+  CreateProjectRequest,
   CreateTaskRequest,
   CreateUserRequest,
+  Project,
   Task,
   TaskEvent,
+  UpdateProjectRequest,
   UpdateTaskRequest,
   User,
 } from "@agentic-kanban/shared";
@@ -43,6 +46,14 @@ export const api = {
   listUsers: () => request<User[]>("/api/users"),
   createUser: (body: CreateUserRequest) =>
     request<User>("/api/users", { method: "POST", body: JSON.stringify(body) }),
+
+  listProjects: () => request<Project[]>("/api/projects"),
+  createProject: (body: CreateProjectRequest) =>
+    request<Project>("/api/projects", { method: "POST", body: JSON.stringify(body) }),
+  updateProject: (id: string, body: UpdateProjectRequest) =>
+    request<Project>(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteProject: (id: string) =>
+    request<void>(`/api/projects/${id}`, { method: "DELETE" }),
 
   listTasks: () => request<Task[]>("/api/tasks"),
   getTask: (id: string) => request<Task>(`/api/tasks/${id}`),
