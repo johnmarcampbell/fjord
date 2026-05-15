@@ -32,6 +32,8 @@ export const tasks = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     version: integer("version").notNull().default(1),
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    archivedAt: text("archived_at"),
   },
   (table) => ({
     columnIdx: index("tasks_column_idx").on(table.column),

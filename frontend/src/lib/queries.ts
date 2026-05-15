@@ -20,3 +20,10 @@ export function useTaskEvents(taskId: string | null) {
     enabled: !!taskId,
   });
 }
+
+export function useArchivedTasks() {
+  return useQuery({
+    queryKey: ["archived-tasks"],
+    queryFn: () => api.listArchivedTasks(),
+  });
+}

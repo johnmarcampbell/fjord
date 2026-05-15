@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+import { api } from "./lib/api.js";
 import { Board } from "./components/Board.js";
 import { NewTaskDialog } from "./components/NewTaskDialog.js";
 import { UserPicker } from "./components/UserPicker.js";
+import { ArchiveView } from "./components/ArchiveView.js";
 import { useStreamSubscription } from "./lib/stream.js";
 
 function SunIcon() {
@@ -32,8 +35,14 @@ function MoonIcon() {
 export default function App() {
   const queryClient = useQueryClient();
   useStreamSubscription(queryClient);
+  const { data: serverConfig } = useQuery({
+    queryKey: ["config"],
+    queryFn: api.getConfig,
+    staleTime: Infinity,
+  });
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<"board" | "archive">("board");
   const [theme, setTheme] = useState<"light" | "dark">(
     () =>
       (document.documentElement.getAttribute("data-theme") as "light" | "dark") ?? "light",
@@ -48,11 +57,38 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
+      {serverConfig?.demo && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-amber-300">
+          Demo mode — changes will revert after a short time
+        </div>
+      )}
       <header className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 shadow-[0_1px_0_var(--color-border)]">
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold tracking-tight text-ink">Agentic Kanban</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setView("board")}
+              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                view === "board"
+                  ? "bg-accent text-accent-fg"
+                  : "text-ink-subtle hover:text-ink"
+              }`}
+            >
+              Board
+            </button>
+            <button
+              onClick={() => setView("archive")}
+              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                view === "archive"
+                  ? "bg-accent text-accent-fg"
+                  : "text-ink-subtle hover:text-ink"
+              }`}
+            >
+              Archive
+            </button>
+          </div>
           <button
             onClick={() => setCreating(true)}
             className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
@@ -78,9 +114,14 @@ export default function App() {
         </div>
       </header>
       <main className="flex-1 overflow-hidden">
-        <Board openTaskId={openTaskId} setOpenTaskId={setOpenTaskId} />
+        {view === "board" ? (
+          <Board openTaskId={openTaskId} setOpenTaskId={setOpenTaskId} />
+        ) : (
+          <ArchiveView />
+        )}
       </main>
       {creating && <NewTaskDialog onClose={() => setCreating(false)} />}
+      <Toaster position="bottom-right" />
     </div>
   );
 }

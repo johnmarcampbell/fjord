@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers, useProjects } from "../lib/queries.js";
@@ -29,6 +30,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
   const [draftDesc, setDraftDesc] = useState("");
   const [comment, setComment] = useState("");
   const [conflict, setConflict] = useState<string | null>(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -83,6 +85,20 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task", taskId] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => api.archiveTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
+      toast.success("Task archived");
+      onClose();
+    },
+    onError: (error) => {
+      console.error("Archive error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to archive task");
     },
   });
 
@@ -293,7 +309,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                   >
                     <span
                       className={
-                        blocker?.column === "Done"
+                        blocker?.column === "Done" || blocker?.archived
                           ? "text-ink-subtle line-through"
                           : "text-ink-muted"
                       }
@@ -367,18 +383,54 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
             </form>
           </section>
 
-          {/* Delete */}
-          <div className="mt-6 border-t border-border pt-4">
+          {/* Archive & Delete */}
+          <div className="mt-6 border-t border-border pt-4 space-y-2">
+            {task.column === "Done" && !task.archived && (
+              <button
+                onClick={() => setShowArchiveConfirm(true)}
+                className="block text-xs font-medium text-ink-subtle transition-colors hover:text-accent"
+              >
+                Archive task
+              </button>
+            )}
             <button
               onClick={() => {
                 if (confirm("Delete this task?")) deleteMutation.mutate();
               }}
-              className="text-xs font-medium text-ink-subtle transition-colors hover:text-danger"
+              className="block text-xs font-medium text-ink-subtle transition-colors hover:text-danger"
             >
               Delete task
             </button>
           </div>
         </div>
+
+        {showArchiveConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
+              <h3 className="font-semibold text-ink">Archive task?</h3>
+              <p className="mt-2 text-sm text-ink-muted">
+                This task will be moved to the archive and hidden from the board.
+              </p>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowArchiveConfirm(false)}
+                  className="rounded-lg px-3 py-1.5 text-sm text-ink-subtle hover:bg-surface-hover transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    archiveMutation.mutate();
+                    setShowArchiveConfirm(false);
+                  }}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover transition-colors"
+                >
+                  Archive
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -552,6 +604,12 @@ function EventItem({
       break;
     case "tags_changed":
       summary = "tags updated";
+      break;
+    case "task_archived":
+      summary = "archived this task";
+      break;
+    case "task_unarchived":
+      summary = "unarchived this task";
       break;
   }
 

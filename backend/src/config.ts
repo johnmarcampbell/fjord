@@ -11,6 +11,7 @@ const EnvSchema = z.object({
   KANBAN_CORS_ORIGINS: z.string().optional(),
   KANBAN_SEED_USERS: z.string().optional(),
   KANBAN_STATIC_DIR: z.string().optional(),
+  KANBAN_DEMO_RESET_MINUTES: z.coerce.number().int().positive().default(10),
 });
 
 export type Config = {
@@ -22,9 +23,19 @@ export type Config = {
   corsOrigins: string[] | null;
   seedUsers: Array<{ id: string; kind: "human" | "agent" }>;
   staticDir: string | null;
+  demo: boolean;
+  demoResetMinutes: number;
 };
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+export interface LoadConfigOverrides {
+  demo?: boolean;
+  demoResetMinutes?: number;
+}
+
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  overrides: LoadConfigOverrides = {},
+): Config {
   const parsed = EnvSchema.parse(env);
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -50,5 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           })
       : [],
     staticDir: parsed.KANBAN_STATIC_DIR ?? null,
+    demo: overrides.demo ?? false,
+    demoResetMinutes: overrides.demoResetMinutes ?? parsed.KANBAN_DEMO_RESET_MINUTES,
   };
 }

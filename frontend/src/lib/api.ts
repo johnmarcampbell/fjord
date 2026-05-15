@@ -5,6 +5,7 @@ import type {
   CreateTaskRequest,
   CreateUserRequest,
   Project,
+  ServerConfig,
   Task,
   TaskEvent,
   UpdateProjectRequest,
@@ -28,7 +29,7 @@ async function request<T>(
   init: RequestInit & { needsUser?: boolean } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  if (init.body) headers.set("Content-Type", "application/json");
   const userId = getCurrentUserId();
   if (userId) headers.set("X-User-Id", userId);
   const res = await fetch(path, { ...init, headers });
@@ -43,6 +44,8 @@ async function request<T>(
 }
 
 export const api = {
+  getConfig: () => request<ServerConfig>("/api/config"),
+
   listUsers: () => request<User[]>("/api/users"),
   createUser: (body: CreateUserRequest) =>
     request<User>("/api/users", { method: "POST", body: JSON.stringify(body) }),
@@ -84,4 +87,13 @@ export const api = {
     request<void>(`/api/tasks/${taskId}/blockers/${blockerId}`, {
       method: "DELETE",
     }),
+
+  archiveTask: (id: string) =>
+    request<Task>(`/api/tasks/${id}/archive`, { method: "POST" }),
+  unarchiveTask: (id: string) =>
+    request<Task>(`/api/tasks/${id}/unarchive`, { method: "POST" }),
+  listArchivedTasks: () =>
+    request<Task[]>("/api/tasks?include_archived=true").then((tasks) =>
+      tasks.filter((t) => t.archived),
+    ),
 };

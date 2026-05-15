@@ -10,6 +10,7 @@ import type { Config } from "./config.js";
 import { openDatabase, runMigrations, type DB, type DBHandle } from "./db/index.js";
 import { users } from "./db/schema.js";
 import { EventBus } from "./event_bus.js";
+import { DemoResetter } from "./demo.js";
 import { usersRoutes } from "./routes/users.js";
 import { tasksRoutes } from "./routes/tasks.js";
 import { projectsRoutes } from "./routes/projects.js";
@@ -35,7 +36,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   const { config } = opts;
   const dbHandle = opts.dbHandle ?? openDatabase(config.dbPath);
   runMigrations(dbHandle);
-  seedUsers(dbHandle, config.seedUsers);
 
   const app = Fastify({
     logger: {
@@ -49,6 +49,19 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
 
   app.decorate("db", dbHandle.db);
   app.decorate("events", new EventBus());
+
+  if (config.demo) {
+    const resetter = new DemoResetter(config.demoResetMinutes * 60 * 1000);
+    resetter.reset(dbHandle);
+    app.addHook("preHandler", async () => {
+      if (resetter.shouldReset()) {
+        resetter.reset(dbHandle);
+        app.events.publish({ type: "demo.reset" });
+      }
+    });
+  } else {
+    seedUsers(dbHandle, config.seedUsers);
+  }
 
   if (config.corsOrigins && config.corsOrigins.length > 0) {
     await app.register(fastifyCors, { origin: config.corsOrigins });
@@ -75,6 +88,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   app.get("/api/health", { schema: { tags: ["health"] } }, async () => ({
     status: "ok",
     time: nowIso(),
+  }));
+
+  app.get("/api/config", { schema: { tags: ["config"] } }, async () => ({
+    demo: config.demo,
+    demo_reset_minutes: config.demo ? config.demoResetMinutes : null,
   }));
 
   await app.register(usersRoutes);
