@@ -32,61 +32,65 @@ export function UserPicker() {
     },
   });
 
-  if (isLoading) return <div className="text-sm text-slate-400">Loading…</div>;
+  if (isLoading) {
+    return <div className="text-xs text-ink-subtle">Loading…</div>;
+  }
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-400">Acting as:</span>
+      <span className="text-xs text-ink-subtle">Acting as</span>
       <select
         value={current ?? ""}
         onChange={(e) => {
           setCurrentUserId(e.target.value || null);
           setCurrent(e.target.value || null);
         }}
-        className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+        className="rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
       >
         <option value="" disabled>
           (none)
         </option>
         {users.map((u) => (
           <option key={u.id} value={u.id}>
-            {u.display_name} {u.kind === "agent" ? "(agent)" : ""}
+            {u.display_name}
+            {u.kind === "agent" ? " (agent)" : ""}
           </option>
         ))}
       </select>
+
       {creating ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (newId.trim()) createMutation.mutate();
           }}
-          className="flex items-center gap-1"
+          className="flex items-center gap-1.5"
         >
           <input
             value={newId}
             onChange={(e) => setNewId(e.target.value)}
             placeholder="id"
-            className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm w-24"
+            className="w-24 rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs text-ink focus:border-border-focus focus:outline-none transition-colors"
             autoFocus
           />
           <select
             value={newKind}
             onChange={(e) => setNewKind(e.target.value as "human" | "agent")}
-            className="rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+            className="rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs text-ink focus:border-border-focus focus:outline-none transition-colors"
           >
             <option value="human">human</option>
             <option value="agent">agent</option>
           </select>
           <button
             type="submit"
-            className="rounded bg-blue-600 px-2 py-1 text-sm hover:bg-blue-500"
+            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
           >
             Add
           </button>
           <button
             type="button"
             onClick={() => setCreating(false)}
-            className="text-xs text-slate-400 hover:text-slate-200"
+            className="text-xs text-ink-subtle transition-colors hover:text-ink-muted"
           >
             cancel
           </button>
@@ -94,9 +98,9 @@ export function UserPicker() {
       ) : (
         <button
           onClick={() => setCreating(true)}
-          className="text-xs text-slate-400 hover:text-slate-200"
+          className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
         >
-          + new user
+          + new
         </button>
       )}
     </div>

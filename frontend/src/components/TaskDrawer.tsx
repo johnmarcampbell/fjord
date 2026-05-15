@@ -50,9 +50,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 409) {
-        setConflict(
-          "This task was modified by someone else. Re-fetching latest…",
-        );
+        setConflict("This task was modified by someone else. Re-fetching latest…");
         queryClient.invalidateQueries({ queryKey: ["task", taskId] });
       }
     },
@@ -106,8 +104,8 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
 
   if (!task) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div className="text-slate-400">Loading…</div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="text-sm text-ink-muted">Loading…</div>
       </div>
     );
   }
@@ -117,13 +115,14 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-black/60"
+      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="fixed right-0 top-0 z-50 h-full w-[520px] max-w-full overflow-y-auto border-l border-slate-800 bg-slate-900 p-5 shadow-2xl">
-        <div className="mb-3 flex items-center justify-between">
+      <div className="fixed right-0 top-0 z-50 h-full w-[520px] max-w-full overflow-y-auto border-l border-border bg-surface shadow-modal">
+        {/* Header */}
+        <div className="flex items-start gap-3 border-b border-border px-5 py-4">
           <input
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
@@ -132,270 +131,277 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                 updateMutation.mutate({ version: task.version, title: draftTitle });
               }
             }}
-            className="flex-1 bg-transparent text-lg font-semibold outline-none focus:bg-slate-800 px-1 rounded"
+            className="flex-1 bg-transparent text-base font-bold text-ink outline-none placeholder:text-ink-subtle focus:bg-surface-hover px-1 py-0.5 rounded-lg transition-colors"
           />
           <button
             onClick={onClose}
-            className="ml-2 text-slate-400 hover:text-slate-200"
+            className="mt-0.5 flex-shrink-0 rounded-lg p-1 text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink"
             aria-label="close"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
-        {conflict && (
-          <div className="mb-3 rounded border border-amber-700/60 bg-amber-900/30 px-2 py-1 text-xs text-amber-200">
-            {conflict}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <Field label="Column">
-            <select
-              value={task.column}
-              onChange={(e) =>
-                updateMutation.mutate({
-                  version: task.version,
-                  column: e.target.value as Column,
-                })
-              }
-              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
-            >
-              {COLUMNS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Assigned to">
-            <select
-              value={task.assigned_to ?? ""}
-              onChange={(e) =>
-                updateMutation.mutate({
-                  version: task.version,
-                  assigned_to: e.target.value || null,
-                })
-              }
-              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
-            >
-              <option value="">— unassigned —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.display_name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Reporter">
-            <div className="px-1 py-1 text-slate-300">{task.reported_by}</div>
-          </Field>
-          <Field label="Due">
-            <input
-              type="datetime-local"
-              value={task.due_at ? toLocalInputValue(task.due_at) : ""}
-              onChange={(e) =>
-                updateMutation.mutate({
-                  version: task.version,
-                  due_at: e.target.value
-                    ? new Date(e.target.value).toISOString()
-                    : null,
-                })
-              }
-              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
-            />
-          </Field>
-          <Field label="Project">
-            <select
-              value={task.project_id ?? ""}
-              onChange={(e) =>
-                updateMutation.mutate({
-                  version: task.version,
-                  project_id: e.target.value || null,
-                })
-              }
-              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1"
-            >
-              <option value="">— none —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <div className="mt-3 text-sm">
-          <Field label="Tags">
-            <TagInput
-              value={task.tags}
-              allTags={allTags}
-              onChange={(tags) =>
-                updateMutation.mutate({ version: task.version, tags })
-              }
-            />
-          </Field>
-        </div>
-
-        <section className="mt-5">
-          <div className="mb-1 flex items-center justify-between">
-            <h3 className="text-xs uppercase tracking-wide text-slate-400">
-              Description
-            </h3>
-            <button
-              onClick={() => setEditingDesc((v) => !v)}
-              className="text-xs text-slate-400 hover:text-slate-200"
-            >
-              {editingDesc ? "preview" : "edit"}
-            </button>
-          </div>
-          {editingDesc ? (
-            <>
-              <textarea
-                value={draftDesc}
-                onChange={(e) => setDraftDesc(e.target.value)}
-                rows={6}
-                className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm font-mono"
-              />
-              <div className="mt-2 flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setDraftDesc(task.description);
-                    setEditingDesc(false);
-                  }}
-                  className="text-xs text-slate-400 hover:text-slate-200"
-                >
-                  cancel
-                </button>
-                <button
-                  onClick={() => {
-                    updateMutation.mutate(
-                      { version: task.version, description: draftDesc },
-                      { onSuccess: () => setEditingDesc(false) },
-                    );
-                  }}
-                  className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-500"
-                >
-                  save
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="markdown rounded border border-slate-800 bg-slate-950/50 p-2 min-h-[60px]">
-              {task.description ? (
-                <ReactMarkdown>{task.description}</ReactMarkdown>
-              ) : (
-                <span className="text-slate-500">No description</span>
-              )}
+        <div className="p-5">
+          {conflict && (
+            <div className="mb-4 rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-xs text-warning-text">
+              {conflict}
             </div>
           )}
-        </section>
 
-        <section className="mt-5">
-          <h3 className="mb-1 text-xs uppercase tracking-wide text-slate-400">
-            Blocked by
-          </h3>
-          <div className="flex flex-wrap gap-1.5">
-            {task.blocked_by.map((id) => {
-              const blocker = taskById.get(id);
-              return (
-                <span
-                  key={id}
-                  className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs"
-                >
-                  <span className={blocker?.column === "Done" ? "text-slate-500 line-through" : ""}>
-                    {blocker?.title ?? id.slice(0, 8)}
-                  </span>
-                  <button
-                    onClick={() => removeBlockerMutation.mutate(id)}
-                    className="text-slate-500 hover:text-red-300"
-                  >
-                    ✕
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-          <select
-            value=""
-            onChange={(e) => {
-              if (e.target.value) addBlockerMutation.mutate(e.target.value);
-            }}
-            className="mt-2 rounded bg-slate-800 border border-slate-700 px-2 py-1 text-xs"
-          >
-            <option value="">+ add blocker…</option>
-            {allTasks
-              .filter(
-                (t) =>
-                  t.id !== task.id &&
-                  !task.blocked_by.includes(t.id),
-              )
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-          </select>
-          {addBlockerMutation.isError && (
-            <div className="mt-1 text-xs text-red-400">
-              {(addBlockerMutation.error as Error).message}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-5">
-          <h3 className="mb-1 text-xs uppercase tracking-wide text-slate-400">
-            Timeline
-          </h3>
-          <div className="space-y-2">
-            {events.map((e) => (
-              <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
-            ))}
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (comment.trim()) commentMutation.mutate();
-            }}
-            className="mt-3"
-          >
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Add a comment (markdown)"
-              rows={2}
-              className="w-full rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm font-mono"
-            />
-            <div className="mt-1 flex justify-end">
-              <button
-                type="submit"
-                disabled={!comment.trim() || commentMutation.isPending}
-                className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-500 disabled:opacity-50"
+          {/* Fields grid */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <Field label="Column">
+              <select
+                value={task.column}
+                onChange={(e) =>
+                  updateMutation.mutate({
+                    version: task.version,
+                    column: e.target.value as Column,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
               >
-                Comment
+                {COLUMNS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Assigned to">
+              <select
+                value={task.assigned_to ?? ""}
+                onChange={(e) =>
+                  updateMutation.mutate({
+                    version: task.version,
+                    assigned_to: e.target.value || null,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+              >
+                <option value="">— unassigned —</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.display_name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Reporter">
+              <div className="px-1 py-1.5 text-sm text-ink-muted">{task.reported_by}</div>
+            </Field>
+
+            <Field label="Due">
+              <input
+                type="datetime-local"
+                value={task.due_at ? toLocalInputValue(task.due_at) : ""}
+                onChange={(e) =>
+                  updateMutation.mutate({
+                    version: task.version,
+                    due_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+              />
+            </Field>
+
+            <Field label="Project">
+              <select
+                value={task.project_id ?? ""}
+                onChange={(e) =>
+                  updateMutation.mutate({
+                    version: task.version,
+                    project_id: e.target.value || null,
+                  })
+                }
+                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+              >
+                <option value="">— none —</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          {/* Tags */}
+          <div className="mt-4">
+            <Field label="Tags">
+              <TagInput
+                value={task.tags}
+                allTags={allTags}
+                onChange={(tags) => updateMutation.mutate({ version: task.version, tags })}
+              />
+            </Field>
+          </div>
+
+          {/* Description */}
+          <section className="mt-5">
+            <div className="mb-2 flex items-center justify-between">
+              <SectionLabel>Description</SectionLabel>
+              <button
+                onClick={() => setEditingDesc((v) => !v)}
+                className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+              >
+                {editingDesc ? "preview" : "edit"}
               </button>
             </div>
-          </form>
-        </section>
+            {editingDesc ? (
+              <>
+                <textarea
+                  value={draftDesc}
+                  onChange={(e) => setDraftDesc(e.target.value)}
+                  rows={7}
+                  className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink focus:border-border-focus focus:outline-none transition-colors resize-none"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setDraftDesc(task.description);
+                      setEditingDesc(false);
+                    }}
+                    className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+                  >
+                    cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateMutation.mutate(
+                        { version: task.version, description: draftDesc },
+                        { onSuccess: () => setEditingDesc(false) },
+                      );
+                    }}
+                    className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+                  >
+                    save
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="markdown min-h-[60px] rounded-lg border border-border bg-surface-subtle p-3">
+                {task.description ? (
+                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                ) : (
+                  <span className="text-sm text-ink-subtle">No description</span>
+                )}
+              </div>
+            )}
+          </section>
 
-        <div className="mt-6 border-t border-slate-800 pt-3 space-y-2">
-          {task.column === "Done" && !task.archived && (
-            <button
-              onClick={() => setShowArchiveConfirm(true)}
-              className="text-xs text-blue-400 hover:text-blue-300"
+          {/* Blockers */}
+          <section className="mt-5">
+            <SectionLabel className="mb-2">Blocked by</SectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {task.blocked_by.map((id) => {
+                const blocker = taskById.get(id);
+                return (
+                  <span
+                    key={id}
+                    className="flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-xs font-medium"
+                  >
+                    <span
+                      className={
+                        blocker?.column === "Done" || blocker?.archived
+                          ? "text-ink-subtle line-through"
+                          : "text-ink-muted"
+                      }
+                    >
+                      {blocker?.title ?? id.slice(0, 8)}
+                    </span>
+                    <button
+                      onClick={() => removeBlockerMutation.mutate(id)}
+                      className="text-ink-subtle transition-colors hover:text-danger"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) addBlockerMutation.mutate(e.target.value);
+              }}
+              className="mt-2 rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-xs text-ink-muted focus:border-border-focus focus:outline-none transition-colors"
             >
-              Archive task
+              <option value="">+ add blocker…</option>
+              {allTasks
+                .filter((t) => t.id !== task.id && !task.blocked_by.includes(t.id))
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+            </select>
+            {addBlockerMutation.isError && (
+              <div className="mt-1 text-xs text-danger">
+                {(addBlockerMutation.error as Error).message}
+              </div>
+            )}
+          </section>
+
+          {/* Timeline */}
+          <section className="mt-5">
+            <SectionLabel className="mb-3">Timeline</SectionLabel>
+            <div className="space-y-2">
+              {events.map((e) => (
+                <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
+              ))}
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (comment.trim()) commentMutation.mutate();
+              }}
+              className="mt-4"
+            >
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add a comment (markdown)"
+                rows={2}
+                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
+              />
+              <div className="mt-1.5 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={!comment.trim() || commentMutation.isPending}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                >
+                  Comment
+                </button>
+              </div>
+            </form>
+          </section>
+
+          {/* Archive & Delete */}
+          <div className="mt-6 border-t border-border pt-4 space-y-2">
+            {task.column === "Done" && !task.archived && (
+              <button
+                onClick={() => setShowArchiveConfirm(true)}
+                className="block text-xs font-medium text-ink-subtle transition-colors hover:text-accent"
+              >
+                Archive task
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (confirm("Delete this task?")) deleteMutation.mutate();
+              }}
+              className="block text-xs font-medium text-ink-subtle transition-colors hover:text-danger"
+            >
+              Delete task
             </button>
-          )}
-          <button
-            onClick={() => {
-              if (confirm("Delete this task?")) deleteMutation.mutate();
-            }}
-            className="block text-xs text-red-400 hover:text-red-300"
-          >
-            Delete task
-          </button>
+          </div>
         </div>
 
         {showArchiveConfirm && (
@@ -430,6 +436,20 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
   );
 }
 
+function SectionLabel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <h3 className={`text-[11px] font-bold uppercase tracking-widest text-ink-muted ${className ?? ""}`}>
+      {children}
+    </h3>
+  );
+}
+
 function TagInput({
   value,
   allTags,
@@ -461,16 +481,16 @@ function TagInput({
 
   return (
     <div className="relative">
-      <div className="flex min-h-[32px] flex-wrap items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1">
+      <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5">
         {value.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-0.5 rounded-full bg-slate-600 px-2 py-0.5 text-xs"
+            className="flex items-center gap-1 rounded-full bg-tag-bg px-2.5 py-0.5 text-[11px] font-semibold text-tag-text"
           >
             {tag}
             <button
               onClick={() => removeTag(tag)}
-              className="ml-0.5 text-slate-400 hover:text-slate-200"
+              className="opacity-60 transition-opacity hover:opacity-100"
             >
               ✕
             </button>
@@ -494,16 +514,16 @@ function TagInput({
             }
           }}
           placeholder={value.length === 0 ? "Add tags…" : ""}
-          className="min-w-[80px] flex-1 bg-transparent text-xs outline-none placeholder:text-slate-500"
+          className="min-w-[80px] flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-subtle"
         />
       </div>
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded border border-slate-700 bg-slate-800 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-xl border border-border bg-surface-elevated py-1 shadow-modal">
           {suggestions.slice(0, 6).map((tag) => (
             <button
               key={tag}
               onMouseDown={() => addTag(tag)}
-              className="block w-full px-2 py-1 text-left text-xs hover:bg-slate-700"
+              className="block w-full px-3 py-1.5 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
             >
               {tag}
             </button>
@@ -517,7 +537,7 @@ function TagInput({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-0.5 text-xs uppercase tracking-wide text-slate-400">
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-widest text-ink-muted">
         {label}
       </div>
       {children}
@@ -539,19 +559,21 @@ function EventItem({
   const projectName = (id: string | null) =>
     projects.find((p) => p.id === id)?.name ?? id ?? "(none)";
   const time = new Date(event.created_at).toLocaleString();
+
   if (event.kind === "comment") {
     return (
-      <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-sm">
-        <div className="text-xs text-slate-400">
-          <span className="font-semibold text-slate-300">{event.actor_id}</span>
-          <span className="ml-2">{time}</span>
+      <div className="rounded-xl border border-border bg-surface-subtle p-3">
+        <div className="mb-1.5 text-xs text-ink-muted">
+          <span className="font-semibold text-ink">{event.actor_id}</span>
+          <span className="ml-2 text-ink-subtle">{time}</span>
         </div>
-        <div className="markdown mt-1">
+        <div className="markdown">
           <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
         </div>
       </div>
     );
   }
+
   let summary = "did something";
   switch (event.kind) {
     case "task_created":
@@ -581,7 +603,7 @@ function EventItem({
         : "project cleared";
       break;
     case "tags_changed":
-      summary = `tags updated`;
+      summary = "tags updated";
       break;
     case "task_archived":
       summary = "archived this task";
@@ -590,10 +612,12 @@ function EventItem({
       summary = "unarchived this task";
       break;
   }
+
   return (
-    <div className="text-xs text-slate-400">
-      <span className="font-semibold text-slate-300">{event.actor_id}</span>{" "}
-      {summary} <span className="ml-1 text-slate-500">· {time}</span>
+    <div className="text-xs text-ink-muted">
+      <span className="font-semibold text-ink">{event.actor_id}</span>{" "}
+      {summary}
+      <span className="ml-1.5 text-ink-subtle">· {time}</span>
     </div>
   );
 }

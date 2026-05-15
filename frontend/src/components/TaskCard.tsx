@@ -17,7 +17,7 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.45 : 1,
   };
 
   return (
@@ -28,12 +28,13 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
       {...listeners}
       onClick={onOpen}
       className={clsx(
-        "cursor-grab active:cursor-grabbing rounded-md border bg-slate-800 px-3 py-2 text-sm shadow-sm hover:border-slate-500",
-        isBlocked ? "border-red-500/60" : "border-slate-700",
+        "cursor-grab active:cursor-grabbing rounded-card bg-surface px-3 py-2.5 shadow-card",
+        "hover:shadow-card-hover hover:-translate-y-px transition-all duration-150",
+        isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <div className="flex items-start justify-between gap-1.5">
-        <div className="font-medium text-slate-100 truncate">{task.title}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-semibold text-ink text-sm leading-snug truncate">{task.title}</div>
         {project && (
           <span
             className="mt-0.5 inline-block h-2 w-2 flex-shrink-0 rounded-full"
@@ -42,28 +43,30 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
           />
         )}
       </div>
-      <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
+
+      <div className="mt-1.5 flex items-center justify-between gap-1 text-xs text-ink-muted">
         <span className="truncate">
           {task.assigned_to ? `→ ${task.assigned_to}` : "unassigned"}
         </span>
         {isBlocked && (
-          <span className="rounded bg-red-900/40 text-red-300 px-1.5 py-0.5">
+          <span className="flex-shrink-0 rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-semibold text-danger-text">
             blocked
           </span>
         )}
       </div>
+
       {task.tags.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-2 flex flex-wrap gap-1">
           {task.tags.slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="rounded-sm bg-slate-700 px-1 py-0.5 text-[10px] text-slate-300"
+              className="rounded-full bg-tag-bg px-2 py-0.5 text-[10px] font-semibold text-tag-text"
             >
               {tag}
             </span>
           ))}
           {task.tags.length > 4 && (
-            <span className="text-[10px] text-slate-500">+{task.tags.length - 4}</span>
+            <span className="text-[10px] text-ink-subtle">+{task.tags.length - 4}</span>
           )}
         </div>
       )}

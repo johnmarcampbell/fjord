@@ -16,24 +16,28 @@ export function ColumnView({ column, tasks, blockedIds, projectById, onOpenTask 
     id: `col:${column}`,
     data: { type: "column", column },
   });
+
   return (
-    <div className="flex flex-col gap-2 min-w-[260px] w-[260px]">
+    <div className="flex flex-col gap-3 min-w-[272px] w-[272px]">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">
           {column}
         </h2>
-        <span className="text-xs text-slate-500">{tasks.length}</span>
+        <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-subtle">
+          {tasks.length}
+        </span>
       </div>
+
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-md border border-slate-800 bg-slate-900/60 p-2 transition-colors min-h-[60px] ${
-          isOver ? "border-blue-500/70 bg-slate-900" : ""
-        }`}
+        style={
+          isOver
+            ? { outline: "2px solid var(--color-border-focus)", outlineOffset: "2px" }
+            : undefined
+        }
+        className="flex-1 rounded-xl bg-surface-subtle p-2 transition-colors min-h-[80px]"
       >
-        <SortableContext
-          items={tasks.map((t) => t.id)}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
             {tasks.map((task) => (
               <TaskCard
