@@ -29,7 +29,7 @@ async function request<T>(
   init: RequestInit & { needsUser?: boolean } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  if (init.body) headers.set("Content-Type", "application/json");
   const userId = getCurrentUserId();
   if (userId) headers.set("X-User-Id", userId);
   const res = await fetch(path, { ...init, headers });

@@ -98,6 +98,10 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
       toast.success("Task archived");
       onClose();
     },
+    onError: (error) => {
+      console.error("Archive error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to archive task");
+    },
   });
 
   if (!task) {
@@ -578,6 +582,12 @@ function EventItem({
       break;
     case "tags_changed":
       summary = `tags updated`;
+      break;
+    case "task_archived":
+      summary = "archived this task";
+      break;
+    case "task_unarchived":
+      summary = "unarchived this task";
       break;
   }
   return (
