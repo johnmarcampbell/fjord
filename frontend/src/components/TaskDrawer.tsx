@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Combobox } from "./Combobox.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -320,22 +321,14 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                 );
               })}
             </div>
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) addBlockerMutation.mutate(e.target.value);
-              }}
-              className="mt-2 rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-xs text-ink-muted focus:border-border-focus focus:outline-none transition-colors"
-            >
-              <option value="">+ add blocker…</option>
-              {allTasks
-                .filter((t) => t.id !== task.id && !task.blocked_by.includes(t.id))
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
-                ))}
-            </select>
+            <div className="mt-2">
+              <Combobox
+                items={allTasks.filter((t) => t.id !== task.id && !task.blocked_by.includes(t.id))}
+                getLabel={(t) => t.title}
+                onSelect={(t) => addBlockerMutation.mutate(t.id)}
+                placeholder="Search tasks to block on…"
+              />
+            </div>
             {addBlockerMutation.isError && (
               <div className="mt-1 text-xs text-danger">
                 {(addBlockerMutation.error as Error).message}
