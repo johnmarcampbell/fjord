@@ -4,6 +4,7 @@ import clsx from "clsx";
 import type { Project } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
 import { useProjects } from "../lib/queries.js";
+import { DateTimePicker } from "./DateTimePicker.js";
 
 const PRESET_COLORS = [
   "#4A7FA5", "#6B9E8A", "#C9A94A", "#6B7F8E",
@@ -364,12 +365,12 @@ function ProjectForm({
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
           Due date
         </label>
-        <input
-          type="datetime-local"
-          value={dueAt}
-          onChange={(e) => setDueAt(e.target.value)}
-          className="mb-5 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
-        />
+        <div className="mb-5">
+          <DateTimePicker
+            value={dueAt ? new Date(dueAt).toISOString() : ""}
+            onChange={(iso) => setDueAt(iso ? toLocalInputValue(iso) : "")}
+          />
+        </div>
 
         {mutation.isError && (
           <div className="mb-3 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger-text">

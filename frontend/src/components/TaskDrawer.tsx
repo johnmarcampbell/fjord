@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers, useProjects } from "../lib/queries.js";
+import { DateTimePicker } from "./DateTimePicker.js";
 
 interface Props {
   taskId: string;
@@ -198,16 +199,9 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
             </Field>
 
             <Field label="Due">
-              <input
-                type="datetime-local"
-                value={task.due_at ? toLocalInputValue(task.due_at) : ""}
-                onChange={(e) =>
-                  updateMutation.mutate({
-                    version: task.version,
-                    due_at: e.target.value ? new Date(e.target.value).toISOString() : null,
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+              <DateTimePicker
+                value={task.due_at ?? ""}
+                onChange={(iso) => updateMutation.mutate({ version: task.version, due_at: iso })}
               />
             </Field>
 
@@ -622,8 +616,4 @@ function EventItem({
   );
 }
 
-function toLocalInputValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+
