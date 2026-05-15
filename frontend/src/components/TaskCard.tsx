@@ -23,7 +23,7 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.45 : 1,
-    backgroundColor: project ? withAlpha(project.color, 0.12) : undefined,
+    backgroundColor: project ? withAlpha(project.color, 0.08) : undefined,
   };
 
   return (
