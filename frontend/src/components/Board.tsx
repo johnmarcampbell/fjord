@@ -19,7 +19,10 @@ import { ColumnView } from "./Column.js";
 import { TaskDrawer } from "./TaskDrawer.js";
 import { FilterBar } from "./FilterBar.js";
 
-export function Board({ openTaskId, setOpenTaskId }: {
+export function Board({
+  openTaskId,
+  setOpenTaskId,
+}: {
   openTaskId: string | null;
   setOpenTaskId: (id: string | null) => void;
 }) {
@@ -161,12 +164,14 @@ export function Board({ openTaskId, setOpenTaskId }: {
 
   if (isError) {
     return (
-      <div className="p-4 text-red-400">
+      <div className="p-6 text-sm text-danger">
         Failed to load tasks: {(error as Error).message}
       </div>
     );
   }
-  if (isLoading) return <div className="p-4 text-slate-400">Loading…</div>;
+  if (isLoading) {
+    return <div className="p-6 text-sm text-ink-muted">Loading…</div>;
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -183,7 +188,7 @@ export function Board({ openTaskId, setOpenTaskId }: {
         onDragCancel={() => setDragging(false)}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-3 overflow-x-auto p-4">
+        <div className="flex flex-1 gap-4 overflow-x-auto p-5">
           {COLUMNS.map((c) => (
             <ColumnView
               key={c}

@@ -6,6 +6,7 @@ export function NewTaskDialog({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const queryClient = useQueryClient();
+
   const create = useMutation({
     mutationFn: () => api.createTask({ title, description }),
     onSuccess: () => {
@@ -15,48 +16,62 @@ export function NewTaskDialog({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
           if (title.trim()) create.mutate();
         }}
-        className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-xl"
+        className="w-full max-w-md rounded-modal border border-border bg-surface p-5 shadow-modal"
       >
-        <h2 className="mb-3 text-lg font-semibold">New task</h2>
-        <label className="block text-xs text-slate-400">Title</label>
+        <h2 className="mb-4 text-base font-bold text-ink">New task</h2>
+
+        <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1">
+          Title
+        </label>
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 w-full rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors"
+          placeholder="Task title…"
         />
-        <label className="mt-3 block text-xs text-slate-400">
-          Description (markdown)
+
+        <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1">
+          Description
+          <span className="ml-1 normal-case font-normal text-ink-subtle">(markdown)</span>
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
-          className="mt-1 w-full rounded bg-slate-800 border border-slate-700 px-2 py-1 text-sm font-mono"
+          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
+          placeholder="Optional description…"
         />
+
         {create.isError && (
-          <div className="mt-2 text-sm text-red-400">
+          <div className="mt-2 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger-text">
             {(create.error as Error).message}
           </div>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+
+        <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-3 py-1 text-sm hover:bg-slate-800"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!title.trim() || create.isPending}
-            className="rounded bg-blue-600 px-3 py-1 text-sm hover:bg-blue-500 disabled:opacity-50"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
             Create
           </button>
