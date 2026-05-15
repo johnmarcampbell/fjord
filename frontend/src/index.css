@@ -2,29 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light theme ── */
+:root,
+[data-theme="light"] {
+  --color-bg: #F5F3EE;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #EFEDE7;
+  --color-surface-hover: #F9F8F4;
+  --color-surface-elevated: #FFFFFF;
+  --color-border: #DDD9D0;
+  --color-border-focus: #7AAACF;
+  --color-text: #2C2A26;
+  --color-text-muted: #6B6560;
+  --color-text-subtle: #9B958D;
+  --color-accent: #4A7FB5;
+  --color-accent-hover: #3D6E9E;
+  --color-accent-fg: #FFFFFF;
+  --color-danger: #C9394A;
+  --color-danger-bg: #FDF0F1;
+  --color-danger-text: #8B1F28;
+  --color-danger-border: #F3C0C5;
+  --color-warning-bg: #FEF7EC;
+  --color-warning-text: #8A5A12;
+  --color-warning-border: #F3D5A0;
+  --color-tag-bg: #E8EFF8;
+  --color-tag-text: #3A5E8A;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.07);
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] {
+  --color-bg: #1B1917;
+  --color-surface: #242220;
+  --color-surface-subtle: #1E1C1A;
+  --color-surface-hover: #2D2B28;
+  --color-surface-elevated: #2D2B28;
+  --color-border: #3C3A37;
+  --color-border-focus: #5B88B8;
+  --color-text: #EAE6DF;
+  --color-text-muted: #9B958D;
+  --color-text-subtle: #6B6560;
+  --color-accent: #6B9EC8;
+  --color-accent-hover: #7DAED3;
+  --color-accent-fg: #FFFFFF;
+  --color-danger: #E8707D;
+  --color-danger-bg: #3A1518;
+  --color-danger-text: #F2A0A8;
+  --color-danger-border: #7A3040;
+  --color-warning-bg: #3A2408;
+  --color-warning-text: #F5C87A;
+  --color-warning-border: #7A5020;
+  --color-tag-bg: #283545;
+  --color-tag-text: #8BB8DA;
+
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Reduce motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
 html,
 body,
 #root {
   height: 100%;
 }
 
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Nunito", system-ui, sans-serif;
+}
+
+/* ── Form element theming ── */
+select,
+input,
+textarea {
+  color-scheme: inherit;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+/* ── Markdown ── */
 .markdown {
   font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 .markdown p {
   margin: 0.25rem 0;
 }
 .markdown code {
-  background: rgb(30 41 59);
-  padding: 0 0.2rem;
-  border-radius: 0.2rem;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
   font-size: 0.8rem;
+  font-family: ui-monospace, "Cascadia Code", monospace;
 }
 .markdown pre {
-  background: rgb(15 23 42);
-  padding: 0.5rem;
-  border-radius: 0.25rem;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
   overflow-x: auto;
 }
 .markdown ul {
@@ -32,6 +133,6 @@ body,
   padding-left: 1.25rem;
 }
 .markdown a {
-  color: rgb(96 165 250);
+  color: var(--color-accent);
   text-decoration: underline;
 }
