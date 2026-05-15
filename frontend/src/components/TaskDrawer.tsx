@@ -12,9 +12,10 @@ interface Props {
   taskId: string;
   allTasks: Task[];
   onClose: () => void;
+  onOpenTask: (id: string) => void;
 }
 
-export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
+export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
   const queryClient = useQueryClient();
   const { data: task } = useQuery({
     queryKey: ["task", taskId],
@@ -302,15 +303,16 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                     key={id}
                     className="flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-xs font-medium"
                   >
-                    <span
+                    <button
+                      onClick={() => onOpenTask(id)}
                       className={
                         blocker?.column === "Done" || blocker?.archived
-                          ? "text-ink-subtle line-through"
-                          : "text-ink-muted"
+                          ? "text-ink-subtle line-through hover:underline"
+                          : "text-ink-muted hover:underline"
                       }
                     >
                       {blocker?.title ?? id.slice(0, 8)}
-                    </span>
+                    </button>
                     <button
                       onClick={() => removeBlockerMutation.mutate(id)}
                       className="text-ink-subtle transition-colors hover:text-danger"
