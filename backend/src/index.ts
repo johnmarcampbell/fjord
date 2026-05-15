@@ -1,9 +1,9 @@
 import { loadConfig } from "./config.js";
 import { buildApp } from "./server.js";
 
-function parseCliArgs(): { demo: boolean; demoResetMinutes?: number } {
+function parseCliArgs(): { demo?: boolean; demoResetMinutes?: number } {
   const args = process.argv.slice(2);
-  const demo = args.includes("--demo");
+  const demo = args.includes("--demo") ? true : undefined;
   const minutesArg = args.find((a) => a.startsWith("--demo-reset-minutes="));
   const demoResetMinutes = minutesArg ? parseInt(minutesArg.split("=")[1], 10) : undefined;
   return { demo, demoResetMinutes };
