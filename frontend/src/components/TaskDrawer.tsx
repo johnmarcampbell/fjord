@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers, useProjects } from "../lib/queries.js";
@@ -29,6 +30,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
   const [draftDesc, setDraftDesc] = useState("");
   const [comment, setComment] = useState("");
   const [conflict, setConflict] = useState<string | null>(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -85,6 +87,16 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task", taskId] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => api.archiveTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
+      toast.success("Task archived");
+      onClose();
     },
   });
 
@@ -363,16 +375,52 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
           </form>
         </section>
 
-        <div className="mt-6 border-t border-slate-800 pt-3">
+        <div className="mt-6 border-t border-slate-800 pt-3 space-y-2">
+          {task.column === "Done" && !task.archived && (
+            <button
+              onClick={() => setShowArchiveConfirm(true)}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              Archive task
+            </button>
+          )}
           <button
             onClick={() => {
               if (confirm("Delete this task?")) deleteMutation.mutate();
             }}
-            className="text-xs text-red-400 hover:text-red-300"
+            className="block text-xs text-red-400 hover:text-red-300"
           >
             Delete task
           </button>
         </div>
+
+        {showArchiveConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="w-full max-w-sm rounded-lg border border-slate-700 bg-slate-900 p-6 shadow-xl">
+              <h3 className="font-semibold text-slate-100">Archive task?</h3>
+              <p className="mt-2 text-sm text-slate-400">
+                This task will be moved to the archive and hidden from the board.
+              </p>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowArchiveConfirm(false)}
+                  className="rounded px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    archiveMutation.mutate();
+                    setShowArchiveConfirm(false);
+                  }}
+                  className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700"
+                >
+                  Archive
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

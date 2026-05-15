@@ -40,6 +40,8 @@ export interface Task {
   created_at: string;
   updated_at: string;
   version: number;
+  archived: boolean;
+  archived_at: string | null;
   blocked_by: string[];
   blocking: string[];
 }
@@ -54,7 +56,9 @@ export type EventKind =
   | "blocker_added"
   | "blocker_removed"
   | "project_changed"
-  | "tags_changed";
+  | "tags_changed"
+  | "task_archived"
+  | "task_unarchived";
 
 export interface TaskEvent {
   id: string;
@@ -122,15 +126,21 @@ export type StreamEvent =
   | { type: "task.created"; task_id: string }
   | { type: "task.updated"; task_id: string; version: number }
   | { type: "task.deleted"; task_id: string }
-  | { type: "task.event_added"; task_id: string; event_id: string };
+  | { type: "task.event_added"; task_id: string; event_id: string }
+  | { type: "demo.reset" };
+
+export interface ServerConfig {
+  demo: boolean;
+  demo_reset_minutes: number | null;
+}
 
 export function isTaskBlocked(
   task: Pick<Task, "blocked_by">,
-  taskById: Map<string, Pick<Task, "column">>,
+  taskById: Map<string, Pick<Task, "column" | "archived">>,
 ): boolean {
   for (const blockerId of task.blocked_by) {
     const blocker = taskById.get(blockerId);
-    if (blocker && blocker.column !== "Done") return true;
+    if (blocker && blocker.column !== "Done" && !blocker.archived) return true;
   }
   return false;
 }

@@ -58,9 +58,23 @@ function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     "/api/tasks",
-    { schema: { summary: "List all tasks", tags: ["tasks"] } },
-    async () => {
-      const rows = app.db.select().from(tasks).orderBy(asc(tasks.position)).all();
+    {
+      schema: {
+        summary: "List all tasks",
+        tags: ["tasks"],
+        querystring: {
+          type: "object",
+          properties: {
+            include_archived: { type: "string", enum: ["true", "false"] },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const includeArchived = (req.query as { include_archived?: string }).include_archived === "true";
+      const whereCondition = includeArchived ? undefined : eq(tasks.archived, false);
+      const query = app.db.select().from(tasks).orderBy(asc(tasks.position));
+      const rows = whereCondition ? query.where(whereCondition).all() : query.all();
       return rows.map((r) => hydrateTask(app.db, r));
     },
   );
@@ -140,6 +154,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         createdAt: now,
         updatedAt: now,
         version: 1,
+        archived: false,
+        archivedAt: null,
       };
       app.db.insert(tasks).values(row).run();
       app.db
@@ -508,6 +524,116 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
       app.events.publish({ type: "task.updated", task_id: id, version: 0 });
       reply.code(204);
+    },
+  );
+
+  app.post(
+    "/api/tasks/:id/archive",
+    {
+      schema: {
+        summary: "Archive a task",
+        tags: ["tasks"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = requireActor(req, reply);
+      if (!actor) return;
+      const { id } = req.params as { id: string };
+      const task = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
+      if (!task) return reply.code(404).send({ error: "Task not found" });
+      if (task.column !== "Done") {
+        return reply.code(400).send({ error: "Can only archive tasks in Done column" });
+      }
+      const eventId = newId();
+      app.db
+        .update(tasks)
+        .set({
+          archived: true,
+          archivedAt: nowIso(),
+          version: task.version + 1,
+          updatedAt: nowIso(),
+        })
+        .where(eq(tasks.id, id))
+        .run();
+      app.db
+        .insert(taskEvents)
+        .values({
+          id: eventId,
+          taskId: id,
+          actorId: actor,
+          kind: "task_archived",
+          createdAt: nowIso(),
+          body: null,
+          fromValue: null,
+          toValue: null,
+          blockerId: null,
+        })
+        .run();
+      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
+      reply.code(200);
+      const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
+      return hydrateTask(app.db, updated!);
+    },
+  );
+
+  app.post(
+    "/api/tasks/:id/unarchive",
+    {
+      schema: {
+        summary: "Unarchive a task",
+        tags: ["tasks"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = requireActor(req, reply);
+      if (!actor) return;
+      const { id } = req.params as { id: string };
+      const task = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
+      if (!task) return reply.code(404).send({ error: "Task not found" });
+      if (!task.archived) {
+        return reply.code(400).send({ error: "Task is not archived" });
+      }
+      const eventId = newId();
+      app.db
+        .update(tasks)
+        .set({
+          archived: false,
+          archivedAt: null,
+          version: task.version + 1,
+          updatedAt: nowIso(),
+        })
+        .where(eq(tasks.id, id))
+        .run();
+      app.db
+        .insert(taskEvents)
+        .values({
+          id: eventId,
+          taskId: id,
+          actorId: actor,
+          kind: "task_unarchived",
+          createdAt: nowIso(),
+          body: null,
+          fromValue: null,
+          toValue: null,
+          blockerId: null,
+        })
+        .run();
+      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
+      reply.code(200);
+      const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
+      return hydrateTask(app.db, updated!);
     },
   );
 };

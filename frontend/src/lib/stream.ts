@@ -23,12 +23,15 @@ export function useStreamSubscription(queryClient: QueryClient): void {
             });
             queryClient.invalidateQueries({ queryKey: ["tasks"] });
             break;
+          case "demo.reset":
+            void queryClient.invalidateQueries();
+            break;
         }
       } catch {
         // ignore
       }
     };
-    for (const t of ["task.created", "task.updated", "task.deleted", "task.event_added"]) {
+    for (const t of ["task.created", "task.updated", "task.deleted", "task.event_added", "demo.reset"]) {
       source.addEventListener(t, onMessage as EventListener);
     }
     source.onerror = () => {

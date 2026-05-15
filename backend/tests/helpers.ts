@@ -15,6 +15,8 @@ export async function makeTestApp() {
       { id: "agent-coder", kind: "agent" },
     ],
     staticDir: null,
+    demo: false,
+    demoResetMinutes: 10,
   };
   const dbHandle = openDatabase(":memory:");
   const { app } = await buildApp({ config, dbHandle });

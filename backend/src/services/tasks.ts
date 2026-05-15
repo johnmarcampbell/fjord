@@ -40,6 +40,8 @@ export function hydrateTask(
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     version: row.version,
+    archived: row.archived,
+    archived_at: row.archivedAt ?? null,
     blocked_by: blockedByRows.map((r) => r.id),
     blocking: blockingRows.map((r) => r.id),
   };

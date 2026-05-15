@@ -1,8 +1,16 @@
 import { loadConfig } from "./config.js";
 import { buildApp } from "./server.js";
 
+function parseCliArgs(): { demo: boolean; demoResetMinutes?: number } {
+  const args = process.argv.slice(2);
+  const demo = args.includes("--demo");
+  const minutesArg = args.find((a) => a.startsWith("--demo-reset-minutes="));
+  const demoResetMinutes = minutesArg ? parseInt(minutesArg.split("=")[1], 10) : undefined;
+  return { demo, demoResetMinutes };
+}
+
 async function main(): Promise<void> {
-  const config = loadConfig();
+  const config = loadConfig(process.env, parseCliArgs());
   const { app, dbHandle } = await buildApp({ config });
 
   const shutdown = async (signal: string) => {
