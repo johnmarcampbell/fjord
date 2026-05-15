@@ -405,16 +405,16 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
         </div>
 
         {showArchiveConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-lg border border-slate-700 bg-slate-900 p-6 shadow-xl">
-              <h3 className="font-semibold text-slate-100">Archive task?</h3>
-              <p className="mt-2 text-sm text-slate-400">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
+              <h3 className="font-semibold text-ink">Archive task?</h3>
+              <p className="mt-2 text-sm text-ink-muted">
                 This task will be moved to the archive and hidden from the board.
               </p>
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   onClick={() => setShowArchiveConfirm(false)}
-                  className="rounded px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800"
+                  className="rounded-lg px-3 py-1.5 text-sm text-ink-subtle hover:bg-surface-hover transition-colors"
                 >
                   Cancel
                 </button>
@@ -423,7 +423,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
                     archiveMutation.mutate();
                     setShowArchiveConfirm(false);
                   }}
-                  className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700"
+                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover transition-colors"
                 >
                   Archive
                 </button>
