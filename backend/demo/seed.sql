@@ -78,7 +78,7 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
   ('task-demo-mode',
    'Demo mode with seed data and periodic reset',
    'Run the server with --demo: load a SQL seed file, reset on the first request after N minutes, emit a demo.reset SSE event, show a banner in the UI.',
-   'In Progress', 1.0, 'john', 'agent-backend', '2025-03-01T00:00:00Z', 'proj-core',
+   'In Progress', 1.0, 'john', 'agent-backend', '2025-03-01T00:00:00Z', 'proj-infra',
    '["backend","frontend","dx"]',
    '2025-02-05T09:00:00Z', '2025-02-12T10:00:00Z', 5, 0, NULL),
 
@@ -87,14 +87,7 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
    'Checkbox selection on task cards, then a contextual toolbar to move selected tasks to a column or assign them in bulk.',
    'In Progress', 2.0, 'alice', 'agent-frontend', NULL, 'proj-core',
    '["frontend","ux"]',
-   '2025-02-06T11:00:00Z', '2025-02-12T11:00:00Z', 3, 0, NULL),
-
-  ('task-color-picker',
-   'Project color picker redesign',
-   'Replace the plain <input type=color> with a curated swatch palette that matches the app''s design language.',
-   'In Progress', 3.0, 'alice', 'agent-designer', NULL, 'proj-core',
-   '["frontend","design"]',
-   '2025-02-07T10:00:00Z', '2025-02-12T09:00:00Z', 2, 0, NULL);
+   '2025-02-06T11:00:00Z', '2025-02-12T11:00:00Z', 3, 0, NULL);
 
 -- To Do
 INSERT INTO tasks (id, title, description, column, position, reported_by, assigned_to, due_at, project_id, tags, created_at, updated_at, version, archived, archived_at) VALUES
@@ -117,21 +110,28 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
    'When a task''s due date is within 24h, show a badge on the card and optionally send a webhook. Depends on OpenAPI docs for the webhook spec.',
    'To Do', 3.0, 'alice', 'agent-backend', NULL, 'proj-core',
    '["backend","notifications"]',
-   '2025-02-09T09:00:00Z', '2025-02-09T09:00:00Z', 1, 0, NULL);
+   '2025-02-09T09:00:00Z', '2025-02-09T09:00:00Z', 1, 0, NULL),
+
+  ('task-ci',
+   'GitHub Actions CI workflow',
+   'Run npm test and npm run typecheck on every push and pull request. Fail fast so broken builds are caught before merge.',
+   'To Do', 4.0, 'john', 'agent-backend', NULL, 'proj-infra',
+   '["infra","ci","dx"]',
+   '2025-02-09T11:00:00Z', '2025-02-09T11:00:00Z', 1, 0, NULL),
+
+  ('task-prod-config',
+   'Document all environment variables',
+   'Write a reference for every KANBAN_* env var: purpose, type, default, and example. Add a .env.example to the repo root.',
+   'To Do', 5.0, 'john', NULL, NULL, 'proj-infra',
+   '["infra","docs","dx"]',
+   '2025-02-09T11:30:00Z', '2025-02-09T11:30:00Z', 1, 0, NULL);
 
 -- Backlog
 INSERT INTO tasks (id, title, description, column, position, reported_by, assigned_to, due_at, project_id, tags, created_at, updated_at, version, archived, archived_at) VALUES
-  ('task-attachments',
-   'File attachment support',
-   'Allow uploading images and documents to task comments. Store locally or via an S3-compatible endpoint.',
-   'Backlog', 1.0, 'alice', NULL, NULL, 'proj-core',
-   '["backend","frontend"]',
-   '2025-02-10T09:00:00Z', '2025-02-10T09:00:00Z', 1, 0, NULL),
-
   ('task-search',
    'Full-text search across tasks',
    'Search bar that filters tasks by title, description, and tags in real time. SQLite FTS5 on the backend.',
-   'Backlog', 2.0, 'john', NULL, NULL, 'proj-core',
+   'Backlog', 1.0, 'john', NULL, NULL, 'proj-core',
    '["backend","frontend","ux"]',
    '2025-02-10T09:30:00Z', '2025-02-10T09:30:00Z', 1, 0, NULL),
 
@@ -154,13 +154,22 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
    'Add docker-compose.yml with the backend service and a volume mount for data/. Makes onboarding one command.',
    'Backlog', 5.0, 'john', NULL, NULL, 'proj-infra',
    '["infra","dx"]',
-   '2025-02-11T10:00:00Z', '2025-02-11T10:00:00Z', 1, 0, NULL);
+   '2025-02-11T10:00:00Z', '2025-02-11T10:00:00Z', 1, 0, NULL),
+
+  ('task-nginx',
+   'Nginx reverse proxy configuration',
+   'Add an nginx.conf for production: TLS termination, gzip, cache headers for static assets, and proxy_pass to the Node process.',
+   'Backlog', 6.0, 'john', NULL, NULL, 'proj-infra',
+   '["infra","ops"]',
+   '2025-02-11T11:00:00Z', '2025-02-11T11:00:00Z', 1, 0, NULL);
 
 -- Blocking relationships
 -- task-due-notifs is blocked by task-api-docs (webhook spec not written yet)
 INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-api-docs', 'task-due-notifs');
 -- task-mobile-layout is blocked by task-bulk-ops (touch interactions overlap)
 INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-bulk-ops', 'task-mobile-layout');
+-- task-nginx is blocked by task-docker (need compose setup before adding proxy layer)
+INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-docker', 'task-nginx');
 
 -- Task events / comments
 INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_value, to_value, blocker_id) VALUES
@@ -210,4 +219,19 @@ INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_val
 
   -- task-mobile-layout
   ('evt-ml-created',     'task-mobile-layout',    'alice',          'task_created',      '2025-02-10T10:00:00Z', NULL, NULL,         NULL,           NULL),
-  ('evt-ml-blocker',     'task-mobile-layout',    'alice',          'blocker_added',     '2025-02-10T10:15:00Z', NULL, NULL,         NULL,            'task-bulk-ops');
+  ('evt-ml-blocker',     'task-mobile-layout',    'alice',          'blocker_added',     '2025-02-10T10:15:00Z', NULL, NULL,         NULL,            'task-bulk-ops'),
+
+  -- task-ci
+  ('evt-ci-created',     'task-ci',               'john',           'task_created',      '2025-02-09T11:00:00Z', NULL, NULL,         NULL,           NULL),
+  ('evt-ci-comment',     'task-ci',               'alice',          'comment',           '2025-02-09T11:20:00Z',
+   'Should cover at minimum: `npm test` and `npm run typecheck -w backend -w frontend`. Matrix across Node 22.', NULL, NULL, NULL),
+
+  -- task-prod-config
+  ('evt-pc-created',     'task-prod-config',      'john',           'task_created',      '2025-02-09T11:30:00Z', NULL, NULL,         NULL,           NULL),
+
+  -- task-docker
+  ('evt-dk-created',     'task-docker',           'john',           'task_created',      '2025-02-11T10:00:00Z', NULL, NULL,         NULL,           NULL),
+
+  -- task-nginx
+  ('evt-nx-created',     'task-nginx',            'john',           'task_created',      '2025-02-11T11:00:00Z', NULL, NULL,         NULL,           NULL),
+  ('evt-nx-blocker',     'task-nginx',            'john',           'blocker_added',     '2025-02-11T11:05:00Z', NULL, NULL,         NULL,            'task-docker');
