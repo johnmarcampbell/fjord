@@ -4,9 +4,11 @@ import { Toaster } from "sonner";
 import { api } from "./lib/api.js";
 import { Board } from "./components/Board.js";
 import { NewTaskDialog } from "./components/NewTaskDialog.js";
+import { TaskDrawer } from "./components/TaskDrawer.js";
 import { UserPicker } from "./components/UserPicker.js";
 import { ArchiveView } from "./components/ArchiveView.js";
 import { useStreamSubscription } from "./lib/stream.js";
+import { useTasks } from "./lib/queries.js";
 
 function SunIcon() {
   return (
@@ -40,6 +42,7 @@ export default function App() {
     queryFn: api.getConfig,
     staleTime: Infinity,
   });
+  const { data: tasks = [] } = useTasks();
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"board" | "archive">("board");
@@ -115,12 +118,20 @@ export default function App() {
       </header>
       <main className="flex-1 overflow-hidden">
         {view === "board" ? (
-          <Board openTaskId={openTaskId} setOpenTaskId={setOpenTaskId} />
+          <Board setOpenTaskId={setOpenTaskId} />
         ) : (
-          <ArchiveView />
+          <ArchiveView onOpenTask={setOpenTaskId} />
         )}
       </main>
       {creating && <NewTaskDialog onClose={() => setCreating(false)} />}
+      {openTaskId && (
+        <TaskDrawer
+          taskId={openTaskId}
+          allTasks={tasks}
+          onClose={() => setOpenTaskId(null)}
+          onOpenTask={setOpenTaskId}
+        />
+      )}
       <Toaster position="bottom-right" />
     </div>
   );
