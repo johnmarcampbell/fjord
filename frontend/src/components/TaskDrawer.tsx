@@ -160,13 +160,14 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
             <Field label="Status">
               <select
                 value={task.column}
+                disabled={task.archived}
                 onChange={(e) =>
                   updateMutation.mutate({
                     version: task.version,
                     column: e.target.value as Column,
                   })
                 }
-                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
+                className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {COLUMNS.map((c) => (
                   <option key={c} value={c}>

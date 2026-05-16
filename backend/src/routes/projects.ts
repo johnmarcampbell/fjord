@@ -35,7 +35,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
           required: ["name"],
           properties: {
             name: { type: "string", minLength: 1, maxLength: 128 },
-            color: { type: "string", default: "#6366f1" },
+            color: { type: "string", default: "#4A7FA5" },
             description: { type: "string", default: "" },
             due_at: { type: ["string", "null"] },
           },
@@ -47,7 +47,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const row = {
         id: newId(),
         name: body.name,
-        color: body.color ?? "#6366f1",
+        color: body.color ?? "#4A7FA5",
         description: body.description ?? "",
         dueAt: body.due_at ?? null,
         createdAt: nowIso(),
