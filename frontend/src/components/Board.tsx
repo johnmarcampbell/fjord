@@ -19,14 +19,11 @@ import { api } from "../lib/api.js";
 import { useTasks, useProjects } from "../lib/queries.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
-import { TaskDrawer } from "./TaskDrawer.js";
 import { FilterBar } from "./FilterBar.js";
 
 export function Board({
-  openTaskId,
   setOpenTaskId,
 }: {
-  openTaskId: string | null;
   setOpenTaskId: (id: string | null) => void;
 }) {
   const { data: tasks = [], isLoading, isError, error } = useTasks();
@@ -221,14 +218,6 @@ export function Board({
             />
           ) : null}
         </DragOverlay>
-        {openTaskId && (
-          <TaskDrawer
-            taskId={openTaskId}
-            allTasks={tasks}
-            onClose={() => setOpenTaskId(null)}
-            onOpenTask={setOpenTaskId}
-          />
-        )}
       </DndContext>
     </div>
   );

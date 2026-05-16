@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useArchivedTasks } from "../lib/queries.js";
 import { api } from "../lib/api.js";
 
-export function ArchiveView() {
+export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
   const { data: tasks, isLoading } = useArchivedTasks();
   const queryClient = useQueryClient();
 
@@ -51,7 +51,10 @@ export function ArchiveView() {
                 key={task.id}
                 className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-subtle p-4 hover:bg-surface transition-colors"
               >
-                <div className="flex-1 min-w-0">
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => onOpenTask(task.id)}
+                >
                   <div className="font-medium text-ink truncate">{task.title}</div>
                   <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
                     {task.assigned_to && (
@@ -67,7 +70,7 @@ export function ArchiveView() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleUnarchive(task.id)}
+                  onClick={(e) => { e.stopPropagation(); handleUnarchive(task.id); }}
                   className="flex-shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-accent-fg hover:bg-accent-hover transition-colors"
                 >
                   Unarchive
