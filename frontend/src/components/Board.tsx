@@ -18,9 +18,9 @@ import {
 import { api } from "../lib/api.js";
 import { useTasks, useProjects } from "../lib/queries.js";
 import { ColumnView } from "./Column.js";
+import { TaskCardOverlay } from "./TaskCard.js";
 import { TaskDrawer } from "./TaskDrawer.js";
 import { FilterBar } from "./FilterBar.js";
-import { TaskCard } from "./TaskCard.js";
 
 export function Board({
   openTaskId,
@@ -212,13 +212,12 @@ export function Board({
             />
           ))}
         </div>
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeTask ? (
-            <TaskCard
+            <TaskCardOverlay
               task={activeTask}
               isBlocked={blockedIds.has(activeTask.id)}
               project={activeTask.project_id ? projectById.get(activeTask.project_id) : undefined}
-              onOpen={() => {}}
             />
           ) : null}
         </DragOverlay>
