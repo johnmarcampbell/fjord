@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +18,7 @@ import {
 import { api } from "../lib/api.js";
 import { useTasks, useProjects } from "../lib/queries.js";
 import { ColumnView } from "./Column.js";
+import { TaskCardOverlay } from "./TaskCard.js";
 import { TaskDrawer } from "./TaskDrawer.js";
 import { FilterBar } from "./FilterBar.js";
 
@@ -29,7 +32,7 @@ export function Board({
   const { data: tasks = [], isLoading, isError, error } = useTasks();
   const { data: projects = [] } = useProjects();
   const queryClient = useQueryClient();
-  const [_, setDragging] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -115,8 +118,17 @@ export function Board({
     },
   });
 
+  function handleDragStart(ev: DragStartEvent) {
+    const task = tasks.find((t) => t.id === String(ev.active.id));
+    setActiveTask(task ?? null);
+  }
+
+  function handleDragCancel() {
+    setActiveTask(null);
+  }
+
   function handleDragEnd(ev: DragEndEvent) {
-    setDragging(false);
+    setActiveTask(null);
     const { active, over } = ev;
     if (!over) return;
     const activeId = String(active.id);
@@ -184,8 +196,8 @@ export function Board({
       />
       <DndContext
         sensors={sensors}
-        onDragStart={() => setDragging(true)}
-        onDragCancel={() => setDragging(false)}
+        onDragStart={handleDragStart}
+        onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
         <div className="flex flex-1 gap-4 overflow-x-auto p-5">
@@ -200,6 +212,15 @@ export function Board({
             />
           ))}
         </div>
+        <DragOverlay dropAnimation={null}>
+          {activeTask ? (
+            <TaskCardOverlay
+              task={activeTask}
+              isBlocked={blockedIds.has(activeTask.id)}
+              project={activeTask.project_id ? projectById.get(activeTask.project_id) : undefined}
+            />
+          ) : null}
+        </DragOverlay>
         {openTaskId && (
           <TaskDrawer
             taskId={openTaskId}
