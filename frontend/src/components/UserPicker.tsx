@@ -13,7 +13,9 @@ export function UserPicker() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!current && users.length > 0) {
+    if (users.length === 0) return;
+    const valid = users.some((u) => u.id === current);
+    if (!valid) {
       const first = users[0]!.id;
       setCurrentUserId(first);
       setCurrent(first);
