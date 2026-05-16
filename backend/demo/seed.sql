@@ -11,9 +11,9 @@ DELETE FROM users;
 INSERT INTO users (id, display_name, kind, created_at) VALUES
   ('alice',           'Alice',            'human', '2025-01-10T09:00:00Z'),
   ('john',            'John',             'human', '2025-01-10T09:01:00Z'),
-  ('agent-backend',   'agent-backend',    'agent', '2025-01-10T09:02:00Z'),
-  ('agent-frontend',  'agent-frontend',   'agent', '2025-01-10T09:02:00Z'),
-  ('agent-designer',  'agent-designer',   'agent', '2025-01-10T09:03:00Z');
+  ('agent-backend',   'Backend Dev',      'agent', '2025-01-10T09:02:00Z'),
+  ('agent-frontend',  'Frontend Dev',     'agent', '2025-01-10T09:02:00Z'),
+  ('agent-designer',  'Designer',         'agent', '2025-01-10T09:03:00Z');
 
 -- Projects
 INSERT INTO projects (id, name, color, description, due_at, created_at) VALUES
