@@ -205,6 +205,7 @@ export function Board({
             taskId={openTaskId}
             allTasks={tasks}
             onClose={() => setOpenTaskId(null)}
+            onOpenTask={setOpenTaskId}
           />
         )}
       </DndContext>
