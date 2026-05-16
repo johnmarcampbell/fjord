@@ -156,7 +156,7 @@ export function TaskDrawer({ taskId, allTasks, onClose }: Props) {
 
           {/* Fields grid */}
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <Field label="Column">
+            <Field label="Status">
               <select
                 value={task.column}
                 onChange={(e) =>
