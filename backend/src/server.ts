@@ -48,6 +48,17 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     },
   });
 
+  // Auth middleware — runs before routing on all requests
+  if (config.authToken) {
+    const token = config.authToken;
+    app.addHook("onRequest", async (req, reply) => {
+      if (req.url === "/api/auth/validate" || !req.url.startsWith("/api/")) return;
+      if (req.headers.authorization !== `Bearer ${token}`) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+    });
+  }
+
   app.decorate("db", dbHandle.db);
   app.decorate("events", new EventBus());
   app.decorate("demo", config.demo);
@@ -91,6 +102,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     status: "ok",
     time: nowIso(),
   }));
+
+  app.get("/api/auth/validate", { schema: { tags: ["auth"] } }, async (req, reply) => {
+    if (!config.authToken) {
+      return { required: false };
+    }
+    if (req.headers.authorization === `Bearer ${config.authToken}`) {
+      return reply.send({ required: true, valid: true });
+    }
+    return reply.code(401).send({ required: true, valid: false });
+  });
 
   app.get("/api/config", { schema: { tags: ["config"] } }, async () => ({
     demo: config.demo,

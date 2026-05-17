@@ -13,6 +13,7 @@ import type {
   User,
 } from "@agentic-kanban/shared";
 import { getCurrentUserId } from "./user.js";
+import { getStoredToken, setStoredToken, dispatchLogout } from "./auth.js";
 
 export class ApiError extends Error {
   constructor(
@@ -32,10 +33,16 @@ async function request<T>(
   if (init.body) headers.set("Content-Type", "application/json");
   const userId = getCurrentUserId();
   if (userId) headers.set("X-User-Id", userId);
+  const token = getStoredToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   const res = await fetch(path, { ...init, headers });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {
+    if (res.status === 401) {
+      setStoredToken(null);
+      dispatchLogout();
+    }
     const message =
       (body && (body.error || body.message)) || `HTTP ${res.status}`;
     throw new ApiError(res.status, message, body);
