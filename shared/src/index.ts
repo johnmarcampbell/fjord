@@ -48,20 +48,23 @@ export interface Task {
   journal_count: number;
 }
 
-export type EventKind =
-  | "comment"
-  | "journal_entry"
-  | "task_created"
-  | "column_changed"
-  | "assigned_to_changed"
-  | "reported_by_changed"
-  | "due_date_changed"
-  | "blocker_added"
-  | "blocker_removed"
-  | "project_changed"
-  | "tags_changed"
-  | "task_archived"
-  | "task_unarchived";
+export const EVENT_KINDS = [
+  "comment",
+  "journal_entry",
+  "task_created",
+  "column_changed",
+  "assigned_to_changed",
+  "reported_by_changed",
+  "due_date_changed",
+  "blocker_added",
+  "blocker_removed",
+  "project_changed",
+  "tags_changed",
+  "task_archived",
+  "task_unarchived",
+] as const;
+
+export type EventKind = (typeof EVENT_KINDS)[number];
 
 export interface TaskEvent {
   id: string;

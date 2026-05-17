@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Combobox } from "./Combobox.js";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban/shared";
-import { api, ApiError } from "../lib/api.js";
+import { api } from "../lib/api.js";
 import { useUsers, useProjects } from "../lib/queries.js";
+import {
+  useAddBlocker,
+  useAddComment,
+  useAddJournalEntry,
+  useArchiveTask,
+  useDeleteTask,
+  useRemoveBlocker,
+  useUpdateTask,
+} from "../lib/mutations.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 
 type TimelineFilter = "all" | "comments" | "journal" | "system";
@@ -31,7 +40,6 @@ interface Props {
 }
 
 export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
-  const queryClient = useQueryClient();
   const { data: task } = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => api.getTask(taskId),
@@ -59,76 +67,24 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
     }
   }, [task?.id]);
 
-  const updateMutation = useMutation({
-    mutationFn: (patch: Parameters<typeof api.updateTask>[1]) =>
-      api.updateTask(taskId, patch),
-    onSuccess: () => {
-      setConflict(null);
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
-    },
-    onError: (err) => {
-      if (err instanceof ApiError && err.status === 409) {
-        setConflict("This task was modified by someone else. Re-fetching latest…");
-        queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      }
-    },
+  const updateMutation = useUpdateTask(taskId, {
+    onSuccess: () => setConflict(null),
+    onConflict: () =>
+      setConflict("This task was modified by someone else. Re-fetching latest…"),
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteTask(taskId),
+  const deleteMutation = useDeleteTask(taskId, { onSuccess: onClose });
+  const commentMutation = useAddComment(taskId, { onSuccess: () => setComment("") });
+  const journalMutation = useAddJournalEntry(taskId, { onSuccess: () => setJournal("") });
+  const addBlockerMutation = useAddBlocker(taskId);
+  const removeBlockerMutation = useRemoveBlocker(taskId);
+  const archiveMutation = useArchiveTask(taskId, {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      onClose();
-    },
-  });
-
-  const commentMutation = useMutation({
-    mutationFn: () => api.addComment(taskId, { body: comment }),
-    onSuccess: () => {
-      setComment("");
-      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
-  const journalMutation = useMutation({
-    mutationFn: () => api.addJournalEntry(taskId, { body: journal }),
-    onSuccess: () => {
-      setJournal("");
-      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
-  const addBlockerMutation = useMutation({
-    mutationFn: (blocker_id: string) => api.addBlocker(taskId, { blocker_id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
-  const removeBlockerMutation = useMutation({
-    mutationFn: (blocker_id: string) => api.removeBlocker(taskId, blocker_id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.archiveTask(taskId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
       toast.success("Task archived");
       onClose();
     },
     onError: (error) => {
       console.error("Archive error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to archive task");
+      toast.error(error.message || "Failed to archive task");
     },
   });
 
@@ -379,8 +335,8 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
             setJournal={setJournal}
             commentPending={commentMutation.isPending}
             journalPending={journalMutation.isPending}
-            onSubmitComment={() => commentMutation.mutate()}
-            onSubmitJournal={() => journalMutation.mutate()}
+            onSubmitComment={() => commentMutation.mutate(comment)}
+            onSubmitJournal={() => journalMutation.mutate(journal)}
           />
 
           {/* Archive & Delete */}

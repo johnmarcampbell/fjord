@@ -1,22 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useArchivedTasks } from "../lib/queries.js";
-import { api } from "../lib/api.js";
+import { useUnarchiveTask } from "../lib/mutations.js";
 
 export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
   const { data: tasks, isLoading } = useArchivedTasks();
-  const queryClient = useQueryClient();
+  const unarchiveMutation = useUnarchiveTask({
+    onSuccess: () => toast.success("Task unarchived"),
+    onError: () => toast.error("Failed to unarchive task"),
+  });
 
-  const handleUnarchive = async (taskId: string) => {
-    try {
-      await api.unarchiveTask(taskId);
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      await queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
-      toast.success("Task unarchived");
-    } catch (error) {
-      toast.error("Failed to unarchive task");
-    }
-  };
+  const handleUnarchive = (taskId: string) => unarchiveMutation.mutate(taskId);
 
   if (isLoading) {
     return (
