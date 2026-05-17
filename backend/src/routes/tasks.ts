@@ -1,25 +1,37 @@
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type {
   AddBlockerRequest,
   AddCommentRequest,
   AddJournalEntryRequest,
-  Column,
   CreateTaskRequest,
   EventKind,
-  TaskEvent,
   UpdateTaskRequest,
 } from "@agentic-kanban/shared";
 import { COLUMNS, EVENT_KINDS } from "@agentic-kanban/shared";
-import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
+import { taskEvents, tasks, users } from "../db/schema.js";
 import {
-  columnHeadPosition,
-  columnTailPosition,
+  BlockerNotFoundError,
+  CycleError,
+  DependencyNotFoundError,
+  DuplicateDependencyError,
+  TaskNotFoundError,
+  TaskStateError,
+  UnknownProjectError,
+  UnknownUserError,
+  VersionConflictError,
+  addBlocker,
+  addComment,
+  addJournalEntry,
+  archiveTask,
+  createTask,
+  deleteTask,
   hydrateTask,
-  isActorAssignee,
-  newId,
   nowIso,
-  wouldCreateCycle,
+  removeBlocker,
+  toEvent,
+  unarchiveTask,
+  updateTask,
 } from "../services/tasks.js";
 
 const ACTOR_HEADER = "x-user-id";
@@ -30,7 +42,7 @@ function getActorId(req: FastifyRequest): string | null {
   return v ?? null;
 }
 
-function requireActor(req: FastifyRequest, reply: any): string | null {
+function requireActor(req: FastifyRequest, reply: FastifyReply): string | null {
   const actor = getActorId(req);
   if (!actor) {
     reply.code(400).send({ error: `Missing required header: ${ACTOR_HEADER}` });
@@ -39,28 +51,16 @@ function requireActor(req: FastifyRequest, reply: any): string | null {
   const exists = req.server.db.select().from(users).where(eq(users.id, actor)).get();
   if (!exists) {
     if (req.server.demo) {
-      req.server.db.insert(users).values({ id: actor, displayName: actor, kind: "human", createdAt: nowIso() }).run();
+      req.server.db
+        .insert(users)
+        .values({ id: actor, displayName: actor, kind: "human", createdAt: nowIso() })
+        .run();
     } else {
       reply.code(400).send({ error: `Unknown user in ${ACTOR_HEADER}: ${actor}` });
       return null;
     }
   }
   return actor;
-}
-
-function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
-  return {
-    id: row.id,
-    task_id: row.taskId,
-    actor_id: row.actorId,
-    kind: row.kind as TaskEvent["kind"],
-    created_at: row.createdAt,
-    body: row.body,
-    from_value: row.fromValue,
-    to_value: row.toValue,
-    blocker_id: row.blockerId,
-    by_assignee: row.byAssignee,
-  };
 }
 
 const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
@@ -81,6 +81,30 @@ function parseKindFilter(raw: string | undefined): EventKind[] | null {
   return out.length ? out : [];
 }
 
+function mapServiceError(err: unknown, reply: FastifyReply): void {
+  if (err instanceof TaskNotFoundError) {
+    reply.code(404).send({ error: "Task not found" });
+  } else if (err instanceof VersionConflictError) {
+    reply.code(409).send({ error: "Version conflict", current_version: err.currentVersion });
+  } else if (err instanceof UnknownUserError) {
+    reply.code(400).send({ error: "Unknown assigned_to user" });
+  } else if (err instanceof UnknownProjectError) {
+    reply.code(400).send({ error: "Unknown project_id" });
+  } else if (err instanceof BlockerNotFoundError) {
+    reply.code(400).send({ error: "Unknown blocker task" });
+  } else if (err instanceof DuplicateDependencyError) {
+    reply.code(409).send({ error: "Dependency already exists" });
+  } else if (err instanceof CycleError) {
+    reply.code(400).send({ error: "Adding this dependency would create a cycle" });
+  } else if (err instanceof DependencyNotFoundError) {
+    reply.code(404).send({ error: "Dependency not found" });
+  } else if (err instanceof TaskStateError) {
+    reply.code(400).send({ error: err.message });
+  } else {
+    throw err;
+  }
+}
+
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     "/api/tasks",
@@ -97,7 +121,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req) => {
-      const includeArchived = (req.query as { include_archived?: string }).include_archived === "true";
+      const includeArchived =
+        (req.query as { include_archived?: string }).include_archived === "true";
       const whereCondition = includeArchived ? undefined : eq(tasks.archived, false);
       const query = app.db.select().from(tasks).orderBy(asc(tasks.position));
       const rows = whereCondition ? query.where(whereCondition).all() : query.all();
@@ -150,59 +175,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
-      const body = req.body as CreateTaskRequest;
-      const column = (body.column ?? "Backlog") as Column;
-
-      if (body.assigned_to) {
-        const u = app.db.select().from(users).where(eq(users.id, body.assigned_to)).get();
-        if (!u) return reply.code(400).send({ error: "Unknown assigned_to user" });
+      try {
+        reply.code(201);
+        return createTask(app.db, app.events, actor, req.body as CreateTaskRequest);
+      } catch (err) {
+        mapServiceError(err, reply);
       }
-
-      if (body.project_id) {
-        const p = app.db.select().from(projects).where(eq(projects.id, body.project_id)).get();
-        if (!p) return reply.code(400).send({ error: "Unknown project_id" });
-      }
-
-      const id = newId();
-      const now = nowIso();
-      const position = columnHeadPosition(app.db, column);
-      const row = {
-        id,
-        title: body.title,
-        description: body.description ?? "",
-        column,
-        position,
-        reportedBy: actor,
-        assignedTo: body.assigned_to ?? null,
-        dueAt: body.due_at ?? null,
-        projectId: body.project_id ?? null,
-        tags: JSON.stringify(body.tags ?? []),
-        createdAt: now,
-        updatedAt: now,
-        version: 1,
-        archived: false,
-        archivedAt: null,
-      };
-      app.db.insert(tasks).values(row).run();
-      app.db
-        .insert(taskEvents)
-        .values({
-          id: newId(),
-          taskId: id,
-          actorId: actor,
-          kind: "task_created",
-          createdAt: now,
-          body: null,
-          fromValue: null,
-          toValue: null,
-          blockerId: null,
-          byAssignee: row.assignedTo === actor,
-        })
-        .run();
-
-      app.events.publish({ type: "task.created", task_id: id });
-      reply.code(201);
-      return hydrateTask(app.db, { ...row });
     },
   );
 
@@ -238,96 +216,11 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const body = req.body as UpdateTaskRequest;
-
-      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Task not found" });
-      if (existing.version !== body.version) {
-        return reply.code(409).send({
-          error: "Version conflict",
-          current_version: existing.version,
-        });
+      try {
+        return updateTask(app.db, app.events, actor, id, req.body as UpdateTaskRequest);
+      } catch (err) {
+        mapServiceError(err, reply);
       }
-
-      if (body.assigned_to !== undefined && body.assigned_to !== null) {
-        const u = app.db.select().from(users).where(eq(users.id, body.assigned_to)).get();
-        if (!u) return reply.code(400).send({ error: "Unknown assigned_to user" });
-      }
-
-      if (body.project_id !== undefined && body.project_id !== null) {
-        const p = app.db.select().from(projects).where(eq(projects.id, body.project_id)).get();
-        if (!p) return reply.code(400).send({ error: "Unknown project_id" });
-      }
-
-      const now = nowIso();
-      const nextColumn = (body.column ?? existing.column) as Column;
-      let nextPosition = existing.position;
-      if (body.position !== undefined) {
-        nextPosition = body.position;
-      } else if (body.column && body.column !== existing.column) {
-        nextPosition = columnTailPosition(app.db, nextColumn);
-      }
-
-      const newProjectId = body.project_id === undefined ? existing.projectId : body.project_id;
-      const newTagsArr = body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
-      const newTagsStr = JSON.stringify(newTagsArr);
-
-      const updates = {
-        title: body.title ?? existing.title,
-        description: body.description ?? existing.description,
-        column: nextColumn,
-        position: nextPosition,
-        assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
-        dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
-        projectId: newProjectId,
-        tags: newTagsStr,
-        updatedAt: now,
-        version: existing.version + 1,
-      };
-      app.db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
-
-      const eventRows: Array<typeof taskEvents.$inferInsert> = [];
-      // Use the post-update assignee for `byAssignee` so an event recorded
-      // during a reassignment reflects the resulting assignment.
-      const eventByAssignee = updates.assignedTo === actor;
-      const mkEvent = (
-        kind: TaskEvent["kind"],
-        fromValue: string | null,
-        toValue: string | null,
-      ) => ({
-        id: newId(),
-        taskId: id,
-        actorId: actor,
-        kind,
-        createdAt: now,
-        body: null,
-        fromValue,
-        toValue,
-        blockerId: null,
-        byAssignee: eventByAssignee,
-      });
-      if (updates.column !== existing.column) {
-        eventRows.push(mkEvent("column_changed", existing.column, updates.column));
-      }
-      if (updates.assignedTo !== existing.assignedTo) {
-        eventRows.push(mkEvent("assigned_to_changed", existing.assignedTo, updates.assignedTo));
-      }
-      if (updates.dueAt !== existing.dueAt) {
-        eventRows.push(mkEvent("due_date_changed", existing.dueAt, updates.dueAt));
-      }
-      if (updates.projectId !== existing.projectId) {
-        eventRows.push(mkEvent("project_changed", existing.projectId, updates.projectId));
-      }
-      if (updates.tags !== existing.tags) {
-        eventRows.push(mkEvent("tags_changed", existing.tags, updates.tags));
-      }
-      if (eventRows.length) {
-        app.db.insert(taskEvents).values(eventRows).run();
-      }
-
-      app.events.publish({ type: "task.updated", task_id: id, version: updates.version });
-      const newRow = app.db.select().from(tasks).where(eq(tasks.id, id)).get()!;
-      return hydrateTask(app.db, newRow);
     },
   );
 
@@ -348,11 +241,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Task not found" });
-      app.db.delete(tasks).where(eq(tasks.id, id)).run();
-      app.events.publish({ type: "task.deleted", task_id: id });
-      reply.code(204);
+      try {
+        deleteTask(app.db, app.events, id);
+        reply.code(204);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
     },
   );
 
@@ -431,31 +325,13 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Task not found" });
       const { body } = req.body as AddCommentRequest;
-      const eventId = newId();
-      const row = {
-        id: eventId,
-        taskId: id,
-        actorId: actor,
-        kind: "comment" as const,
-        createdAt: nowIso(),
-        body,
-        fromValue: null,
-        toValue: null,
-        blockerId: null,
-        byAssignee: existing.assignedTo === actor,
-      };
-      app.db.insert(taskEvents).values(row).run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "comment",
-      });
-      reply.code(201);
-      return toEvent(row);
+      try {
+        reply.code(201);
+        return addComment(app.db, app.events, actor, id, body);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
     },
   );
 
@@ -492,31 +368,13 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Task not found" });
       const { body } = req.body as AddJournalEntryRequest;
-      const eventId = newId();
-      const row = {
-        id: eventId,
-        taskId: id,
-        actorId: actor,
-        kind: "journal_entry" as const,
-        createdAt: nowIso(),
-        body,
-        fromValue: null,
-        toValue: null,
-        blockerId: null,
-        byAssignee: isActorAssignee(app.db, id, actor),
-      };
-      app.db.insert(taskEvents).values(row).run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "journal_entry",
-      });
-      reply.code(201);
-      return toEvent(row);
+      try {
+        reply.code(201);
+        return addJournalEntry(app.db, app.events, actor, id, body);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
     },
   );
 
@@ -543,56 +401,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       if (!actor) return;
       const { id } = req.params as { id: string };
       const { blocker_id: blockerId } = req.body as AddBlockerRequest;
-
-      const blocked = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!blocked) return reply.code(404).send({ error: "Task not found" });
-      const blocker = app.db.select().from(tasks).where(eq(tasks.id, blockerId)).get();
-      if (!blocker) return reply.code(400).send({ error: "Unknown blocker task" });
-
-      if (wouldCreateCycle(app.db, blockerId, id)) {
-        return reply.code(400).send({ error: "Adding this dependency would create a cycle" });
+      try {
+        reply.code(201);
+        return addBlocker(app.db, app.events, actor, id, blockerId);
+      } catch (err) {
+        mapServiceError(err, reply);
       }
-
-      const existingDep = app.db
-        .select()
-        .from(taskDependencies)
-        .where(
-          and(
-            eq(taskDependencies.blockerId, blockerId),
-            eq(taskDependencies.blockedId, id),
-          ),
-        )
-        .get();
-      if (existingDep) {
-        return reply.code(409).send({ error: "Dependency already exists" });
-      }
-
-      app.db.insert(taskDependencies).values({ blockerId, blockedId: id }).run();
-      const eventId = newId();
-      app.db
-        .insert(taskEvents)
-        .values({
-          id: eventId,
-          taskId: id,
-          actorId: actor,
-          kind: "blocker_added",
-          createdAt: nowIso(),
-          body: null,
-          fromValue: null,
-          toValue: null,
-          blockerId,
-          byAssignee: blocked.assignedTo === actor,
-        })
-        .run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "blocker_added",
-      });
-      app.events.publish({ type: "task.updated", task_id: id, version: blocked.version });
-      reply.code(201);
-      return hydrateTask(app.db, blocked);
     },
   );
 
@@ -616,50 +430,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         id: string;
         blocker_id: string;
       };
-      const dep = app.db
-        .select()
-        .from(taskDependencies)
-        .where(
-          and(
-            eq(taskDependencies.blockerId, blockerId),
-            eq(taskDependencies.blockedId, id),
-          ),
-        )
-        .get();
-      if (!dep) return reply.code(404).send({ error: "Dependency not found" });
-      app.db
-        .delete(taskDependencies)
-        .where(
-          and(
-            eq(taskDependencies.blockerId, blockerId),
-            eq(taskDependencies.blockedId, id),
-          ),
-        )
-        .run();
-      const eventId = newId();
-      app.db
-        .insert(taskEvents)
-        .values({
-          id: eventId,
-          taskId: id,
-          actorId: actor,
-          kind: "blocker_removed",
-          createdAt: nowIso(),
-          body: null,
-          fromValue: null,
-          toValue: null,
-          blockerId,
-          byAssignee: isActorAssignee(app.db, id, actor),
-        })
-        .run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "blocker_removed",
-      });
-      app.events.publish({ type: "task.updated", task_id: id, version: 0 });
-      reply.code(204);
+      try {
+        removeBlocker(app.db, app.events, actor, id, blockerId);
+        reply.code(204);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
     },
   );
 
@@ -680,47 +456,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const task = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!task) return reply.code(404).send({ error: "Task not found" });
-      if (task.column !== "Done") {
-        return reply.code(400).send({ error: "Can only archive tasks in Done column" });
+      try {
+        reply.code(200);
+        return archiveTask(app.db, app.events, actor, id);
+      } catch (err) {
+        mapServiceError(err, reply);
       }
-      const eventId = newId();
-      app.db
-        .update(tasks)
-        .set({
-          archived: true,
-          archivedAt: nowIso(),
-          version: task.version + 1,
-          updatedAt: nowIso(),
-        })
-        .where(eq(tasks.id, id))
-        .run();
-      app.db
-        .insert(taskEvents)
-        .values({
-          id: eventId,
-          taskId: id,
-          actorId: actor,
-          kind: "task_archived",
-          createdAt: nowIso(),
-          body: null,
-          fromValue: null,
-          toValue: null,
-          blockerId: null,
-          byAssignee: task.assignedTo === actor,
-        })
-        .run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "task_archived",
-      });
-      app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
-      reply.code(200);
-      const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      return hydrateTask(app.db, updated!);
     },
   );
 
@@ -741,47 +482,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = requireActor(req, reply);
       if (!actor) return;
       const { id } = req.params as { id: string };
-      const task = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!task) return reply.code(404).send({ error: "Task not found" });
-      if (!task.archived) {
-        return reply.code(400).send({ error: "Task is not archived" });
+      try {
+        reply.code(200);
+        return unarchiveTask(app.db, app.events, actor, id);
+      } catch (err) {
+        mapServiceError(err, reply);
       }
-      const eventId = newId();
-      app.db
-        .update(tasks)
-        .set({
-          archived: false,
-          archivedAt: null,
-          version: task.version + 1,
-          updatedAt: nowIso(),
-        })
-        .where(eq(tasks.id, id))
-        .run();
-      app.db
-        .insert(taskEvents)
-        .values({
-          id: eventId,
-          taskId: id,
-          actorId: actor,
-          kind: "task_unarchived",
-          createdAt: nowIso(),
-          body: null,
-          fromValue: null,
-          toValue: null,
-          blockerId: null,
-          byAssignee: task.assignedTo === actor,
-        })
-        .run();
-      app.events.publish({
-        type: "task.event_added",
-        task_id: id,
-        event_id: eventId,
-        kind: "task_unarchived",
-      });
-      app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
-      reply.code(200);
-      const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      return hydrateTask(app.db, updated!);
     },
   );
 };
