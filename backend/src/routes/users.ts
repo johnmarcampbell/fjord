@@ -81,4 +81,28 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       return toUser(row);
     },
   );
+
+  app.delete(
+    "/api/users/:id",
+    {
+      schema: {
+        summary: "Delete a user",
+        description:
+          "Hard-delete a user. Tasks assigned to or reported by this user retain their assigned_to/reported_by values; no cascade is performed.",
+        tags: ["users"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const row = app.db.select().from(users).where(eq(users.id, id)).get();
+      if (!row) return reply.code(404).send({ error: "User not found" });
+      app.db.delete(users).where(eq(users.id, id)).run();
+      reply.code(204);
+    },
+  );
 };
