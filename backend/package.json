@@ -19,7 +19,7 @@
     "@fastify/cors": "^10.0.1",
     "@fastify/static": "^9.1.3",
     "@fastify/swagger": "^9.4.0",
-    "@fastify/swagger-ui": "^5.2.0",
+    "@scalar/fastify-api-reference": "^1.57.2",
     "better-sqlite3": "^12.10.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.1.0",

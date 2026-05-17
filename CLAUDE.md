@@ -67,7 +67,7 @@ Exports:
 [backend/src/server.ts](backend/src/server.ts): `buildApp()` creates the Fastify instance with:
 - Database decoration (`app.db`)
 - EventBus decoration (`app.events`) — in-memory pub/sub for SSE clients
-- Swagger/OpenAPI docs at `/api/docs`
+- Scalar API Reference at `/api/docs` (OpenAPI spec at `/api/docs/openapi.json`)
 - Static file serving (frontend build, if `KANBAN_STATIC_DIR` is set)
 
 ### Database
@@ -166,7 +166,7 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 - `GET /api/auth/validate` — returns `{ required: bool, valid?: bool }`; always accessible without a valid token
 - `GET /api/config` — returns `{ demo: bool, demo_reset_minutes: number | null }`
 
-Interactive docs at `/api/docs` (auto-generated Swagger UI). Machine-readable OpenAPI JSON at `/api/docs/json`.
+Interactive docs at `/api/docs` (auto-generated Scalar API Reference). Machine-readable OpenAPI JSON at `/api/docs/openapi.json`.
 
 ## Testing
 

@@ -4,7 +4,6 @@ import Fastify, { type FastifyInstance } from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
-import fastifySwaggerUi from "@fastify/swagger-ui";
 import { eq } from "drizzle-orm";
 import type { Config } from "./config.js";
 import { openDatabase, runMigrations, type DB, type DBHandle } from "./db/index.js";
@@ -86,7 +85,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
         title: "Agentic Kanban API",
         description:
           "REST API for the agentic kanban board. All write endpoints require an X-User-Id header identifying the caller.",
-        version: "0.1.0",
+        version: "0.2.1",
       },
       tags: [
         { name: "tasks", description: "Task CRUD and timeline" },
@@ -96,7 +95,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
       ],
     },
   });
-  await app.register(fastifySwaggerUi, { routePrefix: "/api/docs" });
+  await app.register(import("@scalar/fastify-api-reference"), {
+    routePrefix: "/api/docs",
+  });
 
   app.get(
     "/api/health",
