@@ -7,25 +7,43 @@ interface Props {
   task: Task;
   isBlocked: boolean;
   project: Project | undefined;
+  showProject: boolean;
   onOpen: () => void;
 }
 
-function withAlpha(hex: string, alpha: number): string {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
-  return `${hex}${a}`;
-}
-
-function CardContent({ task, isBlocked }: { task: Task; isBlocked: boolean }) {
+function CardContent({
+  task,
+  isBlocked,
+  project,
+  showProject,
+}: {
+  task: Task;
+  isBlocked: boolean;
+  project: Project | undefined;
+  showProject: boolean;
+}) {
   const hasActivityBadges = task.comment_count > 0 || task.journal_count > 0;
   return (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-semibold text-ink text-sm leading-snug truncate">{task.title}</div>
+      {showProject && project && (
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span
+            className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+            style={{ background: project.color }}
+          />
+          <span className="truncate text-[11px] font-medium text-ink-muted">
+            {project.name}
+          </span>
+        </div>
+      )}
+
+      <div className="font-semibold text-ink text-sm leading-snug line-clamp-2">
+        {task.title}
       </div>
 
       <div className="mt-1.5 flex items-center justify-between gap-1 text-xs text-ink-muted">
         <span className="truncate">
-          {task.assigned_to ? `→ ${task.assigned_to}` : "unassigned"}
+          {task.assigned_to ? `@${task.assigned_to}` : "unassigned"}
         </span>
         {isBlocked && (
           <span className="flex-shrink-0 rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-semibold text-danger-text">
@@ -75,7 +93,7 @@ function CardContent({ task, isBlocked }: { task: Task; isBlocked: boolean }) {
   );
 }
 
-export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
+export function TaskCard({ task, isBlocked, project, showProject, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
 
@@ -83,7 +101,6 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.45 : 1,
-    backgroundColor: project ? withAlpha(project.color, 0.08) : undefined,
   };
 
   return (
@@ -99,7 +116,12 @@ export function TaskCard({ task, isBlocked, project, onOpen }: Props) {
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <CardContent task={task} isBlocked={isBlocked} />
+      <CardContent
+        task={task}
+        isBlocked={isBlocked}
+        project={project}
+        showProject={showProject}
+      />
     </div>
   );
 }
@@ -108,20 +130,26 @@ export function TaskCardOverlay({
   task,
   isBlocked,
   project,
+  showProject,
 }: {
   task: Task;
   isBlocked: boolean;
   project: Project | undefined;
+  showProject: boolean;
 }) {
   return (
     <div
-      style={{ backgroundColor: project ? withAlpha(project.color, 0.08) : undefined }}
       className={clsx(
         "cursor-grabbing rounded-card bg-surface px-3 py-2.5 shadow-card shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <CardContent task={task} isBlocked={isBlocked} />
+      <CardContent
+        task={task}
+        isBlocked={isBlocked}
+        project={project}
+        showProject={showProject}
+      />
     </div>
   );
 }

@@ -8,10 +8,11 @@ interface Props {
   tasks: Task[];
   blockedIds: Set<string>;
   projectById: Map<string, Project>;
+  showProject: boolean;
   onOpenTask: (id: string) => void;
 }
 
-export function ColumnView({ column, tasks, blockedIds, projectById, onOpenTask }: Props) {
+export function ColumnView({ column, tasks, blockedIds, projectById, showProject, onOpenTask }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${column}`,
     data: { type: "column", column },
@@ -45,6 +46,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, onOpenTask 
                 task={task}
                 isBlocked={blockedIds.has(task.id)}
                 project={task.project_id ? projectById.get(task.project_id) : undefined}
+                showProject={showProject}
                 onOpen={() => onOpenTask(task.id)}
               />
             ))}
