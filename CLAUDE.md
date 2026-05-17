@@ -125,15 +125,26 @@ Light/dark mode stored in localStorage (`ak-theme`) and applied to `document.doc
 
 All write endpoints require `X-User-Id` header. Every task has a `version` integer; PATCH requires the version the caller last saw (optimistic concurrency, returns 409 on mismatch).
 
+### Gotchas for agents
+- **PATCH requires `version`** — always include the `version` field from the last task you fetched; returns 409 if stale
+- **Archive requires Done** — `POST /api/tasks/:id/archive` returns 400 unless the task is in the `Done` column
+- **Blocker IDs are task IDs** — `blocker_id` in both the `POST .../blockers` body and the `DELETE .../blockers/:blocker_id` path is the ID of the blocking *task*, not a relationship/link ID
+- **Archived tasks hidden by default** — `GET /api/tasks` excludes archived tasks; use `?include_archived=true`
+- **No user cascade** — deleting a user leaves tasks with stale `assigned_to`/`reported_by` values
+- **Journal vs comments** — journal entries (`POST .../journal`) are the assignee's durable working notes; comments (`POST .../comments`) are for cross-actor communication
+
 ### Tasks
-- `GET /api/tasks` — list all (includes `blocked_by` and `blocking` arrays)
+- `GET /api/tasks` — list all (includes `blocked_by` and `blocking` arrays); pass `?include_archived=true` to include archived tasks
 - `POST /api/tasks` — create (defaults column to `Backlog`, position to top)
 - `PATCH /api/tasks/:id` — update title, column, position, assignment, etc. Requires `version`.
 - `DELETE /api/tasks/:id` — hard delete
-- `GET /api/tasks/:id/events` — timeline (comments + system events)
-- `POST /api/tasks/:id/comments` — add markdown comment
-- `POST /api/tasks/:id/blockers` — add dependency (cycle-checked)
-- `DELETE /api/tasks/:id/blockers/:blocker_id` — remove dependency
+- `GET /api/tasks/:id/events` — timeline (comments + system events); filter by `?kind=<event_type>`
+- `POST /api/tasks/:id/comments` — add markdown comment (visible to all actors)
+- `POST /api/tasks/:id/journal` — append a durable working note (agent's working memory; use for notes to your future self, not cross-actor communication)
+- `POST /api/tasks/:id/blockers` — add blocking dependency (cycle-checked); body: `{ "blocker_id": "<task-id>" }`
+- `DELETE /api/tasks/:id/blockers/:blocker_id` — remove blocking dependency; `:blocker_id` is the blocking task's ID
+- `POST /api/tasks/:id/archive` — archive a task (must be in `Done` column)
+- `POST /api/tasks/:id/unarchive` — restore an archived task
 
 ### Projects
 - `GET /api/projects`
@@ -143,12 +154,19 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 
 ### Users
 - `GET /api/users`
+- `GET /api/users/:id`
 - `POST /api/users` — create
+- `DELETE /api/users/:id` — hard delete (no cascade; tasks retain stale user references)
 
 ### Stream
 - `GET /api/events/stream` — Server-Sent Events; emits `task.created`, `task.updated`, `task.deleted`, `task.event_added`
 
-Interactive docs at `/api/docs` (auto-generated Swagger UI).
+### Server
+- `GET /api/health` — liveness check; always public (no auth required)
+- `GET /api/auth/validate` — returns `{ required: bool, valid?: bool }`; always accessible without a valid token
+- `GET /api/config` — returns `{ demo: bool, demo_reset_minutes: number | null }`
+
+Interactive docs at `/api/docs` (auto-generated Swagger UI). Machine-readable OpenAPI JSON at `/api/docs/json`.
 
 ## Testing
 
@@ -181,7 +199,7 @@ The backend serves both the API and the React build on a single port.
 
 - **No component/E2E tests** — component correctness is verified manually (run dev server, test in browser)
 - **No authentication** — relies on trusted gateway
-- **Soft deletes/archive** — not implemented; use hard delete
+- **Soft deletes** — not implemented; use hard delete. Archive/unarchive is supported for tasks in `Done`.
 - **Configurable columns** — not supported; fixed set of five
 - **No file attachments** — only markdown comments
 - **No search** — full task list fetched on load

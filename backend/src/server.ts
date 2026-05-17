@@ -98,12 +98,19 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   });
   await app.register(fastifySwaggerUi, { routePrefix: "/api/docs" });
 
-  app.get("/api/health", { schema: { tags: ["health"] } }, async () => ({
-    status: "ok",
-    time: nowIso(),
-  }));
+  app.get(
+    "/api/health",
+    {
+      schema: {
+        summary: "Health check",
+        description: "Returns server liveness. Always accessible without authentication.",
+        tags: ["health"],
+      },
+    },
+    async () => ({ status: "ok", time: nowIso() }),
+  );
 
-  app.get("/api/auth/validate", { schema: { tags: ["auth"] } }, async (req, reply) => {
+  app.get("/api/auth/validate", { schema: { summary: "Validate auth token", description: "Returns whether a token is required and, if Authorization header is provided, whether it is valid. Always accessible without a valid token.", tags: ["auth"] } }, async (req, reply) => {
     if (!config.authToken) {
       return { required: false };
     }
@@ -113,7 +120,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     return reply.code(401).send({ required: true, valid: false });
   });
 
-  app.get("/api/config", { schema: { tags: ["config"] } }, async () => ({
+  app.get("/api/config", { schema: { summary: "Server configuration", description: "Returns public server configuration (demo mode settings).", tags: ["config"] } }, async () => ({
     demo: config.demo,
     demo_reset_minutes: config.demo ? config.demoResetMinutes : null,
   }));

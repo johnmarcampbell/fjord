@@ -548,7 +548,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         body: {
           type: "object",
           required: ["blocker_id"],
-          properties: { blocker_id: { type: "string" } },
+          properties: { blocker_id: { type: "string", description: "The task ID of the task that should block this task (not a dependency/link ID)" } },
         },
       },
     },
@@ -618,7 +618,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         tags: ["tasks"],
         params: {
           type: "object",
-          properties: { id: { type: "string" }, blocker_id: { type: "string" } },
+          properties: { id: { type: "string" }, blocker_id: { type: "string", description: "The task ID of the blocking task (not a dependency/link ID)" } },
           required: ["id", "blocker_id"],
         },
       },
@@ -682,6 +682,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         summary: "Archive a task",
+        description:
+          "Archive a task. The task must be in the Done column or this request will fail with 400. Archived tasks are excluded from GET /api/tasks by default; pass include_archived=true to retrieve them.",
         tags: ["tasks"],
         params: {
           type: "object",
