@@ -10,7 +10,7 @@ import type {
   TaskEvent,
   UpdateTaskRequest,
 } from "@agentic-kanban/shared";
-import { COLUMNS } from "@agentic-kanban/shared";
+import { COLUMNS, EVENT_KINDS } from "@agentic-kanban/shared";
 import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
 import {
   columnHeadPosition,
@@ -63,21 +63,7 @@ function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
   };
 }
 
-const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set<EventKind>([
-  "comment",
-  "journal_entry",
-  "task_created",
-  "column_changed",
-  "assigned_to_changed",
-  "reported_by_changed",
-  "due_date_changed",
-  "blocker_added",
-  "blocker_removed",
-  "project_changed",
-  "tags_changed",
-  "task_archived",
-  "task_unarchived",
-]);
+const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
 
 function parseKindFilter(raw: string | undefined): EventKind[] | null {
   if (!raw) return null;
