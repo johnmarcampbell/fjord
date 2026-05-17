@@ -73,8 +73,9 @@ keep set across restarts.
 
 ## API
 
-Interactive docs: `http://<host>/api/docs` (Swagger UI from auto-generated
-OpenAPI). Every write endpoint requires `X-User-Id: <known user id>`.
+Interactive docs: `http://<host>/api/docs` (Scalar API Reference from
+auto-generated OpenAPI). Machine-readable spec at `/api/docs/openapi.json`.
+Every write endpoint requires `X-User-Id: <known user id>`.
 
 Key endpoints:
 
