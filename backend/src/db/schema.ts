@@ -54,9 +54,11 @@ export const taskEvents = sqliteTable(
     fromValue: text("from_value"),
     toValue: text("to_value"),
     blockerId: text("blocker_id"),
+    byAssignee: integer("by_assignee", { mode: "boolean" }).notNull().default(false),
   },
   (table) => ({
     taskIdx: index("task_events_task_idx").on(table.taskId, table.createdAt),
+    kindIdx: index("task_events_kind_idx").on(table.taskId, table.kind),
   }),
 );
 
