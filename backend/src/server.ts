@@ -52,7 +52,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   if (config.authToken) {
     const token = config.authToken;
     app.addHook("onRequest", async (req, reply) => {
-      if (req.url === "/api/auth/validate" || !req.url.startsWith("/api/")) return;
+      if (!req.url.startsWith("/api/") || req.url === "/api/auth/validate" || req.url.startsWith("/api/docs")) return;
       if (req.headers.authorization !== `Bearer ${token}`) {
         return reply.code(401).send({ error: "Unauthorized" });
       }
