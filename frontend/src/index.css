@@ -36,10 +36,10 @@
 /* ── Dark theme ── */
 [data-theme="dark"] {
   --color-bg: #1B1917;
-  --color-surface: #242220;
+  --color-surface: #2D2A26;
   --color-surface-subtle: #1E1C1A;
-  --color-surface-hover: #2D2B28;
-  --color-surface-elevated: #2D2B28;
+  --color-surface-hover: #37332F;
+  --color-surface-elevated: #37332F;
   --color-border: #3C3A37;
   --color-border-focus: #5B88B8;
   --color-text: #EAE6DF;
@@ -58,7 +58,7 @@
   --color-tag-bg: #283545;
   --color-tag-text: #8BB8DA;
 
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.07);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
 }

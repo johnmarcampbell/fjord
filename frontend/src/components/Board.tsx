@@ -205,6 +205,7 @@ export function Board({
               tasks={byColumn.get(c) ?? []}
               blockedIds={blockedIds}
               projectById={projectById}
+              showProject={!selectedProject}
               onOpenTask={setOpenTaskId}
             />
           ))}
@@ -215,6 +216,7 @@ export function Board({
               task={activeTask}
               isBlocked={blockedIds.has(activeTask.id)}
               project={activeTask.project_id ? projectById.get(activeTask.project_id) : undefined}
+              showProject={!selectedProject}
             />
           ) : null}
         </DragOverlay>

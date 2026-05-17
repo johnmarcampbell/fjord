@@ -102,7 +102,7 @@ export function UserPicker() {
           onClick={() => setCreating(true)}
           className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
         >
-          + new
+          + Add identity
         </button>
       )}
     </div>

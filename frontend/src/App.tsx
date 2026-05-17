@@ -70,23 +70,23 @@ export default function App() {
           <span className="text-lg font-bold tracking-tight text-ink">Agentic Kanban</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             <button
               onClick={() => setView("board")}
-              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+              className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
                 view === "board"
-                  ? "bg-accent text-accent-fg"
-                  : "text-ink-subtle hover:text-ink"
+                  ? "border-accent text-ink"
+                  : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
               Board
             </button>
             <button
               onClick={() => setView("archive")}
-              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+              className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
                 view === "archive"
-                  ? "bg-accent text-accent-fg"
-                  : "text-ink-subtle hover:text-ink"
+                  ? "border-accent text-ink"
+                  : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
               Archive
