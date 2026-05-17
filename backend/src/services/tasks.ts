@@ -122,6 +122,15 @@ export function hydrateTask(db: DB, row: typeof tasks.$inferSelect): Task {
   };
 }
 
+export function requireUser(db: DB, userId: string): void {
+  if (!db.select().from(users).where(eq(users.id, userId)).get()) throw new UnknownUserError();
+}
+
+export function requireProject(db: DB, projectId: string): void {
+  if (!db.select().from(projects).where(eq(projects.id, projectId)).get())
+    throw new UnknownProjectError();
+}
+
 export function isActorAssignee(db: DB, taskId: string, actorId: string): boolean {
   const row = db
     .select({ assignedTo: tasks.assignedTo })
@@ -185,14 +194,8 @@ export function createTask(
 ): Task {
   const column = (body.column ?? "Backlog") as Column;
 
-  if (body.assigned_to) {
-    if (!db.select().from(users).where(eq(users.id, body.assigned_to)).get())
-      throw new UnknownUserError();
-  }
-  if (body.project_id) {
-    if (!db.select().from(projects).where(eq(projects.id, body.project_id)).get())
-      throw new UnknownProjectError();
-  }
+  if (body.assigned_to) requireUser(db, body.assigned_to);
+  if (body.project_id) requireProject(db, body.project_id);
 
   const id = newId();
   const now = nowIso();
@@ -244,14 +247,8 @@ export function updateTask(
   if (!existing) throw new TaskNotFoundError();
   if (existing.version !== body.version) throw new VersionConflictError(existing.version);
 
-  if (body.assigned_to !== undefined && body.assigned_to !== null) {
-    if (!db.select().from(users).where(eq(users.id, body.assigned_to)).get())
-      throw new UnknownUserError();
-  }
-  if (body.project_id !== undefined && body.project_id !== null) {
-    if (!db.select().from(projects).where(eq(projects.id, body.project_id)).get())
-      throw new UnknownProjectError();
-  }
+  if (body.assigned_to != null) requireUser(db, body.assigned_to);
+  if (body.project_id != null) requireProject(db, body.project_id);
 
   const now = nowIso();
   const nextColumn = (body.column ?? existing.column) as Column;
