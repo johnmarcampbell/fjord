@@ -16,6 +16,7 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 function CardContent({ task, isBlocked }: { task: Task; isBlocked: boolean }) {
+  const hasActivityBadges = task.comment_count > 0 || task.journal_count > 0;
   return (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -45,6 +46,28 @@ function CardContent({ task, isBlocked }: { task: Task; isBlocked: boolean }) {
           ))}
           {task.tags.length > 4 && (
             <span className="text-[10px] text-ink-subtle">+{task.tags.length - 4}</span>
+          )}
+        </div>
+      )}
+
+      {hasActivityBadges && (
+        <div className="mt-2 flex items-center gap-2 text-[10px] text-ink-subtle">
+          {task.comment_count > 0 && (
+            <span className="flex items-center gap-0.5" title={`${task.comment_count} comment${task.comment_count === 1 ? "" : "s"}`}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              {task.comment_count}
+            </span>
+          )}
+          {task.journal_count > 0 && (
+            <span className="flex items-center gap-0.5" title={`${task.journal_count} journal entr${task.journal_count === 1 ? "y" : "ies"}`}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              {task.journal_count}
+            </span>
           )}
         </div>
       )}

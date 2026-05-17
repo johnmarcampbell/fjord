@@ -1,9 +1,11 @@
 import type {
   AddBlockerRequest,
   AddCommentRequest,
+  AddJournalEntryRequest,
   CreateProjectRequest,
   CreateTaskRequest,
   CreateUserRequest,
+  EventKind,
   Project,
   ServerConfig,
   Task,
@@ -77,10 +79,17 @@ export const api = {
   deleteTask: (id: string) =>
     request<void>(`/api/tasks/${id}`, { method: "DELETE" }),
 
-  listEvents: (taskId: string) =>
-    request<TaskEvent[]>(`/api/tasks/${taskId}/events`),
+  listEvents: (taskId: string, kinds?: EventKind[]) => {
+    const qs = kinds && kinds.length ? `?kind=${kinds.join(",")}` : "";
+    return request<TaskEvent[]>(`/api/tasks/${taskId}/events${qs}`);
+  },
   addComment: (taskId: string, body: AddCommentRequest) =>
     request<TaskEvent>(`/api/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  addJournalEntry: (taskId: string, body: AddJournalEntryRequest) =>
+    request<TaskEvent>(`/api/tasks/${taskId}/journal`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

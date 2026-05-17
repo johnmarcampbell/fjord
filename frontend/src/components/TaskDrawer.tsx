@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Combobox } from "./Combobox.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -7,6 +7,21 @@ import { COLUMNS, type Column, type Task, type TaskEvent } from "@agentic-kanban
 import { api, ApiError } from "../lib/api.js";
 import { useUsers, useProjects } from "../lib/queries.js";
 import { DateTimePicker } from "./DateTimePicker.js";
+
+type TimelineFilter = "all" | "comments" | "journal" | "system";
+
+function matchesFilter(kind: TaskEvent["kind"], filter: TimelineFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "comments":
+      return kind === "comment";
+    case "journal":
+      return kind === "journal_entry";
+    case "system":
+      return kind !== "comment" && kind !== "journal_entry";
+  }
+}
 
 interface Props {
   taskId: string;
@@ -32,6 +47,8 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
   const [comment, setComment] = useState("");
+  const [journal, setJournal] = useState("");
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [conflict, setConflict] = useState<string | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
@@ -72,6 +89,16 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
     onSuccess: () => {
       setComment("");
       queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const journalMutation = useMutation({
+    mutationFn: () => api.addJournalEntry(taskId, { body: journal }),
+    onSuccess: () => {
+      setJournal("");
+      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -340,38 +367,21 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
           </section>
 
           {/* Timeline */}
-          <section className="mt-5">
-            <SectionLabel className="mb-3">Timeline</SectionLabel>
-            <div className="space-y-2">
-              {events.map((e) => (
-                <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
-              ))}
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (comment.trim()) commentMutation.mutate();
-              }}
-              className="mt-4"
-            >
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Add a comment (markdown)"
-                rows={2}
-                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
-              />
-              <div className="mt-1.5 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={!comment.trim() || commentMutation.isPending}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-                >
-                  Comment
-                </button>
-              </div>
-            </form>
-          </section>
+          <TimelineSection
+            events={events}
+            allTasks={allTasks}
+            projects={projects}
+            filter={timelineFilter}
+            onFilterChange={setTimelineFilter}
+            comment={comment}
+            setComment={setComment}
+            journal={journal}
+            setJournal={setJournal}
+            commentPending={commentMutation.isPending}
+            journalPending={journalMutation.isPending}
+            onSubmitComment={() => commentMutation.mutate()}
+            onSubmitJournal={() => journalMutation.mutate()}
+          />
 
           {/* Archive & Delete */}
           <div className="mt-6 border-t border-border pt-4 space-y-2">
@@ -535,6 +545,183 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function TimelineSection({
+  events,
+  allTasks,
+  projects,
+  filter,
+  onFilterChange,
+  comment,
+  setComment,
+  journal,
+  setJournal,
+  commentPending,
+  journalPending,
+  onSubmitComment,
+  onSubmitJournal,
+}: {
+  events: TaskEvent[];
+  allTasks: Task[];
+  projects: import("@agentic-kanban/shared").Project[];
+  filter: TimelineFilter;
+  onFilterChange: (f: TimelineFilter) => void;
+  comment: string;
+  setComment: (v: string) => void;
+  journal: string;
+  setJournal: (v: string) => void;
+  commentPending: boolean;
+  journalPending: boolean;
+  onSubmitComment: () => void;
+  onSubmitJournal: () => void;
+}) {
+  const visible = useMemo(
+    () => events.filter((e) => matchesFilter(e.kind, filter)),
+    [events, filter],
+  );
+
+  const counts = useMemo(() => {
+    let comments = 0;
+    let journals = 0;
+    let system = 0;
+    for (const e of events) {
+      if (e.kind === "comment") comments++;
+      else if (e.kind === "journal_entry") journals++;
+      else system++;
+    }
+    return { comments, journals, system, all: events.length };
+  }, [events]);
+
+  return (
+    <section className="mt-5">
+      <div className="mb-3 flex items-center justify-between">
+        <SectionLabel>Timeline</SectionLabel>
+        <div className="flex items-center gap-1 text-[11px]">
+          <FilterChip
+            label="All"
+            count={counts.all}
+            active={filter === "all"}
+            onClick={() => onFilterChange("all")}
+          />
+          <FilterChip
+            label="Comments"
+            count={counts.comments}
+            active={filter === "comments"}
+            onClick={() => onFilterChange("comments")}
+          />
+          <FilterChip
+            label="Journal"
+            count={counts.journals}
+            active={filter === "journal"}
+            onClick={() => onFilterChange("journal")}
+          />
+          <FilterChip
+            label="System"
+            count={counts.system}
+            active={filter === "system"}
+            onClick={() => onFilterChange("system")}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        {visible.length === 0 && filter === "journal" && (
+          <div className="rounded-xl border border-dashed border-border px-3 py-4 text-xs text-ink-subtle">
+            No journal entries yet. Agents and assignees use this space to record what they've
+            tried and what's next.
+          </div>
+        )}
+        {visible.length === 0 && filter !== "journal" && (
+          <div className="rounded-xl border border-dashed border-border px-3 py-4 text-xs text-ink-subtle">
+            Nothing to show with this filter.
+          </div>
+        )}
+        {visible.map((e) => (
+          <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
+        ))}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (comment.trim()) onSubmitComment();
+        }}
+        className="mt-4"
+      >
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Add a comment — talk to other actors (markdown)"
+          rows={2}
+          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
+        />
+        <div className="mt-1.5 flex justify-end">
+          <button
+            type="submit"
+            disabled={!comment.trim() || commentPending}
+            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+          >
+            Comment
+          </button>
+        </div>
+      </form>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (journal.trim()) onSubmitJournal();
+        }}
+        className="mt-3"
+      >
+        <textarea
+          value={journal}
+          onChange={(e) => setJournal(e.target.value)}
+          placeholder="Add a journal entry — durable working notes for your future self (markdown)"
+          rows={2}
+          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
+        />
+        <div className="mt-1.5 flex justify-end">
+          <button
+            type="submit"
+            disabled={!journal.trim() || journalPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-40"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            Journal entry
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors " +
+        (active
+          ? "bg-accent text-accent-fg"
+          : "text-ink-subtle hover:bg-surface-hover hover:text-ink-muted")
+      }
+    >
+      {label}
+      <span className="ml-1 opacity-70">{count}</span>
+    </button>
+  );
+}
+
 function EventItem({
   event,
   allTasks,
@@ -553,9 +740,36 @@ function EventItem({
   if (event.kind === "comment") {
     return (
       <div className="rounded-xl border border-border bg-surface-subtle p-3">
-        <div className="mb-1.5 text-xs text-ink-muted">
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs text-ink-muted">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
           <span className="font-semibold text-ink">{event.actor_id}</span>
-          <span className="ml-2 text-ink-subtle">{time}</span>
+          <span className="text-ink-subtle">{time}</span>
+        </div>
+        <div className="markdown">
+          <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
+        </div>
+      </div>
+    );
+  }
+
+  if (event.kind === "journal_entry") {
+    const dim = !event.by_assignee;
+    return (
+      <div
+        className={
+          "rounded-xl border-l-2 border-l-accent border border-border bg-surface-subtle p-3 " +
+          (dim ? "opacity-70" : "")
+        }
+      >
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs text-ink-muted">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-accent">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+          <span className="font-semibold text-ink">{event.actor_id}</span>
+          <span className="text-ink-subtle">{time}</span>
         </div>
         <div className="markdown">
           <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>

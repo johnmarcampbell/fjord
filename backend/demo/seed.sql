@@ -235,3 +235,38 @@ INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_val
   -- task-nginx
   ('evt-nx-created',     'task-nginx',            'john',           'task_created',      '2025-02-11T11:00:00Z', NULL, NULL,         NULL,           NULL),
   ('evt-nx-blocker',     'task-nginx',            'john',           'blocker_added',     '2025-02-11T11:05:00Z', NULL, NULL,         NULL,            'task-docker');
+
+-- Journal entries (by_assignee frozen at write time)
+INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_value, to_value, blocker_id, by_assignee) VALUES
+  -- task-sqlite: migration approach
+  ('jnl-sq-1', 'task-sqlite', 'agent-backend', 'journal_entry', '2025-01-10T14:30:00Z',
+   'Tried running migrations manually first. Auto-apply at startup is cleaner — less ops surface. Using drizzle-kit generate to produce SQL, then exec through better-sqlite3 at boot.',
+   NULL, NULL, NULL, 1),
+
+  -- task-optimistic-fix: debugging story across two days
+  ('jnl-op-1', 'task-optimistic-fix', 'agent-backend', 'journal_entry', '2025-02-03T10:15:00Z',
+   'Reproduced the stale-board bug. After a 409, queryClient.invalidateQueries was not being called — the error handler was missing entirely. The board froze with the old version in memory, no recovery path.',
+   NULL, NULL, NULL, 1),
+  ('jnl-op-2', 'task-optimistic-fix', 'agent-backend', 'journal_entry', '2025-02-05T14:00:00Z',
+   'Fix: invalidate ["task", taskId] and ["tasks"] in the onError handler when status === 409, then surface the conflict message. Added a 5s auto-dismiss. Tested with two simultaneous edits — board now recovers correctly both times.',
+   NULL, NULL, NULL, 1),
+  -- alice adds an observation (not the assignee — will render dimmed)
+  ('jnl-op-3', 'task-optimistic-fix', 'alice', 'journal_entry', '2025-02-06T09:00:00Z',
+   'This same pattern will hit anywhere we do optimistic updates. Worth documenting the convention once the fix is landed so future agents don''t repeat the same mistake.',
+   NULL, NULL, NULL, 0),
+
+  -- task-demo-mode: two entries showing evolving approach
+  ('jnl-dm-1', 'task-demo-mode', 'agent-backend', 'journal_entry', '2025-02-05T11:00:00Z',
+   'First idea: swap the DB file on reset. Rejected — better-sqlite3 holds the file handle open. Executing the SQL seed against the live connection is simpler and avoids any teardown/reconnect.',
+   NULL, NULL, NULL, 1),
+  ('jnl-dm-2', 'task-demo-mode', 'agent-backend', 'journal_entry', '2025-02-07T10:30:00Z',
+   'Reset trigger: checking shouldReset() on every inbound request is cheap (just a timestamp compare). No background timer needed. Emit a demo.reset SSE event after reset so connected clients invalidate and refetch automatically.',
+   NULL, NULL, NULL, 1),
+
+  -- task-bulk-ops: UI decisions
+  ('jnl-bu-1', 'task-bulk-ops', 'agent-frontend', 'journal_entry', '2025-02-08T09:15:00Z',
+   'Checkbox on hover conflicts with the drag handle — feels janky. Trying modifier-key click (Shift/Ctrl) to enter selection mode instead. Avoids cluttering the card UI entirely.',
+   NULL, NULL, NULL, 1),
+  ('jnl-bu-2', 'task-bulk-ops', 'agent-frontend', 'journal_entry', '2025-02-10T16:00:00Z',
+   'Shift+click conflicts with text selection on task titles. Switching to a selection-mode toggle in the column header instead. Floating action toolbar at bottom of viewport when cards are selected.',
+   NULL, NULL, NULL, 1);

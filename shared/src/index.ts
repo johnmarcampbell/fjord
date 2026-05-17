@@ -44,10 +44,13 @@ export interface Task {
   archived_at: string | null;
   blocked_by: string[];
   blocking: string[];
+  comment_count: number;
+  journal_count: number;
 }
 
 export type EventKind =
   | "comment"
+  | "journal_entry"
   | "task_created"
   | "column_changed"
   | "assigned_to_changed"
@@ -70,6 +73,7 @@ export interface TaskEvent {
   from_value: string | null;
   to_value: string | null;
   blocker_id: string | null;
+  by_assignee: boolean;
 }
 
 export interface CreateUserRequest {
@@ -118,6 +122,10 @@ export interface AddCommentRequest {
   body: string;
 }
 
+export interface AddJournalEntryRequest {
+  body: string;
+}
+
 export interface AddBlockerRequest {
   blocker_id: string;
 }
@@ -126,7 +134,7 @@ export type StreamEvent =
   | { type: "task.created"; task_id: string }
   | { type: "task.updated"; task_id: string; version: number }
   | { type: "task.deleted"; task_id: string }
-  | { type: "task.event_added"; task_id: string; event_id: string }
+  | { type: "task.event_added"; task_id: string; event_id: string; kind: EventKind }
   | { type: "demo.reset" };
 
 export interface ServerConfig {

@@ -1,10 +1,12 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type {
   AddBlockerRequest,
   AddCommentRequest,
+  AddJournalEntryRequest,
   Column,
   CreateTaskRequest,
+  EventKind,
   TaskEvent,
   UpdateTaskRequest,
 } from "@agentic-kanban/shared";
@@ -14,6 +16,7 @@ import {
   columnHeadPosition,
   columnTailPosition,
   hydrateTask,
+  isActorAssignee,
   newId,
   nowIso,
   wouldCreateCycle,
@@ -56,7 +59,40 @@ function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
     from_value: row.fromValue,
     to_value: row.toValue,
     blocker_id: row.blockerId,
+    by_assignee: row.byAssignee,
   };
+}
+
+const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set<EventKind>([
+  "comment",
+  "journal_entry",
+  "task_created",
+  "column_changed",
+  "assigned_to_changed",
+  "reported_by_changed",
+  "due_date_changed",
+  "blocker_added",
+  "blocker_removed",
+  "project_changed",
+  "tags_changed",
+  "task_archived",
+  "task_unarchived",
+]);
+
+function parseKindFilter(raw: string | undefined): EventKind[] | null {
+  if (!raw) return null;
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (!parts.length) return null;
+  const out: EventKind[] = [];
+  for (const part of parts) {
+    if (KNOWN_EVENT_KINDS.has(part as EventKind)) {
+      out.push(part as EventKind);
+    }
+  }
+  return out.length ? out : [];
 }
 
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
@@ -174,6 +210,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           fromValue: null,
           toValue: null,
           blockerId: null,
+          byAssignee: row.assignedTo === actor,
         })
         .run();
 
@@ -264,6 +301,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       app.db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 
       const eventRows: Array<typeof taskEvents.$inferInsert> = [];
+      // Use the post-update assignee for `byAssignee` so an event recorded
+      // during a reassignment reflects the resulting assignment.
+      const eventByAssignee = updates.assignedTo === actor;
       const mkEvent = (
         kind: TaskEvent["kind"],
         fromValue: string | null,
@@ -278,6 +318,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         fromValue,
         toValue,
         blockerId: null,
+        byAssignee: eventByAssignee,
       });
       if (updates.column !== existing.column) {
         eventRows.push(mkEvent("column_changed", existing.column, updates.column));
@@ -333,12 +374,27 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     "/api/tasks/:id/events",
     {
       schema: {
-        summary: "List events (comments + system events) for a task",
+        summary: "List events for a task (comments, journal entries, system events)",
+        description:
+          "Returns the task's full timeline in chronological order. " +
+          "Use `?kind=journal_entry` (or a CSV like `?kind=journal_entry,comment`) " +
+          "to filter by event kind — recommended for agents catching up on a task, " +
+          "since it returns only the durable working notes and skips system noise.",
         tags: ["tasks"],
         params: {
           type: "object",
           properties: { id: { type: "string" } },
           required: ["id"],
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            kind: {
+              type: "string",
+              description:
+                "Comma-separated list of EventKind values to include. Unknown kinds are ignored.",
+            },
+          },
         },
       },
     },
@@ -346,10 +402,17 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { id } = req.params as { id: string };
       const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "Task not found" });
+      const { kind: kindParam } = req.query as { kind?: string };
+      const kinds = parseKindFilter(kindParam);
+      if (kinds !== null && kinds.length === 0) return [];
+      const whereClause =
+        kinds === null
+          ? eq(taskEvents.taskId, id)
+          : and(eq(taskEvents.taskId, id), inArray(taskEvents.kind, kinds));
       const rows = app.db
         .select()
         .from(taskEvents)
-        .where(eq(taskEvents.taskId, id))
+        .where(whereClause)
         .orderBy(asc(taskEvents.createdAt))
         .all();
       return rows.map(toEvent);
@@ -361,6 +424,10 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         summary: "Add a comment to a task",
+        description:
+          "Comments are inter-actor communication on a task (e.g. \"@alice, ready for review\"). " +
+          "For an actor's own durable working notes — what they've tried, what worked, what didn't, " +
+          "what to try next — use `POST /api/tasks/{id}/journal` instead.",
         tags: ["tasks"],
         params: {
           type: "object",
@@ -392,9 +459,76 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         fromValue: null,
         toValue: null,
         blockerId: null,
+        byAssignee: existing.assignedTo === actor,
       };
       app.db.insert(taskEvents).values(row).run();
-      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "comment",
+      });
+      reply.code(201);
+      return toEvent(row);
+    },
+  );
+
+  app.post(
+    "/api/tasks/:id/journal",
+    {
+      schema: {
+        summary: "Append a journal entry to a task",
+        description:
+          "Append a journal entry — a durable working note on this task. The journal is the " +
+          "assignee's working memory: record what you've tried, what worked, what didn't, " +
+          "and what you plan to try next.\n\n" +
+          "Recommended agent workflow: before starting work on a task, fetch " +
+          "`GET /api/tasks/{id}/events?kind=journal_entry` and read prior entries. " +
+          "Then post a fresh entry summarizing the current state and your plan.\n\n" +
+          "Use comments (`POST /api/tasks/{id}/comments`) for talking to other actors. " +
+          "Use the journal for talking to your future self.\n\n" +
+          "Anyone may post a journal entry on any task, but the convention is that the journal " +
+          "belongs to the assignee; non-assignee entries are rendered as side notes in the UI.",
+        tags: ["tasks"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+        body: {
+          type: "object",
+          required: ["body"],
+          properties: { body: { type: "string", minLength: 1, maxLength: 100000 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = requireActor(req, reply);
+      if (!actor) return;
+      const { id } = req.params as { id: string };
+      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
+      if (!existing) return reply.code(404).send({ error: "Task not found" });
+      const { body } = req.body as AddJournalEntryRequest;
+      const eventId = newId();
+      const row = {
+        id: eventId,
+        taskId: id,
+        actorId: actor,
+        kind: "journal_entry" as const,
+        createdAt: nowIso(),
+        body,
+        fromValue: null,
+        toValue: null,
+        blockerId: null,
+        byAssignee: isActorAssignee(app.db, id, actor),
+      };
+      app.db.insert(taskEvents).values(row).run();
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "journal_entry",
+      });
       reply.code(201);
       return toEvent(row);
     },
@@ -461,9 +595,15 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           fromValue: null,
           toValue: null,
           blockerId,
+          byAssignee: blocked.assignedTo === actor,
         })
         .run();
-      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "blocker_added",
+      });
       app.events.publish({ type: "task.updated", task_id: id, version: blocked.version });
       reply.code(201);
       return hydrateTask(app.db, blocked);
@@ -523,9 +663,15 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           fromValue: null,
           toValue: null,
           blockerId,
+          byAssignee: isActorAssignee(app.db, id, actor),
         })
         .run();
-      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "blocker_removed",
+      });
       app.events.publish({ type: "task.updated", task_id: id, version: 0 });
       reply.code(204);
     },
@@ -576,9 +722,15 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           fromValue: null,
           toValue: null,
           blockerId: null,
+          byAssignee: task.assignedTo === actor,
         })
         .run();
-      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "task_archived",
+      });
       app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
       reply.code(200);
       const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
@@ -631,9 +783,15 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           fromValue: null,
           toValue: null,
           blockerId: null,
+          byAssignee: task.assignedTo === actor,
         })
         .run();
-      app.events.publish({ type: "task.event_added", task_id: id, event_id: eventId });
+      app.events.publish({
+        type: "task.event_added",
+        task_id: id,
+        event_id: eventId,
+        kind: "task_unarchived",
+      });
       app.events.publish({ type: "task.updated", task_id: id, version: task.version + 1 });
       reply.code(200);
       const updated = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
