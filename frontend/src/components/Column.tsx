@@ -20,11 +20,11 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
 
   return (
     <div className="flex flex-col gap-3 min-w-[272px] w-[272px]">
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center gap-2 px-1">
         <h2 className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">
           {column}
         </h2>
-        <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-subtle">
+        <span className="text-[11px] font-semibold text-ink-subtle">
           {tasks.length}
         </span>
       </div>
@@ -36,7 +36,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
             ? { outline: "2px solid var(--color-border-focus)", outlineOffset: "2px" }
             : undefined
         }
-        className="flex-1 rounded-xl bg-surface-subtle p-2 transition-colors min-h-[80px]"
+        className="flex-1 rounded-xl p-1 transition-colors min-h-[80px]"
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
