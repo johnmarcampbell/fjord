@@ -43,11 +43,21 @@ export function loadConfig(
   overrides: LoadConfigOverrides = {},
 ): Config {
   const parsed = EnvSchema.parse(env);
+  const demo = overrides.demo ?? parsed.KANBAN_DEMO_MODE;
+  let dbPath = parsed.KANBAN_DB_PATH;
+  if (demo) {
+    if (env.KANBAN_DB_PATH && env.KANBAN_DB_PATH !== ":memory:") {
+      console.warn(
+        `[config] Demo mode is enabled — ignoring KANBAN_DB_PATH=${env.KANBAN_DB_PATH} and using an in-memory database to protect persistent data.`,
+      );
+    }
+    dbPath = ":memory:";
+  }
   return {
     nodeEnv: parsed.NODE_ENV,
     port: parsed.KANBAN_PORT,
     host: parsed.KANBAN_HOST,
-    dbPath: parsed.KANBAN_DB_PATH,
+    dbPath,
     logLevel: parsed.KANBAN_LOG_LEVEL,
     corsOrigins: parsed.KANBAN_CORS_ORIGINS
       ? parsed.KANBAN_CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
@@ -68,7 +78,7 @@ export function loadConfig(
       : [],
     staticDir: parsed.KANBAN_STATIC_DIR ?? null,
     authToken: parsed.KANBAN_AUTH_TOKEN ?? null,
-    demo: overrides.demo ?? parsed.KANBAN_DEMO_MODE,
+    demo,
     demoResetMinutes: overrides.demoResetMinutes ?? parsed.KANBAN_DEMO_RESET_MINUTES,
   };
 }
