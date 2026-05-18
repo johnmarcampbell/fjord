@@ -2,6 +2,20 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import type { Project, Task } from "@agentic-kanban/shared";
+import { useIsMobile } from "../lib/useIsMobile.js";
+
+function DragGripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="3" r="1.25" />
+      <circle cx="8" cy="3" r="1.25" />
+      <circle cx="2" cy="8" r="1.25" />
+      <circle cx="8" cy="8" r="1.25" />
+      <circle cx="2" cy="13" r="1.25" />
+      <circle cx="8" cy="13" r="1.25" />
+    </svg>
+  );
+}
 
 interface Props {
   task: Task;
@@ -96,6 +110,7 @@ function CardContent({
 export function TaskCard({ task, isBlocked, project, showProject, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
+  const isMobile = useIsMobile();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -103,25 +118,38 @@ export function TaskCard({ task, isBlocked, project, showProject, onOpen }: Prop
     opacity: isDragging ? 0.45 : 1,
   };
 
+  const handleProps = isMobile ? { ...attributes, ...listeners } : {};
+  const bodyProps = isMobile ? {} : { ...attributes, ...listeners };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      onClick={onOpen}
       className={clsx(
-        "cursor-grab active:cursor-grabbing rounded-card bg-surface px-3 py-2.5 shadow-card",
-        "hover:shadow-card-hover hover:-translate-y-px transition-all duration-150",
+        "flex overflow-hidden rounded-card bg-surface shadow-card",
+        "transition-all duration-150 hover:-translate-y-px hover:shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <CardContent
-        task={task}
-        isBlocked={isBlocked}
-        project={project}
-        showProject={showProject}
-      />
+      <div
+        {...handleProps}
+        aria-label="Drag to reorder"
+        className="flex w-7 flex-shrink-0 touch-none cursor-grab items-center justify-center bg-surface-subtle/60 text-ink-subtle active:cursor-grabbing sm:hidden"
+      >
+        <DragGripIcon />
+      </div>
+      <div
+        {...bodyProps}
+        onClick={onOpen}
+        className="flex-1 cursor-pointer px-3 py-2.5 sm:cursor-grab sm:active:cursor-grabbing"
+      >
+        <CardContent
+          task={task}
+          isBlocked={isBlocked}
+          project={project}
+          showProject={showProject}
+        />
+      </div>
     </div>
   );
 }
@@ -140,16 +168,21 @@ export function TaskCardOverlay({
   return (
     <div
       className={clsx(
-        "cursor-grabbing rounded-card bg-surface px-3 py-2.5 shadow-card shadow-card-hover",
+        "flex cursor-grabbing overflow-hidden rounded-card bg-surface shadow-card shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <CardContent
-        task={task}
-        isBlocked={isBlocked}
-        project={project}
-        showProject={showProject}
-      />
+      <div className="flex w-7 flex-shrink-0 items-center justify-center bg-surface-subtle/60 text-ink-subtle sm:hidden">
+        <DragGripIcon />
+      </div>
+      <div className="flex-1 px-3 py-2.5">
+        <CardContent
+          task={task}
+          isBlocked={isBlocked}
+          project={project}
+          showProject={showProject}
+        />
+      </div>
     </div>
   );
 }

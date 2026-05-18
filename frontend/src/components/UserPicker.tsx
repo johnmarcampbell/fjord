@@ -40,14 +40,14 @@ export function UserPicker() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-ink-subtle">Acting as</span>
+      <span className="hidden text-xs text-ink-subtle sm:inline">Acting as</span>
       <select
         value={current ?? ""}
         onChange={(e) => {
           setCurrentUserId(e.target.value || null);
           setCurrent(e.target.value || null);
         }}
-        className="rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
+        className="max-w-[120px] rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
       >
         <option value="" disabled>
           (none)
@@ -100,7 +100,7 @@ export function UserPicker() {
       ) : (
         <button
           onClick={() => setCreating(true)}
-          className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+          className="hidden whitespace-nowrap text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted sm:inline"
         >
           + Add identity
         </button>

@@ -17,8 +17,22 @@ import { isTaskBlocked, type Column, type Project, type Task } from "@agentic-ka
 import { useTasks, useProjects } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useMoveTask } from "../lib/mutations.js";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+
+function DragGripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="3" r="1.25" />
+      <circle cx="8" cy="3" r="1.25" />
+      <circle cx="2" cy="8" r="1.25" />
+      <circle cx="8" cy="8" r="1.25" />
+      <circle cx="2" cy="13" r="1.25" />
+      <circle cx="8" cy="13" r="1.25" />
+    </svg>
+  );
+}
 
 type PromoteHandler = (task: Task, target: Column) => void;
 
@@ -74,7 +88,7 @@ function RowBody({ task, project, showProject, isBlocked, onPromote }: Omit<RowP
         </span>
       )}
 
-      <div className="flex flex-shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <div className="hidden flex-shrink-0 items-center gap-1.5 sm:flex" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => onPromote(task, "To Do")}
           className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
@@ -95,6 +109,7 @@ function RowBody({ task, project, showProject, isBlocked, onPromote }: Omit<RowP
 function BacklogRow({ task, project, showProject, isBlocked, onOpen, onPromote }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
+  const isMobile = useIsMobile();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -102,26 +117,39 @@ function BacklogRow({ task, project, showProject, isBlocked, onOpen, onPromote }
     opacity: isDragging ? 0.45 : 1,
   };
 
+  const handleProps = isMobile ? { ...attributes, ...listeners } : {};
+  const bodyProps = isMobile ? {} : { ...attributes, ...listeners };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      onClick={onOpen}
       className={clsx(
-        "flex cursor-grab items-center gap-3 rounded-card bg-surface px-3 py-2 shadow-card",
-        "transition-all duration-150 hover:shadow-card-hover active:cursor-grabbing",
+        "flex overflow-hidden rounded-card bg-surface shadow-card",
+        "transition-all duration-150 hover:shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <RowBody
-        task={task}
-        project={project}
-        showProject={showProject}
-        isBlocked={isBlocked}
-        onPromote={onPromote}
-      />
+      <div
+        {...handleProps}
+        aria-label="Drag to reorder"
+        className="flex w-7 flex-shrink-0 touch-none cursor-grab items-center justify-center bg-surface-subtle/60 text-ink-subtle active:cursor-grabbing sm:hidden"
+      >
+        <DragGripIcon />
+      </div>
+      <div
+        {...bodyProps}
+        onClick={onOpen}
+        className="flex flex-1 cursor-pointer items-center gap-3 px-3 py-2 sm:cursor-grab sm:active:cursor-grabbing"
+      >
+        <RowBody
+          task={task}
+          project={project}
+          showProject={showProject}
+          isBlocked={isBlocked}
+          onPromote={onPromote}
+        />
+      </div>
     </div>
   );
 }
@@ -130,17 +158,22 @@ function BacklogRowOverlay({ task, project, showProject, isBlocked, onPromote }:
   return (
     <div
       className={clsx(
-        "flex cursor-grabbing items-center gap-3 rounded-card bg-surface px-3 py-2 shadow-card shadow-card-hover",
+        "flex cursor-grabbing overflow-hidden rounded-card bg-surface shadow-card shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
     >
-      <RowBody
-        task={task}
-        project={project}
-        showProject={showProject}
-        isBlocked={isBlocked}
-        onPromote={onPromote}
-      />
+      <div className="flex w-7 flex-shrink-0 items-center justify-center bg-surface-subtle/60 text-ink-subtle sm:hidden">
+        <DragGripIcon />
+      </div>
+      <div className="flex flex-1 items-center gap-3 px-3 py-2">
+        <RowBody
+          task={task}
+          project={project}
+          showProject={showProject}
+          isBlocked={isBlocked}
+          onPromote={onPromote}
+        />
+      </div>
     </div>
   );
 }
@@ -345,7 +378,7 @@ export function BacklogView({
         onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
           <div className="mx-auto max-w-4xl">
             <BacklogList
               tasks={filteredTasks}
