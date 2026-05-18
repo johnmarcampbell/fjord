@@ -10,7 +10,8 @@ import {
 } from "@agentic-kanban/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
-import { taskDependencies, taskEvents, tasks, users, projects, spaces } from "../db/schema.js";
+import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
+import { assertSpaceWriteable } from "./spaces.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -31,10 +32,6 @@ export class UnknownUserError extends Error {
 
 export class UnknownProjectError extends Error {
   readonly name = "UnknownProjectError";
-}
-
-export class UnknownSpaceError extends Error {
-  readonly name = "UnknownSpaceError";
 }
 
 export class SpaceProjectMismatchError extends Error {
@@ -151,11 +148,6 @@ function getProjectSpace(db: DB, projectId: string): string {
   return row.spaceId;
 }
 
-function requireSpaceLocal(db: DB, spaceId: string): void {
-  if (!db.select().from(spaces).where(eq(spaces.id, spaceId)).get())
-    throw new UnknownSpaceError();
-}
-
 export function isActorAssignee(db: DB, taskId: string, actorId: string): boolean {
   const row = db
     .select({ assignedTo: tasks.assignedTo })
@@ -227,11 +219,11 @@ export function createTask(
     spaceId = getProjectSpace(db, body.project_id);
     if (body.space_id && body.space_id !== spaceId) throw new SpaceProjectMismatchError();
   } else if (body.space_id) {
-    requireSpaceLocal(db, body.space_id);
     spaceId = body.space_id;
   } else {
     spaceId = DEFAULT_SPACE_ID;
   }
+  assertSpaceWriteable(db, spaceId);
 
   const id = newId();
   const now = nowIso();
@@ -309,11 +301,11 @@ export function updateTask(
       // Direct space change on a project-bound task without clearing the project.
       throw new SpaceProjectMismatchError();
     }
-    requireSpaceLocal(db, body.space_id);
     newSpaceId = body.space_id;
   } else {
     newSpaceId = existing.spaceId;
   }
+  if (newSpaceId !== existing.spaceId) assertSpaceWriteable(db, newSpaceId);
 
   const newTagsArr =
     body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   DEFAULT_SPACE_ID,
   type CreateSpaceRequest,
@@ -26,6 +26,14 @@ export class UnknownSpaceError extends Error {
   readonly name = "UnknownSpaceError";
 }
 
+export class SpaceArchiveBlockedError extends Error {
+  readonly name = "SpaceArchiveBlockedError";
+}
+
+export class SpaceArchivedError extends Error {
+  readonly name = "SpaceArchivedError";
+}
+
 export function toSpace(row: typeof spaces.$inferSelect): Space {
   return {
     id: row.id,
@@ -42,8 +50,25 @@ export function requireSpace(db: DB, spaceId: string): void {
     throw new UnknownSpaceError();
 }
 
-export function listSpaces(db: DB): Space[] {
-  return db.select().from(spaces).all().map(toSpace);
+/**
+ * Validate that the given space exists and is not archived — i.e. it's a valid
+ * target for creating new tasks/projects or moving a project into it. Throws
+ * UnknownSpaceError or SpaceArchivedError.
+ */
+export function assertSpaceWriteable(db: DB, spaceId: string): void {
+  const row = db
+    .select({ archivedAt: spaces.archivedAt })
+    .from(spaces)
+    .where(eq(spaces.id, spaceId))
+    .get();
+  if (!row) throw new UnknownSpaceError();
+  if (row.archivedAt !== null) throw new SpaceArchivedError();
+}
+
+export function listSpaces(db: DB, opts: { includeArchived?: boolean } = {}): Space[] {
+  const query = db.select().from(spaces);
+  const rows = opts.includeArchived ? query.all() : query.where(isNull(spaces.archivedAt)).all();
+  return rows.map(toSpace);
 }
 
 export function getSpace(db: DB, id: string): Space {
@@ -84,13 +109,8 @@ export function deleteSpace(db: DB, id: string): void {
   const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
   if (!existing) throw new SpaceNotFoundError();
 
-  const projectCount = db
-    .select({ n: sql<number>`count(*)` })
-    .from(projects)
-    .where(eq(projects.spaceId, id))
-    .get();
-  if ((projectCount?.n ?? 0) > 0) throw new SpaceNotEmptyError();
-
+  // No tasks → safe to delete. Projects in the space are necessarily empty
+  // (a task would have inherited the project's space), so we cascade them.
   const taskCount = db
     .select({ n: sql<number>`count(*)` })
     .from(tasks)
@@ -98,7 +118,37 @@ export function deleteSpace(db: DB, id: string): void {
     .get();
   if ((taskCount?.n ?? 0) > 0) throw new SpaceNotEmptyError();
 
-  db.delete(spaces).where(eq(spaces.id, id)).run();
+  db.transaction((tx) => {
+    tx.delete(projects).where(eq(projects.spaceId, id)).run();
+    tx.delete(spaces).where(eq(spaces.id, id)).run();
+  });
+}
+
+export function archiveSpace(db: DB, id: string): Space {
+  const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
+  if (!existing) throw new SpaceNotFoundError();
+  if (existing.archivedAt !== null) return toSpace(existing);
+
+  const liveTasks = db
+    .select({ n: sql<number>`count(*)` })
+    .from(tasks)
+    .where(and(eq(tasks.spaceId, id), eq(tasks.archived, false)))
+    .get();
+  if ((liveTasks?.n ?? 0) > 0) throw new SpaceArchiveBlockedError();
+
+  const now = nowIso();
+  db.update(spaces).set({ archivedAt: now, updatedAt: now }).where(eq(spaces.id, id)).run();
+  return toSpace({ ...existing, archivedAt: now, updatedAt: now });
+}
+
+export function unarchiveSpace(db: DB, id: string): Space {
+  const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
+  if (!existing) throw new SpaceNotFoundError();
+  if (existing.archivedAt === null) return toSpace(existing);
+
+  const now = nowIso();
+  db.update(spaces).set({ archivedAt: null, updatedAt: now }).where(eq(spaces.id, id)).run();
+  return toSpace({ ...existing, archivedAt: null, updatedAt: now });
 }
 
 /**
@@ -115,7 +165,7 @@ export function moveProjectToSpace(
 ): void {
   const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
   if (!project) throw new Error("Project not found");
-  requireSpace(db, newSpaceId);
+  assertSpaceWriteable(db, newSpaceId);
   if (project.spaceId === newSpaceId) return;
 
   const oldSpaceId = project.spaceId;

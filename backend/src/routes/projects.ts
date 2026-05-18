@@ -7,7 +7,12 @@ import {
 } from "@agentic-kanban/shared";
 import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
-import { UnknownSpaceError, moveProjectToSpace, requireSpace } from "../services/spaces.js";
+import {
+  SpaceArchivedError,
+  UnknownSpaceError,
+  assertSpaceWriteable,
+  moveProjectToSpace,
+} from "../services/spaces.js";
 
 const ACTOR_HEADER = "x-user-id";
 
@@ -75,10 +80,12 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const body = req.body as CreateProjectRequest;
       const spaceId = body.space_id ?? DEFAULT_SPACE_ID;
       try {
-        requireSpace(app.db, spaceId);
+        assertSpaceWriteable(app.db, spaceId);
       } catch (err) {
         if (err instanceof UnknownSpaceError)
           return reply.code(400).send({ error: "Unknown space_id" });
+        if (err instanceof SpaceArchivedError)
+          return reply.code(400).send({ error: "Target space is archived" });
         throw err;
       }
       const row = {
@@ -134,6 +141,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         } catch (err) {
           if (err instanceof UnknownSpaceError)
             return reply.code(400).send({ error: "Unknown space_id" });
+          if (err instanceof SpaceArchivedError)
+            return reply.code(400).send({ error: "Target space is archived" });
           throw err;
         }
       }

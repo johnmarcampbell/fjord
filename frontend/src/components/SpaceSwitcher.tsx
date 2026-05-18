@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
+import { ManageSpacesDialog } from "./ManageSpacesDialog.js";
 
 export function SpaceSwitcher() {
   const { activeSpaceId, spaces, setActiveSpaceId } = useActiveSpace();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [managing, setManaging] = useState(false);
   const [newName, setNewName] = useState("");
 
   const createMutation = useMutation({
@@ -68,13 +70,22 @@ export function SpaceSwitcher() {
           </button>
         </form>
       ) : (
-        <button
-          onClick={() => setCreating(true)}
-          className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
-        >
-          + New space
-        </button>
+        <>
+          <button
+            onClick={() => setCreating(true)}
+            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+          >
+            + New space
+          </button>
+          <button
+            onClick={() => setManaging(true)}
+            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+          >
+            Manage
+          </button>
+        </>
       )}
+      {managing && <ManageSpacesDialog onClose={() => setManaging(false)} />}
     </div>
   );
 }
