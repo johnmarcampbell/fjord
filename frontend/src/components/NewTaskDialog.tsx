@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Column } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 
 export function NewTaskDialog({
   onClose,
@@ -13,9 +14,11 @@ export function NewTaskDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const queryClient = useQueryClient();
+  const { activeSpaceId } = useActiveSpace();
 
   const create = useMutation({
-    mutationFn: () => api.createTask({ title, description, column: defaultColumn }),
+    mutationFn: () =>
+      api.createTask({ title, description, column: defaultColumn, space_id: activeSpaceId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onClose();

@@ -3,14 +3,17 @@ import type {
   AddCommentRequest,
   AddJournalEntryRequest,
   CreateProjectRequest,
+  CreateSpaceRequest,
   CreateTaskRequest,
   CreateUserRequest,
   EventKind,
   Project,
   ServerConfig,
+  Space,
   Task,
   TaskEvent,
   UpdateProjectRequest,
+  UpdateSpaceRequest,
   UpdateTaskRequest,
   User,
 } from "@agentic-kanban/shared";
@@ -59,7 +62,10 @@ export const api = {
   createUser: (body: CreateUserRequest) =>
     request<User>("/api/users", { method: "POST", body: JSON.stringify(body) }),
 
-  listProjects: () => request<Project[]>("/api/projects"),
+  listProjects: (spaceId?: string) => {
+    const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";
+    return request<Project[]>(`/api/projects${qs}`);
+  },
   createProject: (body: CreateProjectRequest) =>
     request<Project>("/api/projects", { method: "POST", body: JSON.stringify(body) }),
   updateProject: (id: string, body: UpdateProjectRequest) =>
@@ -67,7 +73,18 @@ export const api = {
   deleteProject: (id: string) =>
     request<void>(`/api/projects/${id}`, { method: "DELETE" }),
 
-  listTasks: () => request<Task[]>("/api/tasks"),
+  listSpaces: () => request<Space[]>("/api/spaces"),
+  createSpace: (body: CreateSpaceRequest) =>
+    request<Space>("/api/spaces", { method: "POST", body: JSON.stringify(body) }),
+  updateSpace: (id: string, body: UpdateSpaceRequest) =>
+    request<Space>(`/api/spaces/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteSpace: (id: string) =>
+    request<void>(`/api/spaces/${id}`, { method: "DELETE" }),
+
+  listTasks: (spaceId?: string) => {
+    const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";
+    return request<Task[]>(`/api/tasks${qs}`);
+  },
   getTask: (id: string) => request<Task>(`/api/tasks/${id}`),
   createTask: (body: CreateTaskRequest) =>
     request<Task>("/api/tasks", { method: "POST", body: JSON.stringify(body) }),
@@ -108,8 +125,10 @@ export const api = {
     request<Task>(`/api/tasks/${id}/archive`, { method: "POST" }),
   unarchiveTask: (id: string) =>
     request<Task>(`/api/tasks/${id}/unarchive`, { method: "POST" }),
-  listArchivedTasks: () =>
-    request<Task[]>("/api/tasks?include_archived=true").then((tasks) =>
-      tasks.filter((t) => t.archived),
-    ),
+  listArchivedTasks: (spaceId?: string) => {
+    const qs = spaceId
+      ? `?include_archived=true&space_id=${encodeURIComponent(spaceId)}`
+      : "?include_archived=true";
+    return request<Task[]>(`/api/tasks${qs}`).then((tasks) => tasks.filter((t) => t.archived));
+  },
 };

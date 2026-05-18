@@ -1,16 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api.js";
 
-export function useTasks() {
-  return useQuery({ queryKey: ["tasks"], queryFn: () => api.listTasks() });
+export function useSpaces() {
+  return useQuery({ queryKey: ["spaces"], queryFn: () => api.listSpaces() });
+}
+
+export function useTasks(spaceId?: string) {
+  return useQuery({
+    queryKey: ["tasks", spaceId ?? null],
+    queryFn: () => api.listTasks(spaceId),
+  });
 }
 
 export function useUsers() {
   return useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
 }
 
-export function useProjects() {
-  return useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
+export function useProjects(spaceId?: string) {
+  return useQuery({
+    queryKey: ["projects", spaceId ?? null],
+    queryFn: () => api.listProjects(spaceId),
+  });
 }
 
 export function useTaskEvents(taskId: string | null) {
@@ -21,9 +31,9 @@ export function useTaskEvents(taskId: string | null) {
   });
 }
 
-export function useArchivedTasks() {
+export function useArchivedTasks(spaceId?: string) {
   return useQuery({
-    queryKey: ["archived-tasks"],
-    queryFn: () => api.listArchivedTasks(),
+    queryKey: ["archived-tasks", spaceId ?? null],
+    queryFn: () => api.listArchivedTasks(spaceId),
   });
 }

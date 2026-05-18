@@ -49,7 +49,10 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
     queryFn: () => api.listEvents(taskId),
   });
   const { data: users = [] } = useUsers();
-  const { data: projects = [] } = useProjects();
+  // Scope the project picker to the task's own space — moving a task into a
+  // project from another space would auto-shift it across spaces, which is
+  // confusing and unsupported from the drawer.
+  const { data: projects = [] } = useProjects(task?.space_id);
 
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");

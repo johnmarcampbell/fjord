@@ -16,6 +16,7 @@ import {
 } from "@agentic-kanban/shared";
 import { useTasks, useProjects } from "../lib/queries.js";
 import { useMoveTask } from "../lib/mutations.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
@@ -28,8 +29,9 @@ export function Board({
 }: {
   setOpenTaskId: (id: string | null) => void;
 }) {
-  const { data: tasks = [], isLoading, isError, error } = useTasks();
-  const { data: projects = [] } = useProjects();
+  const { activeSpaceId } = useActiveSpace();
+  const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
+  const { data: projects = [] } = useProjects(activeSpaceId);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 

@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { toast } from "sonner";
 import type { Project, Task } from "@agentic-kanban/shared";
 import { useArchivedTasks, useProjects } from "../lib/queries.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
@@ -79,8 +80,9 @@ function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
 }
 
 export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
-  const { data: tasks, isLoading } = useArchivedTasks();
-  const { data: projects = [] } = useProjects();
+  const { activeSpaceId } = useActiveSpace();
+  const { data: tasks, isLoading } = useArchivedTasks(activeSpaceId);
+  const { data: projects = [] } = useProjects(activeSpaceId);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
   const unarchiveMutation = useUnarchiveTask({
     onSuccess: () => toast.success("Task unarchived"),
