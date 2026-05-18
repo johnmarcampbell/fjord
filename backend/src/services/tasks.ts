@@ -1,11 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import type {
-  Column,
-  CreateTaskRequest,
-  Task,
-  TaskEvent,
-  UpdateTaskRequest,
+import {
+  DEFAULT_SPACE_ID,
+  type Column,
+  type CreateTaskRequest,
+  type Task,
+  type TaskEvent,
+  type UpdateTaskRequest,
 } from "@agentic-kanban/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
@@ -216,6 +217,7 @@ export function createTask(
     version: 1,
     archived: false,
     archivedAt: null,
+    spaceId: DEFAULT_SPACE_ID,
   };
   db.insert(tasks).values(row).run();
   db.insert(taskEvents)
