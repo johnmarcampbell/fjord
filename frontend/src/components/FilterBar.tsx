@@ -4,6 +4,7 @@ import clsx from "clsx";
 import type { Project, User } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
 import { useProjects, useUsers } from "../lib/queries.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 import { getCurrentUserId } from "../lib/user.js";
@@ -27,7 +28,8 @@ export function FilterBar({ allTags }: FilterBarProps) {
     setSelectedUsers,
   } = useFilterContext();
 
-  const { data: projects = [] } = useProjects();
+  const { activeSpaceId } = useActiveSpace();
+  const { data: projects = [] } = useProjects(activeSpaceId);
   const { data: users = [] } = useUsers();
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -429,6 +431,7 @@ function ProjectForm({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { activeSpaceId } = useActiveSpace();
   const [name, setName] = useState(initial?.name ?? "");
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0]);
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -445,6 +448,7 @@ function ProjectForm({
         color,
         description,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        space_id: activeSpaceId,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });

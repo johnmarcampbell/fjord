@@ -15,6 +15,7 @@ import clsx from "clsx";
 import { toast } from "sonner";
 import { isTaskBlocked, type Column, type Project, type Task } from "@agentic-kanban/shared";
 import { useTasks, useProjects } from "../lib/queries.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
@@ -198,8 +199,9 @@ export function BacklogView({
 }: {
   setOpenTaskId: (id: string | null) => void;
 }) {
-  const { data: tasks = [], isLoading, isError, error } = useTasks();
-  const { data: projects = [] } = useProjects();
+  const { activeSpaceId } = useActiveSpace();
+  const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
+  const { data: projects = [] } = useProjects(activeSpaceId);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 

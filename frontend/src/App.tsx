@@ -11,6 +11,8 @@ import { ArchiveView } from "./components/ArchiveView.js";
 import { useStreamSubscription } from "./lib/stream.js";
 import { useTasks, useArchivedTasks } from "./lib/queries.js";
 import { FilterProvider } from "./lib/FilterContext.js";
+import { SpaceProvider, useActiveSpace } from "./lib/SpaceContext.js";
+import { SpaceSwitcher } from "./components/SpaceSwitcher.js";
 
 function SunIcon() {
   return (
@@ -37,6 +39,16 @@ function MoonIcon() {
 }
 
 export default function App() {
+  return (
+    <SpaceProvider>
+      <FilterProvider>
+        <AppContent />
+      </FilterProvider>
+    </SpaceProvider>
+  );
+}
+
+function AppContent() {
   const queryClient = useQueryClient();
   useStreamSubscription(queryClient);
   const { data: serverConfig } = useQuery({
@@ -44,8 +56,9 @@ export default function App() {
     queryFn: api.getConfig,
     staleTime: Infinity,
   });
-  const { data: tasks = [] } = useTasks();
-  const { data: archivedTasks } = useArchivedTasks();
+  const { activeSpaceId } = useActiveSpace();
+  const { data: tasks = [] } = useTasks(activeSpaceId);
+  const { data: archivedTasks } = useArchivedTasks(activeSpaceId);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"board" | "backlog" | "archive">(() => {
@@ -75,7 +88,6 @@ export default function App() {
   }
 
   return (
-    <FilterProvider>
     <div className="flex h-full flex-col bg-bg">
       {serverConfig?.demo && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-[rgb(202,168,55)]">
@@ -83,8 +95,9 @@ export default function App() {
         </div>
       )}
       <header className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 shadow-[0_1px_0_var(--color-border)]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <span className="text-lg font-bold tracking-tight text-ink">Agentic Kanban</span>
+          <SpaceSwitcher />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex gap-4">
@@ -197,6 +210,5 @@ export default function App() {
         }}
       />
     </div>
-    </FilterProvider>
   );
 }
