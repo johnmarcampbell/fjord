@@ -88,19 +88,38 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg">
+    <div className="flex h-full flex-col overflow-x-hidden bg-bg">
       {serverConfig?.demo && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-[rgb(202,168,55)]">
           Demo mode — changes will revert after a short time
         </div>
       )}
-      <header className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 shadow-[0_1px_0_var(--color-border)]">
-        <div className="flex items-center gap-4">
-          <span className="text-lg font-bold tracking-tight text-ink">Agentic Kanban</span>
-          <SpaceSwitcher />
+      <header className="flex flex-col gap-2 border-b border-border bg-surface px-4 py-2.5 shadow-[0_1px_0_var(--color-border)] sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:px-5 sm:py-3">
+        <div className="flex items-center justify-between gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <span className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">Agentic Kanban</span>
+            <SpaceSwitcher />
+          </div>
+          <div className="flex items-center gap-1 sm:hidden">
+            <a
+              href="/api/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg px-2 py-1.5 text-xs text-ink-subtle transition-colors hover:text-ink-muted"
+            >
+              API
+            </a>
+            <button
+              onClick={toggleTheme}
+              className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            >
+              {theme === "light" ? <MoonIcon /> : <SunIcon />}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex flex-shrink-0 gap-3 sm:gap-4">
             <button
               onClick={() => setViewAndPersist("backlog")}
               className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
@@ -110,7 +129,7 @@ function AppContent() {
               }`}
             >
               Backlog
-              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+              <span className="ml-1.5 hidden rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted sm:inline-block">
                 {backlogCount}
               </span>
             </button>
@@ -123,7 +142,7 @@ function AppContent() {
               }`}
             >
               Board
-              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+              <span className="ml-1.5 hidden rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted sm:inline-block">
                 {boardCount}
               </span>
             </button>
@@ -136,33 +155,36 @@ function AppContent() {
               }`}
             >
               Archive
-              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+              <span className="ml-1.5 hidden rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted sm:inline-block">
                 {archiveCount ?? 0}
               </span>
             </button>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-          >
-            + New task
-          </button>
-          <UserPicker />
-          <a
-            href="/api/docs"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg px-2 py-1.5 text-xs text-ink-subtle transition-colors hover:text-ink-muted"
-          >
-            API docs
-          </a>
-          <button
-            onClick={toggleTheme}
-            className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-          >
-            {theme === "light" ? <MoonIcon /> : <SunIcon />}
-          </button>
+          <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setCreating(true)}
+              className="whitespace-nowrap rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover sm:px-4"
+            >
+              <span className="sm:hidden">+&nbsp;New</span>
+              <span className="hidden sm:inline">+ New task</span>
+            </button>
+            <UserPicker />
+            <a
+              href="/api/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden rounded-lg px-2 py-1.5 text-xs text-ink-subtle transition-colors hover:text-ink-muted sm:inline-block"
+            >
+              API docs
+            </a>
+            <button
+              onClick={toggleTheme}
+              className="hidden rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink sm:inline-flex"
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            >
+              {theme === "light" ? <MoonIcon /> : <SunIcon />}
+            </button>
+          </div>
         </div>
       </header>
       <main className="flex-1 overflow-hidden">

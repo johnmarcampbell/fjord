@@ -23,11 +23,11 @@ export function SpaceSwitcher() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-ink-subtle">Space</span>
+      <span className="hidden text-xs text-ink-subtle sm:inline">Space</span>
       <select
         value={activeSpaceId}
         onChange={(e) => setActiveSpaceId(e.target.value)}
-        className="rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
+        className="max-w-[140px] rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
       >
         {spaces.map((s) => (
           <option key={s.id} value={s.id}>
@@ -73,13 +73,13 @@ export function SpaceSwitcher() {
         <>
           <button
             onClick={() => setCreating(true)}
-            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+            className="hidden whitespace-nowrap text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted sm:inline"
           >
             + New space
           </button>
           <button
             onClick={() => setManaging(true)}
-            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
+            className="hidden whitespace-nowrap text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted sm:inline"
           >
             Manage
           </button>

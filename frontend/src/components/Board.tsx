@@ -173,7 +173,7 @@ export function Board({
         onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-5">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden sm:p-5">
           {BOARD_COLUMNS.map((c) => (
             <ColumnView
               key={c}
