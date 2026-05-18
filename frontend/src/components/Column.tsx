@@ -19,7 +19,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
   });
 
   return (
-    <div className="flex w-full flex-shrink-0 flex-col gap-3 sm:w-auto sm:flex-1 sm:flex-shrink sm:min-w-[272px]">
+    <div className="flex w-full flex-shrink-0 flex-col gap-3 sm:h-full sm:w-auto sm:min-h-0 sm:flex-1 sm:flex-shrink sm:min-w-[272px]">
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">
           {column}
@@ -36,7 +36,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
             ? { outline: "2px solid var(--color-border-focus)", outlineOffset: "2px" }
             : undefined
         }
-        className="flex-1 rounded-xl p-1 transition-colors min-h-[80px]"
+        className="flex-1 rounded-xl p-1 transition-colors min-h-[80px] sm:overflow-y-auto sm:min-h-0"
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
