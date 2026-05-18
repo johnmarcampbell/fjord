@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import type { Project, Task } from "@agentic-kanban/shared";
 import { useArchivedTasks, useProjects } from "../lib/queries.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
+import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 
 interface RowProps {
   task: Task;
@@ -80,8 +81,7 @@ function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
 export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
   const { data: tasks, isLoading } = useArchivedTasks();
   const { data: projects = [] } = useProjects();
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
   const unarchiveMutation = useUnarchiveTask({
     onSuccess: () => toast.success("Task unarchived"),
     onError: () => toast.error("Failed to unarchive task"),
@@ -108,12 +108,18 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
     if (selectedTags.length > 0) {
       result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
     }
+    if (selectedUsers.length > 0) {
+      result = result.filter((t) => {
+        if (selectedUsers.includes(UNASSIGNED_SENTINEL) && t.assigned_to === null) return true;
+        return t.assigned_to !== null && selectedUsers.includes(t.assigned_to);
+      });
+    }
     return result.sort((a, b) => {
       const aTime = a.archived_at ? new Date(a.archived_at).getTime() : 0;
       const bTime = b.archived_at ? new Date(b.archived_at).getTime() : 0;
       return bTime - aTime;
     });
-  }, [tasks, selectedProject, selectedTags]);
+  }, [tasks, selectedProject, selectedTags, selectedUsers]);
 
   const handleUnarchive = (taskId: string) => unarchiveMutation.mutate(taskId);
 
@@ -127,13 +133,7 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
 
   return (
     <div className="flex h-full flex-col">
-      <FilterBar
-        selectedProject={selectedProject}
-        selectedTags={selectedTags}
-        onProjectChange={setSelectedProject}
-        onTagsChange={setSelectedTags}
-        allTags={allTags}
-      />
+      <FilterBar allTags={allTags} />
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <div className="mx-auto max-w-4xl">
           {sortedTasks.length === 0 ? (

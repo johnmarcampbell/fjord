@@ -10,6 +10,7 @@ import { UserPicker } from "./components/UserPicker.js";
 import { ArchiveView } from "./components/ArchiveView.js";
 import { useStreamSubscription } from "./lib/stream.js";
 import { useTasks, useArchivedTasks } from "./lib/queries.js";
+import { FilterProvider } from "./lib/FilterContext.js";
 
 function SunIcon() {
   return (
@@ -74,6 +75,7 @@ export default function App() {
   }
 
   return (
+    <FilterProvider>
     <div className="flex h-full flex-col bg-bg">
       {serverConfig?.demo && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-sm text-[rgb(202,168,55)]">
@@ -195,5 +197,6 @@ export default function App() {
         }}
       />
     </div>
+    </FilterProvider>
   );
 }
