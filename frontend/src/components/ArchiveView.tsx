@@ -30,7 +30,7 @@ function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
             className="h-2 w-2 flex-shrink-0 rounded-full"
             style={{ background: project.color }}
           />
-          <span className="text-[11px] font-medium text-ink-muted">{project.name}</span>
+          <span className="hidden text-[11px] font-medium text-ink-muted sm:inline">{project.name}</span>
         </div>
       )}
 
