@@ -5,7 +5,7 @@ import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
 import { useUsers } from "../lib/queries.js";
 
 export function UserPicker() {
-  const { data: users = [], isLoading } = useUsers();
+  const { data: users = [], isLoading, isSuccess } = useUsers();
   const [current, setCurrent] = useState<string | null>(getCurrentUserId());
   const [creating, setCreating] = useState(false);
   const [newId, setNewId] = useState("");
@@ -13,14 +13,14 @@ export function UserPicker() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (users.length === 0) return;
-    const valid = users.some((u) => u.id === current);
-    if (!valid) {
-      const first = users[0]!.id;
-      setCurrentUserId(first);
-      setCurrent(first);
-    }
-  }, [users, current]);
+    if (!isSuccess) return;
+    const valid = current !== null && users.some((u) => u.id === current);
+    if (valid) return;
+    const next = users[0]?.id ?? null;
+    if (next === current) return;
+    setCurrentUserId(next);
+    setCurrent(next);
+  }, [users, current, isSuccess]);
 
   const createMutation = useMutation({
     mutationFn: () =>
