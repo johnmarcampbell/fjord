@@ -17,6 +17,7 @@ import { isTaskBlocked, type Column, type Project, type Task } from "@agentic-ka
 import { useTasks, useProjects } from "../lib/queries.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
+import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 
 type PromoteHandler = (task: Task, target: Column) => void;
 
@@ -200,8 +201,7 @@ export function BacklogView({
   const { data: tasks = [], isLoading, isError, error } = useTasks();
   const { data: projects = [] } = useProjects();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 
   const moveMutation = useMoveTask();
 
@@ -237,8 +237,14 @@ export function BacklogView({
     if (selectedTags.length > 0) {
       result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
     }
+    if (selectedUsers.length > 0) {
+      result = result.filter((t) => {
+        if (selectedUsers.includes(UNASSIGNED_SENTINEL) && t.assigned_to === null) return true;
+        return t.assigned_to !== null && selectedUsers.includes(t.assigned_to);
+      });
+    }
     return result;
-  }, [backlogTasks, selectedProject, selectedTags]);
+  }, [backlogTasks, selectedProject, selectedTags, selectedUsers]);
 
   const blockedIds = useMemo(() => {
     const taskById = new Map(tasks.map((t) => [t.id, t]));
@@ -330,13 +336,7 @@ export function BacklogView({
 
   return (
     <div className="flex h-full flex-col">
-      <FilterBar
-        selectedProject={selectedProject}
-        selectedTags={selectedTags}
-        onProjectChange={setSelectedProject}
-        onTagsChange={setSelectedTags}
-        allTags={allTags}
-      />
+      <FilterBar allTags={allTags} />
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}

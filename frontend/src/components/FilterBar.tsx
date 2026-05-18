@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import type { Project } from "@agentic-kanban/shared";
+import type { Project, User } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
-import { useProjects } from "../lib/queries.js";
+import { useProjects, useUsers } from "../lib/queries.js";
 import { DateTimePicker } from "./DateTimePicker.js";
+import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { getCurrentUserId } from "../lib/user.js";
 
 const PRESET_COLORS = [
   "#4A7FA5", "#6B9E8A", "#C9A94A", "#6B7F8E",
@@ -12,39 +14,74 @@ const PRESET_COLORS = [
 ];
 
 interface FilterBarProps {
-  selectedProject: string | null;
-  selectedTags: string[];
-  onProjectChange: (id: string | null) => void;
-  onTagsChange: (tags: string[]) => void;
   allTags: string[];
 }
 
-export function FilterBar({
-  selectedProject,
-  selectedTags,
-  onProjectChange,
-  onTagsChange,
-  allTags,
-}: FilterBarProps) {
+export function FilterBar({ allTags }: FilterBarProps) {
+  const {
+    selectedProject,
+    setSelectedProject,
+    selectedTags,
+    setSelectedTags,
+    selectedUsers,
+    setSelectedUsers,
+  } = useFilterContext();
+
   const { data: projects = [] } = useProjects();
+  const { data: users = [] } = useUsers();
   const [projectOpen, setProjectOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | "new" | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const currentUserId = getCurrentUserId();
   const selectedProjectObj = projects.find((p) => p.id === selectedProject);
+
   const suggestions = allTags.filter(
     (t) => t.includes(tagInput.toLowerCase()) && !selectedTags.includes(t),
   );
-  const hasFilters = selectedProject !== null || selectedTags.length > 0;
+  const hasFilters = selectedProject !== null || selectedTags.length > 0 || selectedUsers.length > 0;
+
+  const userDropdownLabel = useMemo(() => {
+    if (selectedUsers.length === 0) return "All users";
+    if (selectedUsers.length === 1) {
+      if (selectedUsers[0] === UNASSIGNED_SENTINEL) return "Unassigned";
+      const u = users.find((u) => u.id === selectedUsers[0]);
+      return u?.display_name ?? "1 user";
+    }
+    return `${selectedUsers.length} users`;
+  }, [selectedUsers, users]);
+
+  const isAssignedToMeActive =
+    currentUserId !== null &&
+    selectedUsers.length === 1 &&
+    selectedUsers[0] === currentUserId;
 
   function addTag(tag: string) {
     const clean = tag.trim().toLowerCase();
     if (clean && !selectedTags.includes(clean)) {
-      onTagsChange([...selectedTags, clean]);
+      setSelectedTags([...selectedTags, clean]);
     }
     setTagInput("");
     setShowSuggestions(false);
+  }
+
+  function toggleUser(id: string) {
+    if (selectedUsers.includes(id)) {
+      setSelectedUsers(selectedUsers.filter((u) => u !== id));
+    } else {
+      setSelectedUsers([...selectedUsers, id]);
+    }
+  }
+
+  function handleAssignedToMe() {
+    if (!currentUserId) return;
+    if (isAssignedToMeActive) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers([currentUserId]);
+    }
   }
 
   return (
@@ -74,7 +111,7 @@ export function FilterBar({
             projects={projects}
             selectedId={selectedProject}
             onSelect={(id) => {
-              onProjectChange(id);
+              setSelectedProject(id);
               setProjectOpen(false);
             }}
             onClose={() => setProjectOpen(false)}
@@ -86,10 +123,50 @@ export function FilterBar({
               setEditingProject("new");
               setProjectOpen(false);
             }}
-            onDeletedSelected={() => onProjectChange(null)}
+            onDeletedSelected={() => setSelectedProject(null)}
           />
         )}
       </div>
+
+      {/* User picker */}
+      <div className="relative">
+        <button
+          onClick={() => setUserOpen((v) => !v)}
+          className={clsx(
+            "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+            selectedUsers.length > 0
+              ? "border-accent/40 bg-accent/10 text-accent hover:border-accent/60"
+              : "border-border bg-surface-subtle text-ink-muted hover:border-border-focus hover:text-ink",
+          )}
+        >
+          <span>{userDropdownLabel}</span>
+          <span className="ml-0.5 text-ink-subtle">▾</span>
+        </button>
+
+        {userOpen && (
+          <UserDropdown
+            users={users}
+            selectedUsers={selectedUsers}
+            onToggle={toggleUser}
+            onClose={() => setUserOpen(false)}
+          />
+        )}
+      </div>
+
+      {/* Assigned to me */}
+      {currentUserId && (
+        <button
+          onClick={handleAssignedToMe}
+          className={clsx(
+            "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+            isAssignedToMeActive
+              ? "border-accent/40 bg-accent/10 text-accent hover:border-accent/60"
+              : "border-border bg-surface-subtle text-ink-muted hover:border-border-focus hover:text-ink",
+          )}
+        >
+          Assigned to me
+        </button>
+      )}
 
       {/* Active tag pills */}
       {selectedTags.map((tag) => (
@@ -99,7 +176,7 @@ export function FilterBar({
         >
           {tag}
           <button
-            onClick={() => onTagsChange(selectedTags.filter((t) => t !== tag))}
+            onClick={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
             className="ml-0.5 text-tag-text opacity-60 hover:opacity-100 transition-opacity"
           >
             ✕
@@ -144,8 +221,9 @@ export function FilterBar({
       {hasFilters && (
         <button
           onClick={() => {
-            onProjectChange(null);
-            onTagsChange([]);
+            setSelectedProject(null);
+            setSelectedTags([]);
+            setSelectedUsers([]);
           }}
           className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink-muted"
         >
@@ -159,6 +237,70 @@ export function FilterBar({
           onClose={() => setEditingProject(null)}
         />
       )}
+    </div>
+  );
+}
+
+function UserDropdown({
+  users,
+  selectedUsers,
+  onToggle,
+  onClose,
+}: {
+  users: User[];
+  selectedUsers: string[];
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-border bg-surface-elevated py-1 shadow-modal"
+    >
+      <button
+        onClick={() => onToggle(UNASSIGNED_SENTINEL)}
+        className={clsx(
+          "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-surface-hover",
+          selectedUsers.includes(UNASSIGNED_SENTINEL) ? "text-accent" : "text-ink-muted",
+        )}
+      >
+        <span className="inline-block h-2 w-2 flex-shrink-0 rounded-full border border-current opacity-50" />
+        Unassigned
+      </button>
+      {users.map((u) => (
+        <button
+          key={u.id}
+          onClick={() => onToggle(u.id)}
+          className={clsx(
+            "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-surface-hover",
+            selectedUsers.includes(u.id) ? "text-accent" : "text-ink-muted",
+          )}
+        >
+          <span
+            className={clsx(
+              "inline-block h-2 w-2 flex-shrink-0 rounded-full",
+              u.kind === "agent" ? "rounded-sm" : "rounded-full",
+            )}
+            style={{ background: "currentColor", opacity: 0.5 }}
+          />
+          <span className="truncate">{u.display_name}</span>
+          {u.kind === "agent" && (
+            <span className="ml-auto flex-shrink-0 text-[10px] font-normal opacity-50">bot</span>
+          )}
+        </button>
+      ))}
     </div>
   );
 }
