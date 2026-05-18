@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api.js";
 
-export function useSpaces() {
-  return useQuery({ queryKey: ["spaces"], queryFn: () => api.listSpaces() });
+export function useSpaces(opts: { includeArchived?: boolean } = {}) {
+  const includeArchived = opts.includeArchived ?? false;
+  return useQuery({
+    queryKey: ["spaces", includeArchived],
+    queryFn: () => api.listSpaces({ includeArchived }),
+  });
 }
 
 export function useTasks(spaceId?: string) {

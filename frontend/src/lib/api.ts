@@ -73,13 +73,20 @@ export const api = {
   deleteProject: (id: string) =>
     request<void>(`/api/projects/${id}`, { method: "DELETE" }),
 
-  listSpaces: () => request<Space[]>("/api/spaces"),
+  listSpaces: (opts: { includeArchived?: boolean } = {}) => {
+    const qs = opts.includeArchived ? "?include_archived=true" : "";
+    return request<Space[]>(`/api/spaces${qs}`);
+  },
   createSpace: (body: CreateSpaceRequest) =>
     request<Space>("/api/spaces", { method: "POST", body: JSON.stringify(body) }),
   updateSpace: (id: string, body: UpdateSpaceRequest) =>
     request<Space>(`/api/spaces/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteSpace: (id: string) =>
     request<void>(`/api/spaces/${id}`, { method: "DELETE" }),
+  archiveSpace: (id: string) =>
+    request<Space>(`/api/spaces/${id}/archive`, { method: "POST" }),
+  unarchiveSpace: (id: string) =>
+    request<Space>(`/api/spaces/${id}/unarchive`, { method: "POST" }),
 
   listTasks: (spaceId?: string) => {
     const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";
