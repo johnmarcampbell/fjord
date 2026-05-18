@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { asc, eq } from "drizzle-orm";
 import {
   DEFAULT_SPACE_ID,
@@ -7,6 +7,15 @@ import {
 } from "@agentic-kanban/shared";
 import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
+import { UnknownSpaceError, moveProjectToSpace, requireSpace } from "../services/spaces.js";
+
+const ACTOR_HEADER = "x-user-id";
+
+function getActorId(req: FastifyRequest): string | null {
+  const v = req.headers[ACTOR_HEADER];
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
+}
 
 function toProject(row: typeof projects.$inferSelect) {
   return {
@@ -16,15 +25,30 @@ function toProject(row: typeof projects.$inferSelect) {
     description: row.description,
     due_at: row.dueAt,
     created_at: row.createdAt,
+    space_id: row.spaceId,
   };
 }
 
 export const projectsRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     "/api/projects",
-    { schema: { summary: "List all projects", tags: ["projects"] } },
-    async () => {
-      return app.db.select().from(projects).orderBy(asc(projects.createdAt)).all().map(toProject);
+    {
+      schema: {
+        summary: "List all projects",
+        tags: ["projects"],
+        querystring: {
+          type: "object",
+          properties: {
+            space_id: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req) => {
+      const { space_id } = req.query as { space_id?: string };
+      const query = app.db.select().from(projects).orderBy(asc(projects.createdAt));
+      const rows = space_id ? query.where(eq(projects.spaceId, space_id)).all() : query.all();
+      return rows.map(toProject);
     },
   );
 
@@ -42,12 +66,21 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
             color: { type: "string", default: "#4A7FA5" },
             description: { type: "string", default: "" },
             due_at: { type: ["string", "null"] },
+            space_id: { type: "string" },
           },
         },
       },
     },
     async (req, reply) => {
       const body = req.body as CreateProjectRequest;
+      const spaceId = body.space_id ?? DEFAULT_SPACE_ID;
+      try {
+        requireSpace(app.db, spaceId);
+      } catch (err) {
+        if (err instanceof UnknownSpaceError)
+          return reply.code(400).send({ error: "Unknown space_id" });
+        throw err;
+      }
       const row = {
         id: newId(),
         name: body.name,
@@ -55,7 +88,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         description: body.description ?? "",
         dueAt: body.due_at ?? null,
         createdAt: nowIso(),
-        spaceId: DEFAULT_SPACE_ID,
+        spaceId,
       };
       app.db.insert(projects).values(row).run();
       reply.code(201);
@@ -67,7 +100,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     "/api/projects/:id",
     {
       schema: {
-        summary: "Update a project",
+        summary: "Update a project (set space_id to move it; child tasks move too)",
         tags: ["projects"],
         params: {
           type: "object",
@@ -81,6 +114,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
             color: { type: "string" },
             description: { type: "string" },
             due_at: { type: ["string", "null"] },
+            space_id: { type: "string" },
           },
         },
       },
@@ -90,6 +124,20 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const body = req.body as UpdateProjectRequest;
       const existing = app.db.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "Project not found" });
+
+      if (body.space_id && body.space_id !== existing.spaceId) {
+        const actor = getActorId(req);
+        if (!actor)
+          return reply.code(400).send({ error: `Missing required header: ${ACTOR_HEADER}` });
+        try {
+          moveProjectToSpace(app.db, app.events, actor, id, body.space_id);
+        } catch (err) {
+          if (err instanceof UnknownSpaceError)
+            return reply.code(400).send({ error: "Unknown space_id" });
+          throw err;
+        }
+      }
+
       const updates = {
         name: body.name ?? existing.name,
         color: body.color ?? existing.color,

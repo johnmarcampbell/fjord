@@ -13,6 +13,7 @@ import { DemoResetter } from "./demo.js";
 import { usersRoutes } from "./routes/users.js";
 import { tasksRoutes } from "./routes/tasks.js";
 import { projectsRoutes } from "./routes/projects.js";
+import { spacesRoutes } from "./routes/spaces.js";
 import { streamRoutes } from "./routes/stream.js";
 import { nowIso } from "./services/tasks.js";
 
@@ -90,6 +91,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
       tags: [
         { name: "tasks", description: "Task CRUD and timeline" },
         { name: "projects", description: "Project management" },
+        { name: "spaces", description: "Space management (top-level grouping for projects and tasks)" },
         { name: "users", description: "User management" },
         { name: "stream", description: "Server-sent event stream" },
       ],
@@ -129,6 +131,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   await app.register(usersRoutes);
   await app.register(tasksRoutes);
   await app.register(projectsRoutes);
+  await app.register(spacesRoutes);
   await app.register(streamRoutes);
 
   if (config.staticDir) {

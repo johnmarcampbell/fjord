@@ -9,10 +9,12 @@ DELETE FROM users;
 DELETE FROM spaces;
 
 -- Spaces
--- Phase 1 of #56: all entities live in the 'default' space. Project/task INSERTs
--- below omit space_id and rely on the column DEFAULT 'default' to backfill.
+-- Main demo data lives in 'default'; 'sandbox' showcases a separate space.
+-- Project/task INSERTs below mostly omit space_id and rely on the column
+-- DEFAULT 'default' to backfill — only entries that belong to 'sandbox' specify it.
 INSERT INTO spaces (id, name, description, created_at, updated_at) VALUES
-  ('default', 'Default', '', '2025-01-10T09:00:00Z', '2025-01-10T09:00:00Z');
+  ('default', 'Default', '',                            '2025-01-10T09:00:00Z', '2025-01-10T09:00:00Z'),
+  ('sandbox', 'Sandbox', 'Experiments and side quests', '2025-02-15T09:00:00Z', '2025-02-15T09:00:00Z');
 
 -- Users
 INSERT INTO users (id, display_name, kind, created_at) VALUES
@@ -26,6 +28,10 @@ INSERT INTO users (id, display_name, kind, created_at) VALUES
 INSERT INTO projects (id, name, color, description, due_at, created_at) VALUES
   ('proj-core',  'Agentic Kanban', '#6366f1', 'The kanban board app for human-agent collaboration', '2025-07-01T00:00:00Z', '2025-01-10T09:00:00Z'),
   ('proj-infra', 'Infrastructure', '#10b981', 'Deployment, Docker, CI/CD',                          NULL,                   '2025-01-15T10:00:00Z');
+
+-- Sandbox project (lives in the 'sandbox' space)
+INSERT INTO projects (id, name, color, description, due_at, created_at, space_id) VALUES
+  ('proj-sandbox', 'Spike: agent memory', '#f59e0b', 'Tinkering with longer-term agent memory shapes', NULL, '2025-02-15T10:00:00Z', 'sandbox');
 
 -- Done
 INSERT INTO tasks (id, title, description, column, position, reported_by, assigned_to, due_at, project_id, tags, created_at, updated_at, version, archived, archived_at) VALUES
@@ -169,6 +175,22 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
    'Backlog', 6.0, 'john', NULL, NULL, 'proj-infra',
    '["infra","ops"]',
    '2025-02-11T11:00:00Z', '2025-02-11T11:00:00Z', 1, 0, NULL);
+
+-- Sandbox tasks
+INSERT INTO tasks (id, title, description, column, position, reported_by, assigned_to, due_at, project_id, tags, created_at, updated_at, version, archived, archived_at, space_id) VALUES
+  ('task-sb-summarizer',
+   'Try a per-actor summarizer step',
+   'Periodically condense an agent''s journal entries into a single-paragraph state-of-the-task. Cheap context for the next iteration.',
+   'In Progress', 1.0, 'john', 'agent-backend', NULL, 'proj-sandbox',
+   '["spike","memory"]',
+   '2025-02-15T11:00:00Z', '2025-02-16T09:00:00Z', 2, 0, NULL, 'sandbox'),
+
+  ('task-sb-eval',
+   'Evaluate retrieval vs full-history feeds',
+   'Compare task throughput when agents see the full event timeline vs. a retrieved summary. Hand-graded on 10 representative tasks.',
+   'To Do', 2.0, 'alice', NULL, NULL, 'proj-sandbox',
+   '["spike","evaluation"]',
+   '2025-02-15T11:30:00Z', '2025-02-15T11:30:00Z', 1, 0, NULL, 'sandbox');
 
 -- Blocking relationships
 -- task-due-notifs is blocked by task-api-docs (webhook spec not written yet)

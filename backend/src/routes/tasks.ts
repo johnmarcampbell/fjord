@@ -15,9 +15,11 @@ import {
   CycleError,
   DependencyNotFoundError,
   DuplicateDependencyError,
+  SpaceProjectMismatchError,
   TaskNotFoundError,
   TaskStateError,
   UnknownProjectError,
+  UnknownSpaceError,
   UnknownUserError,
   VersionConflictError,
   addBlocker,
@@ -90,6 +92,12 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
     reply.code(400).send({ error: "Unknown assigned_to user" });
   } else if (err instanceof UnknownProjectError) {
     reply.code(400).send({ error: "Unknown project_id" });
+  } else if (err instanceof UnknownSpaceError) {
+    reply.code(400).send({ error: "Unknown space_id" });
+  } else if (err instanceof SpaceProjectMismatchError) {
+    reply
+      .code(400)
+      .send({ error: "space_id conflicts with the project's space; move the project instead" });
   } else if (err instanceof BlockerNotFoundError) {
     reply.code(400).send({ error: "Unknown blocker task" });
   } else if (err instanceof DuplicateDependencyError) {
@@ -116,16 +124,25 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           type: "object",
           properties: {
             include_archived: { type: "string", enum: ["true", "false"] },
+            space_id: { type: "string" },
           },
         },
       },
     },
     async (req) => {
-      const includeArchived =
-        (req.query as { include_archived?: string }).include_archived === "true";
-      const whereCondition = includeArchived ? undefined : eq(tasks.archived, false);
+      const q = req.query as { include_archived?: string; space_id?: string };
+      const includeArchived = q.include_archived === "true";
+      const conditions = [];
+      if (!includeArchived) conditions.push(eq(tasks.archived, false));
+      if (q.space_id) conditions.push(eq(tasks.spaceId, q.space_id));
+      const where =
+        conditions.length === 0
+          ? undefined
+          : conditions.length === 1
+            ? conditions[0]
+            : and(...conditions);
       const query = app.db.select().from(tasks).orderBy(asc(tasks.position));
-      const rows = whereCondition ? query.where(whereCondition).all() : query.all();
+      const rows = where ? query.where(where).all() : query.all();
       return rows.map((r) => hydrateTask(app.db, r));
     },
   );
@@ -167,6 +184,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
             assigned_to: { type: ["string", "null"] },
             due_at: { type: ["string", "null"], format: "date-time" },
             project_id: { type: ["string", "null"] },
+            space_id: { type: "string" },
             tags: { type: "array", items: { type: "string" } },
           },
         },
@@ -207,6 +225,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
             assigned_to: { type: ["string", "null"] },
             due_at: { type: ["string", "null"], format: "date-time" },
             project_id: { type: ["string", "null"] },
+            space_id: { type: "string" },
             tags: { type: "array", items: { type: "string" } },
           },
         },
