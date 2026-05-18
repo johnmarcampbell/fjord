@@ -9,11 +9,11 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "npm run build -w shared && concurrently -n backend,frontend -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
-    "demo": "npm run build -w shared && concurrently -n backend,frontend -c blue,magenta \"npm run demo -w backend\" \"npm run dev -w frontend\"",
+    "dev": "npm run build -w shared && concurrently -n backend,frontend -c blue,magenta \"tsx watch backend/src/index.ts\" \"npm run dev -w frontend\"",
+    "demo": "npm run build -w shared && concurrently -n backend,frontend -c blue,magenta \"tsx watch backend/src/index.ts --demo\" \"npm run dev -w frontend\"",
     "build": "npm run build -w shared && npm run build -w frontend && npm run build -w backend",
     "test": "npm run build -w shared && npm run test -w backend",
-    "start": "npm run start -w backend"
+    "start": "node backend/dist/index.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
