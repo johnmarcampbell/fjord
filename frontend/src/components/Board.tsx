@@ -8,18 +8,19 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   COLUMNS,
   isTaskBlocked,
   type Column,
   type Task,
 } from "@agentic-kanban/shared";
-import { api } from "../lib/api.js";
 import { useTasks, useProjects } from "../lib/queries.js";
+import { useMoveTask } from "../lib/mutations.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
+
+const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
 
 export function Board({
   setOpenTaskId,
@@ -28,10 +29,11 @@ export function Board({
 }) {
   const { data: tasks = [], isLoading, isError, error } = useTasks();
   const { data: projects = [] } = useProjects();
-  const queryClient = useQueryClient();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const moveMutation = useMoveTask();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -63,14 +65,15 @@ export function Board({
 
   const byColumn = useMemo(() => {
     const map = new Map<Column, Task[]>();
-    for (const c of COLUMNS) map.set(c, []);
+    for (const c of BOARD_COLUMNS) map.set(c, []);
     for (const t of filteredTasks) {
+      if (t.column === "Backlog") continue;
       const col = (COLUMNS as readonly string[]).includes(t.column)
         ? (t.column as Column)
-        : "Backlog";
-      map.get(col)!.push(t);
+        : "To Do";
+      if (map.has(col)) map.get(col)!.push(t);
     }
-    for (const c of COLUMNS) {
+    for (const c of BOARD_COLUMNS) {
       map.get(c)!.sort((a, b) => a.position - b.position);
     }
     return map;
@@ -84,36 +87,6 @@ export function Board({
     }
     return ids;
   }, [tasks]);
-
-  const moveMutation = useMutation({
-    mutationFn: (args: { id: string; version: number; column: Column; position: number }) =>
-      api.updateTask(args.id, {
-        version: args.version,
-        column: args.column,
-        position: args.position,
-      }),
-    onMutate: async (args) => {
-      await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previous = queryClient.getQueryData<Task[]>(["tasks"]);
-      queryClient.setQueryData<Task[]>(["tasks"], (old) =>
-        old?.map((t) =>
-          t.id === args.id
-            ? { ...t, column: args.column, position: args.position }
-            : t,
-        ) ?? [],
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["tasks"], context.previous);
-      }
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
 
   function handleDragStart(ev: DragStartEvent) {
     const task = tasks.find((t) => t.id === String(ev.active.id));
@@ -147,6 +120,7 @@ export function Board({
       if (targetIndex < 0) targetIndex = list.length;
     }
 
+    if (!byColumn.has(targetColumn)) return;
     const sourceList = byColumn.get(activeTask.column as Column) ?? [];
     const targetList = byColumn.get(targetColumn)!.filter((t) => t.id !== activeId);
     if (
@@ -198,7 +172,7 @@ export function Board({
         onDragEnd={handleDragEnd}
       >
         <div className="flex flex-1 gap-4 overflow-x-auto p-5">
-          {COLUMNS.map((c) => (
+          {BOARD_COLUMNS.map((c) => (
             <ColumnView
               key={c}
               column={c}

@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { api } from "./lib/api.js";
 import { Board } from "./components/Board.js";
+import { BacklogView } from "./components/BacklogView.js";
 import { NewTaskDialog } from "./components/NewTaskDialog.js";
 import { TaskDrawer } from "./components/TaskDrawer.js";
 import { UserPicker } from "./components/UserPicker.js";
 import { ArchiveView } from "./components/ArchiveView.js";
 import { useStreamSubscription } from "./lib/stream.js";
-import { useTasks } from "./lib/queries.js";
+import { useTasks, useArchivedTasks } from "./lib/queries.js";
 
 function SunIcon() {
   return (
@@ -43,13 +44,27 @@ export default function App() {
     staleTime: Infinity,
   });
   const { data: tasks = [] } = useTasks();
+  const { data: archivedTasks } = useArchivedTasks();
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [view, setView] = useState<"board" | "archive">("board");
+  const [view, setView] = useState<"board" | "backlog" | "archive">(() => {
+    const stored = localStorage.getItem("ak-view");
+    if (stored === "board" || stored === "backlog" || stored === "archive") return stored;
+    return "board";
+  });
   const [theme, setTheme] = useState<"light" | "dark">(
     () =>
       (document.documentElement.getAttribute("data-theme") as "light" | "dark") ?? "light",
   );
+
+  function setViewAndPersist(v: "board" | "backlog" | "archive") {
+    localStorage.setItem("ak-view", v);
+    setView(v);
+  }
+
+  const boardCount = tasks.filter((t) => t.column !== "Backlog").length;
+  const backlogCount = tasks.filter((t) => t.column === "Backlog").length;
+  const archiveCount = archivedTasks?.length ?? null;
 
   function toggleTheme() {
     const next = theme === "light" ? "dark" : "light";
@@ -72,24 +87,46 @@ export default function App() {
         <div className="flex items-center gap-3">
           <div className="flex gap-4">
             <button
-              onClick={() => setView("board")}
+              onClick={() => setViewAndPersist("backlog")}
+              className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
+                view === "backlog"
+                  ? "border-accent text-ink"
+                  : "border-transparent text-ink-subtle hover:text-ink"
+              }`}
+            >
+              Backlog{backlogCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                  {backlogCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setViewAndPersist("board")}
               className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
                 view === "board"
                   ? "border-accent text-ink"
                   : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
-              Board
+              Board{boardCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                  {boardCount}
+                </span>
+              )}
             </button>
             <button
-              onClick={() => setView("archive")}
+              onClick={() => setViewAndPersist("archive")}
               className={`border-b-2 px-1 pb-1 pt-1 text-sm font-medium transition-colors ${
                 view === "archive"
                   ? "border-accent text-ink"
                   : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
-              Archive
+              Archive{archiveCount !== null && archiveCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                  {archiveCount}
+                </span>
+              )}
             </button>
           </div>
           <button
@@ -117,13 +154,16 @@ export default function App() {
         </div>
       </header>
       <main className="flex-1 overflow-hidden">
-        {view === "board" ? (
-          <Board setOpenTaskId={setOpenTaskId} />
-        ) : (
-          <ArchiveView onOpenTask={setOpenTaskId} />
-        )}
+        {view === "board" && <Board setOpenTaskId={setOpenTaskId} />}
+        {view === "backlog" && <BacklogView setOpenTaskId={setOpenTaskId} />}
+        {view === "archive" && <ArchiveView onOpenTask={setOpenTaskId} />}
       </main>
-      {creating && <NewTaskDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <NewTaskDialog
+          onClose={() => setCreating(false)}
+          defaultColumn={view === "board" ? "To Do" : view === "backlog" ? "Backlog" : "To Do"}
+        />
+      )}
       {openTaskId && (
         <TaskDrawer
           taskId={openTaskId}
@@ -132,7 +172,31 @@ export default function App() {
           onOpenTask={setOpenTaskId}
         />
       )}
-      <Toaster position="bottom-right" />
+      <Toaster
+        position="bottom-right"
+        theme={theme}
+        style={
+          {
+            "--normal-bg": "var(--color-surface-elevated)",
+            "--normal-text": "var(--color-text)",
+            "--normal-border": "var(--color-border)",
+            "--success-bg": "var(--color-surface-elevated)",
+            "--success-text": "var(--color-text)",
+            "--success-border": "var(--color-border)",
+            "--error-bg": "var(--color-surface-elevated)",
+            "--error-text": "var(--color-danger-text)",
+            "--error-border": "var(--color-danger-border)",
+          } as CSSProperties
+        }
+        toastOptions={{
+          classNames: {
+            toast: "!font-sans !shadow-modal",
+            actionButton: "!bg-accent !text-accent-fg hover:!bg-accent-hover !font-semibold",
+            title: "!text-ink",
+            description: "!text-ink-muted",
+          },
+        }}
+      />
     </div>
   );
 }

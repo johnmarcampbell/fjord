@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Column } from "@agentic-kanban/shared";
 import { api } from "../lib/api.js";
 
-export function NewTaskDialog({ onClose }: { onClose: () => void }) {
+export function NewTaskDialog({
+  onClose,
+  defaultColumn,
+}: {
+  onClose: () => void;
+  defaultColumn?: Column;
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const queryClient = useQueryClient();
 
   const create = useMutation({
-    mutationFn: () => api.createTask({ title, description }),
+    mutationFn: () => api.createTask({ title, description, column: defaultColumn }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onClose();
