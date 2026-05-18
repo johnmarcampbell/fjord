@@ -29,6 +29,13 @@
       "when": 1778987773882,
       "tag": "0003_task_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1779292800000,
+      "tag": "0004_spaces",
+      "breakpoints": true
     }
   ]
 }

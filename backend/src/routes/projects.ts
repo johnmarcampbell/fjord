@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import { asc, eq } from "drizzle-orm";
-import type { CreateProjectRequest, UpdateProjectRequest } from "@agentic-kanban/shared";
+import {
+  DEFAULT_SPACE_ID,
+  type CreateProjectRequest,
+  type UpdateProjectRequest,
+} from "@agentic-kanban/shared";
 import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
 
@@ -51,6 +55,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         description: body.description ?? "",
         dueAt: body.due_at ?? null,
         createdAt: nowIso(),
+        spaceId: DEFAULT_SPACE_ID,
       };
       app.db.insert(projects).values(row).run();
       reply.code(201);

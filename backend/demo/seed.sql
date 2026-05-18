@@ -6,6 +6,13 @@ DELETE FROM task_events;
 DELETE FROM tasks;
 DELETE FROM projects;
 DELETE FROM users;
+DELETE FROM spaces;
+
+-- Spaces
+-- Phase 1 of #56: all entities live in the 'default' space. Project/task INSERTs
+-- below omit space_id and rely on the column DEFAULT 'default' to backfill.
+INSERT INTO spaces (id, name, description, created_at, updated_at) VALUES
+  ('default', 'Default', '', '2025-01-10T09:00:00Z', '2025-01-10T09:00:00Z');
 
 -- Users
 INSERT INTO users (id, display_name, kind, created_at) VALUES

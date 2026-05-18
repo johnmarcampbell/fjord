@@ -26,6 +26,17 @@ export interface Project {
   created_at: string;
 }
 
+export const DEFAULT_SPACE_ID = "default";
+
+export interface Space {
+  id: string;
+  name: string;
+  description: string;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Task {
   id: string;
   title: string;
