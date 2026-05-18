@@ -19,7 +19,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
   });
 
   return (
-    <div className="flex flex-col gap-3 min-w-[272px] w-[272px]">
+    <div className="flex flex-1 flex-col gap-3 min-w-[272px]">
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-[11px] font-bold uppercase tracking-widest text-ink-muted">
           {column}

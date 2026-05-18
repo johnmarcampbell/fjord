@@ -1,13 +1,93 @@
+import { useMemo } from "react";
+import clsx from "clsx";
 import { toast } from "sonner";
-import { useArchivedTasks } from "../lib/queries.js";
+import type { Project, Task } from "@agentic-kanban/shared";
+import { useArchivedTasks, useProjects } from "../lib/queries.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
+
+interface RowProps {
+  task: Task;
+  project: Project | undefined;
+  onOpen: () => void;
+  onUnarchive: (id: string) => void;
+}
+
+function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
+  return (
+    <div
+      onClick={onOpen}
+      className={clsx(
+        "flex cursor-pointer items-center gap-3 rounded-card bg-surface px-3 py-2 shadow-card",
+        "transition-all duration-150 hover:shadow-card-hover",
+      )}
+    >
+      {project && (
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          <span
+            className="h-2 w-2 flex-shrink-0 rounded-full"
+            style={{ background: project.color }}
+          />
+          <span className="text-[11px] font-medium text-ink-muted">{project.name}</span>
+        </div>
+      )}
+
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+        {task.title}
+      </span>
+
+      <span className="hidden flex-shrink-0 truncate text-xs text-ink-muted sm:inline">
+        {task.assigned_to ? `@${task.assigned_to}` : "unassigned"}
+      </span>
+
+      {task.tags.length > 0 && (
+        <div className="hidden flex-shrink-0 items-center gap-1 md:flex">
+          {task.tags.slice(0, 3).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-tag-bg px-2 py-0.5 text-[10px] font-semibold text-tag-text"
+            >
+              {tag}
+            </span>
+          ))}
+          {task.tags.length > 3 && (
+            <span className="text-[10px] text-ink-subtle">+{task.tags.length - 3}</span>
+          )}
+        </div>
+      )}
+
+      {task.archived_at && (
+        <span className="hidden flex-shrink-0 text-[11px] text-ink-subtle md:inline">
+          {new Date(task.archived_at).toLocaleDateString()}
+        </span>
+      )}
+
+      <div
+        className="flex flex-shrink-0 items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => onUnarchive(task.id)}
+          className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
+        >
+          ← Unarchive
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
   const { data: tasks, isLoading } = useArchivedTasks();
+  const { data: projects = [] } = useProjects();
   const unarchiveMutation = useUnarchiveTask({
     onSuccess: () => toast.success("Task unarchived"),
     onError: () => toast.error("Failed to unarchive task"),
   });
+
+  const projectById = useMemo(
+    () => new Map(projects.map((p) => [p.id, p])),
+    [projects],
+  );
 
   const handleUnarchive = (taskId: string) => unarchiveMutation.mutate(taskId);
 
@@ -19,59 +99,37 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
     );
   }
 
-  const sortedTasks = (tasks ?? []).sort((a, b) => {
+  const sortedTasks = (tasks ?? []).slice().sort((a, b) => {
     const aTime = a.archived_at ? new Date(a.archived_at).getTime() : 0;
     const bTime = b.archived_at ? new Date(b.archived_at).getTime() : 0;
     return bTime - aTime;
   });
 
   return (
-    <div className="h-full bg-bg overflow-auto">
-      <div className="mx-auto max-w-3xl p-6">
-        <h2 className="text-2xl font-bold text-ink mb-6">Archived Tasks</h2>
-
-        {sortedTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-ink-muted mb-2">No archived tasks yet</div>
-            <div className="text-sm text-ink-subtle">
-              Archive completed tasks to keep your board focused
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {sortedTasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-subtle p-4 hover:bg-surface transition-colors"
-              >
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => onOpenTask(task.id)}
-                >
-                  <div className="font-medium text-ink truncate">{task.title}</div>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
-                    {task.assigned_to && (
-                      <span className="inline-block rounded bg-surface px-2 py-1 text-ink-subtle">
-                        {task.assigned_to}
-                      </span>
-                    )}
-                    {task.archived_at && (
-                      <span className="text-ink-subtle">
-                        {new Date(task.archived_at).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleUnarchive(task.id); }}
-                  className="flex-shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-accent-fg hover:bg-accent-hover transition-colors"
-                >
-                  Unarchive
-                </button>
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="mx-auto max-w-4xl">
+          {sortedTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-2 text-ink-muted">No archived tasks yet</div>
+              <div className="text-sm text-ink-subtle">
+                Archive completed tasks to keep your board focused
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {sortedTasks.map((task) => (
+                <ArchiveRow
+                  key={task.id}
+                  task={task}
+                  project={task.project_id ? projectById.get(task.project_id) : undefined}
+                  onOpen={() => onOpenTask(task.id)}
+                  onUnarchive={handleUnarchive}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

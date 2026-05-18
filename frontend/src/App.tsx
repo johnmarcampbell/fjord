@@ -94,11 +94,10 @@ export default function App() {
                   : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
-              Backlog{backlogCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
-                  {backlogCount}
-                </span>
-              )}
+              Backlog
+              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                {backlogCount}
+              </span>
             </button>
             <button
               onClick={() => setViewAndPersist("board")}
@@ -108,11 +107,10 @@ export default function App() {
                   : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
-              Board{boardCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
-                  {boardCount}
-                </span>
-              )}
+              Board
+              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                {boardCount}
+              </span>
             </button>
             <button
               onClick={() => setViewAndPersist("archive")}
@@ -122,11 +120,10 @@ export default function App() {
                   : "border-transparent text-ink-subtle hover:text-ink"
               }`}
             >
-              Archive{archiveCount !== null && archiveCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
-                  {archiveCount}
-                </span>
-              )}
+              Archive
+              <span className="ml-1.5 rounded-full bg-surface-hover px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-muted">
+                {archiveCount ?? 0}
+              </span>
             </button>
           </div>
           <button
