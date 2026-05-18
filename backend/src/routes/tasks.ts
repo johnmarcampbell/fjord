@@ -19,7 +19,6 @@ import {
   TaskNotFoundError,
   TaskStateError,
   UnknownProjectError,
-  UnknownSpaceError,
   UnknownUserError,
   VersionConflictError,
   addBlocker,
@@ -35,6 +34,7 @@ import {
   unarchiveTask,
   updateTask,
 } from "../services/tasks.js";
+import { SpaceArchivedError, UnknownSpaceError } from "../services/spaces.js";
 
 const ACTOR_HEADER = "x-user-id";
 
@@ -94,6 +94,8 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
     reply.code(400).send({ error: "Unknown project_id" });
   } else if (err instanceof UnknownSpaceError) {
     reply.code(400).send({ error: "Unknown space_id" });
+  } else if (err instanceof SpaceArchivedError) {
+    reply.code(400).send({ error: "Target space is archived" });
   } else if (err instanceof SpaceProjectMismatchError) {
     reply
       .code(400)

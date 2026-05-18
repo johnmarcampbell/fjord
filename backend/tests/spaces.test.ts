@@ -53,7 +53,7 @@ describe("spaces API", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("refuses to delete a space that has projects", async () => {
+  it("deleting a space with empty projects cascades them", async () => {
     const space = (
       await ctx.app.inject({
         method: "POST",
@@ -61,13 +61,22 @@ describe("spaces API", () => {
         payload: { name: "S" },
       })
     ).json();
-    await ctx.app.inject({
-      method: "POST",
-      url: "/api/projects",
-      payload: { name: "P", space_id: space.id },
-    });
+    const project = (
+      await ctx.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "P", space_id: space.id },
+      })
+    ).json();
+
     const del = await ctx.app.inject({ method: "DELETE", url: `/api/spaces/${space.id}` });
-    expect(del.statusCode).toBe(400);
+    expect(del.statusCode).toBe(204);
+
+    // Project should be gone too.
+    const projects = (
+      await ctx.app.inject({ method: "GET", url: "/api/projects" })
+    ).json();
+    expect(projects.find((p: { id: string }) => p.id === project.id)).toBeUndefined();
   });
 
   it("refuses to delete a space that has project-less tasks", async () => {
@@ -329,5 +338,163 @@ describe("task ↔ space invariants on create/update", () => {
     });
     expect(moved.statusCode).toBe(200);
     expect(moved.json().space_id).toBe(sandbox.id);
+  });
+});
+
+describe("space archive / unarchive", () => {
+  let ctx: Awaited<ReturnType<typeof makeTestApp>>;
+  beforeEach(async () => {
+    ctx = await makeTestApp();
+  });
+  afterEach(async () => {
+    await ctx.close();
+  });
+
+  async function makeSpace(name: string) {
+    return (
+      await ctx.app.inject({ method: "POST", url: "/api/spaces", payload: { name } })
+    ).json();
+  }
+
+  it("archives an empty space and excludes it from the default list", async () => {
+    const sp = await makeSpace("Empty");
+
+    const archived = await ctx.app.inject({
+      method: "POST",
+      url: `/api/spaces/${sp.id}/archive`,
+    });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json().archived_at).not.toBeNull();
+
+    const list = (await ctx.app.inject({ method: "GET", url: "/api/spaces" })).json();
+    expect(list.find((s: { id: string }) => s.id === sp.id)).toBeUndefined();
+
+    const listAll = (
+      await ctx.app.inject({ method: "GET", url: "/api/spaces?include_archived=true" })
+    ).json();
+    expect(listAll.find((s: { id: string }) => s.id === sp.id)).toBeDefined();
+  });
+
+  it("archives a space whose tasks are all archived", async () => {
+    const sp = await makeSpace("To freeze");
+    const task = (
+      await ctx.app.inject({
+        method: "POST",
+        url: "/api/tasks",
+        headers: { "x-user-id": "alice" },
+        payload: { title: "T", space_id: sp.id, column: "Done" },
+      })
+    ).json();
+    await ctx.app.inject({
+      method: "POST",
+      url: `/api/tasks/${task.id}/archive`,
+      headers: { "x-user-id": "alice" },
+    });
+
+    const res = await ctx.app.inject({
+      method: "POST",
+      url: `/api/spaces/${sp.id}/archive`,
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("refuses to archive a space that has unarchived tasks", async () => {
+    const sp = await makeSpace("Still alive");
+    await ctx.app.inject({
+      method: "POST",
+      url: "/api/tasks",
+      headers: { "x-user-id": "alice" },
+      payload: { title: "T", space_id: sp.id },
+    });
+
+    const res = await ctx.app.inject({
+      method: "POST",
+      url: `/api/spaces/${sp.id}/archive`,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("unarchives a space", async () => {
+    const sp = await makeSpace("Frozen");
+    await ctx.app.inject({ method: "POST", url: `/api/spaces/${sp.id}/archive` });
+    const res = await ctx.app.inject({ method: "POST", url: `/api/spaces/${sp.id}/unarchive` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().archived_at).toBeNull();
+  });
+});
+
+describe("write guards on archived spaces", () => {
+  let ctx: Awaited<ReturnType<typeof makeTestApp>>;
+  beforeEach(async () => {
+    ctx = await makeTestApp();
+  });
+  afterEach(async () => {
+    await ctx.close();
+  });
+
+  async function makeArchivedSpace() {
+    const sp = (
+      await ctx.app.inject({ method: "POST", url: "/api/spaces", payload: { name: "Frozen" } })
+    ).json();
+    await ctx.app.inject({ method: "POST", url: `/api/spaces/${sp.id}/archive` });
+    return sp;
+  }
+
+  it("refuses to create a task in an archived space", async () => {
+    const sp = await makeArchivedSpace();
+    const res = await ctx.app.inject({
+      method: "POST",
+      url: "/api/tasks",
+      headers: { "x-user-id": "alice" },
+      payload: { title: "T", space_id: sp.id },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("refuses to create a project in an archived space", async () => {
+    const sp = await makeArchivedSpace();
+    const res = await ctx.app.inject({
+      method: "POST",
+      url: "/api/projects",
+      payload: { name: "P", space_id: sp.id },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("refuses to move a project into an archived space", async () => {
+    const sp = await makeArchivedSpace();
+    const project = (
+      await ctx.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "P" },
+      })
+    ).json();
+    const res = await ctx.app.inject({
+      method: "PATCH",
+      url: `/api/projects/${project.id}`,
+      headers: { "x-user-id": "alice" },
+      payload: { space_id: sp.id },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("refuses to move a project-less task into an archived space via PATCH", async () => {
+    const sp = await makeArchivedSpace();
+    const task = (
+      await ctx.app.inject({
+        method: "POST",
+        url: "/api/tasks",
+        headers: { "x-user-id": "alice" },
+        payload: { title: "T" },
+      })
+    ).json();
+    const res = await ctx.app.inject({
+      method: "PATCH",
+      url: `/api/tasks/${task.id}`,
+      headers: { "x-user-id": "alice" },
+      payload: { version: task.version, space_id: sp.id },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
