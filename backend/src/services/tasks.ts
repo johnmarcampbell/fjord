@@ -10,7 +10,7 @@ import {
 } from "@agentic-kanban/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
-import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
+import { taskDependencies, taskEvents, tasks, users, projects, spaces } from "../db/schema.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,14 @@ export class UnknownUserError extends Error {
 
 export class UnknownProjectError extends Error {
   readonly name = "UnknownProjectError";
+}
+
+export class UnknownSpaceError extends Error {
+  readonly name = "UnknownSpaceError";
+}
+
+export class SpaceProjectMismatchError extends Error {
+  readonly name = "SpaceProjectMismatchError";
 }
 
 export class BlockerNotFoundError extends Error {
@@ -110,6 +118,7 @@ export function hydrateTask(db: DB, row: typeof tasks.$inferSelect): Task {
     assigned_to: row.assignedTo,
     due_at: row.dueAt,
     project_id: row.projectId ?? null,
+    space_id: row.spaceId,
     tags: JSON.parse(row.tags) as string[],
     created_at: row.createdAt,
     updated_at: row.updatedAt,
@@ -130,6 +139,21 @@ export function requireUser(db: DB, userId: string): void {
 export function requireProject(db: DB, projectId: string): void {
   if (!db.select().from(projects).where(eq(projects.id, projectId)).get())
     throw new UnknownProjectError();
+}
+
+function getProjectSpace(db: DB, projectId: string): string {
+  const row = db
+    .select({ spaceId: projects.spaceId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .get();
+  if (!row) throw new UnknownProjectError();
+  return row.spaceId;
+}
+
+function requireSpaceLocal(db: DB, spaceId: string): void {
+  if (!db.select().from(spaces).where(eq(spaces.id, spaceId)).get())
+    throw new UnknownSpaceError();
 }
 
 export function isActorAssignee(db: DB, taskId: string, actorId: string): boolean {
@@ -198,6 +222,17 @@ export function createTask(
   if (body.assigned_to) requireUser(db, body.assigned_to);
   if (body.project_id) requireProject(db, body.project_id);
 
+  let spaceId: string;
+  if (body.project_id) {
+    spaceId = getProjectSpace(db, body.project_id);
+    if (body.space_id && body.space_id !== spaceId) throw new SpaceProjectMismatchError();
+  } else if (body.space_id) {
+    requireSpaceLocal(db, body.space_id);
+    spaceId = body.space_id;
+  } else {
+    spaceId = DEFAULT_SPACE_ID;
+  }
+
   const id = newId();
   const now = nowIso();
   const position = columnHeadPosition(db, column);
@@ -217,7 +252,7 @@ export function createTask(
     version: 1,
     archived: false,
     archivedAt: null,
-    spaceId: DEFAULT_SPACE_ID,
+    spaceId,
   };
   db.insert(tasks).values(row).run();
   db.insert(taskEvents)
@@ -262,6 +297,24 @@ export function updateTask(
   }
 
   const newProjectId = body.project_id === undefined ? existing.projectId : body.project_id;
+  const projectIdChanging = body.project_id !== undefined && body.project_id !== existing.projectId;
+
+  let newSpaceId: string;
+  if (newProjectId) {
+    // Project-bound task: space follows the project.
+    newSpaceId = getProjectSpace(db, newProjectId);
+    if (body.space_id && body.space_id !== newSpaceId) throw new SpaceProjectMismatchError();
+  } else if (body.space_id !== undefined) {
+    if (!projectIdChanging && existing.projectId) {
+      // Direct space change on a project-bound task without clearing the project.
+      throw new SpaceProjectMismatchError();
+    }
+    requireSpaceLocal(db, body.space_id);
+    newSpaceId = body.space_id;
+  } else {
+    newSpaceId = existing.spaceId;
+  }
+
   const newTagsArr =
     body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
   const newTagsStr = JSON.stringify(newTagsArr);
@@ -274,6 +327,7 @@ export function updateTask(
     assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
     dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
     projectId: newProjectId,
+    spaceId: newSpaceId,
     tags: newTagsStr,
     updatedAt: now,
     version: existing.version + 1,
@@ -308,6 +362,8 @@ export function updateTask(
     eventRows.push(mkEvent("due_date_changed", existing.dueAt, updates.dueAt));
   if (updates.projectId !== existing.projectId)
     eventRows.push(mkEvent("project_changed", existing.projectId, updates.projectId));
+  if (updates.spaceId !== existing.spaceId)
+    eventRows.push(mkEvent("space_changed", existing.spaceId, updates.spaceId));
   if (updates.tags !== existing.tags)
     eventRows.push(mkEvent("tags_changed", existing.tags, updates.tags));
 

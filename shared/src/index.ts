@@ -24,6 +24,7 @@ export interface Project {
   description: string;
   due_at: string | null;
   created_at: string;
+  space_id: string;
 }
 
 export const DEFAULT_SPACE_ID = "default";
@@ -47,6 +48,7 @@ export interface Task {
   assigned_to: string | null;
   due_at: string | null;
   project_id: string | null;
+  space_id: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -70,6 +72,7 @@ export const EVENT_KINDS = [
   "blocker_added",
   "blocker_removed",
   "project_changed",
+  "space_changed",
   "tags_changed",
   "task_archived",
   "task_unarchived",
@@ -101,6 +104,7 @@ export interface CreateProjectRequest {
   color?: string;
   description?: string;
   due_at?: string | null;
+  space_id?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -108,6 +112,7 @@ export interface UpdateProjectRequest {
   color?: string;
   description?: string;
   due_at?: string | null;
+  space_id?: string;
 }
 
 export interface CreateTaskRequest {
@@ -117,6 +122,7 @@ export interface CreateTaskRequest {
   assigned_to?: string | null;
   due_at?: string | null;
   project_id?: string | null;
+  space_id?: string;
   tags?: string[];
 }
 
@@ -129,7 +135,18 @@ export interface UpdateTaskRequest {
   assigned_to?: string | null;
   due_at?: string | null;
   project_id?: string | null;
+  space_id?: string;
   tags?: string[];
+}
+
+export interface CreateSpaceRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateSpaceRequest {
+  name?: string;
+  description?: string;
 }
 
 export interface AddCommentRequest {
