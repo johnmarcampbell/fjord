@@ -3,7 +3,8 @@ import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
 import { useUsers } from "../lib/queries.js";
 
 export function UserPicker() {
-  const { data: users = [], isLoading, isSuccess } = useUsers();
+  const { data: allUsers = [], isLoading, isSuccess } = useUsers();
+  const users = allUsers.filter((u) => !u.deleted_at);
   const [current, setCurrent] = useState<string | null>(getCurrentUserId());
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { eq } from "drizzle-orm";
 import { users } from "../src/db/schema.js";
 import {
   slugify,
@@ -111,7 +112,8 @@ describe("backfillUserProfiles", () => {
       bio TEXT NOT NULL DEFAULT '',
       avatar TEXT,
       token_hash TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
     )`);
     sqlite.exec(`INSERT INTO users (id, display_name, kind, created_at) VALUES ('u1', 'Jane Wong', 'human', '2025-01-01T00:00:00Z')`);
 
@@ -136,7 +138,8 @@ describe("backfillUserProfiles", () => {
       bio TEXT NOT NULL DEFAULT '',
       avatar TEXT,
       token_hash TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
     )`);
     sqlite.exec(`INSERT INTO users (id, display_name, kind, created_at) VALUES
       ('u1', 'Jane Wong', 'human', '2025-01-01T00:00:00Z'),
@@ -163,7 +166,8 @@ describe("backfillUserProfiles", () => {
       bio TEXT NOT NULL DEFAULT '',
       avatar TEXT,
       token_hash TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
     )`);
     sqlite.exec(`INSERT INTO users (id, display_name, kind, created_at) VALUES ('u1', '🦄', 'human', '2025-01-01T00:00:00Z')`);
 
@@ -187,7 +191,8 @@ describe("backfillUserProfiles", () => {
       bio TEXT NOT NULL DEFAULT '',
       avatar TEXT,
       token_hash TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
     )`);
     sqlite.exec(`INSERT INTO users (id, display_name, kind, created_at) VALUES ('u1', 'Admin', 'human', '2025-01-01T00:00:00Z')`);
 
@@ -211,7 +216,8 @@ describe("backfillUserProfiles", () => {
       bio TEXT NOT NULL DEFAULT '',
       avatar TEXT,
       token_hash TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
     )`);
     sqlite.exec(`INSERT INTO users (id, display_name, kind, created_at) VALUES ('u1', 'Jane Wong', 'human', '2025-01-01T00:00:00Z')`);
 
@@ -536,5 +542,105 @@ describe("users", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).not.toHaveProperty("token_hash");
+  });
+
+  // ── soft delete (ADR-0004) ────────────────────────────────────────────────
+
+  describe("soft delete", () => {
+    it("DELETE returns 204 and marks the user deleted_at", async () => {
+      const before = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      expect(before.json().deleted_at).toBeNull();
+
+      const del = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      expect(del.statusCode).toBe(204);
+
+      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      expect(after.statusCode).toBe(200);
+      expect(typeof after.json().deleted_at).toBe("string");
+    });
+
+    it("DELETE is idempotent — second call still returns 204 and leaves deleted_at unchanged", async () => {
+      const first = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      expect(first.statusCode).toBe(204);
+      const stamp = (await ctx.app.inject({ method: "GET", url: "/api/users/alice" })).json()
+        .deleted_at;
+      const second = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      expect(second.statusCode).toBe(204);
+      const stamp2 = (await ctx.app.inject({ method: "GET", url: "/api/users/alice" })).json()
+        .deleted_at;
+      expect(stamp2).toBe(stamp);
+    });
+
+    it("DELETE returns 404 when the id does not exist", async () => {
+      const res = await ctx.app.inject({ method: "DELETE", url: "/api/users/nobody" });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("DELETE succeeds even when the user has reported tasks (no FK error)", async () => {
+      const create = await ctx.app.inject({
+        method: "POST",
+        url: "/api/tasks",
+        headers: { "x-user-id": "alice" },
+        payload: { title: "alice's task" },
+      });
+      expect(create.statusCode).toBe(201);
+
+      const del = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      expect(del.statusCode).toBe(204);
+
+      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      expect(typeof after.json().deleted_at).toBe("string");
+    });
+
+    it("GET /api/users still includes deleted users (clients filter)", async () => {
+      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+      const ids = res.json().map((u: any) => u.id);
+      expect(ids).toContain("alice");
+      const alice = res.json().find((u: any) => u.id === "alice");
+      expect(typeof alice.deleted_at).toBe("string");
+    });
+
+    it("PATCH on a deleted user returns 404", async () => {
+      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const res = await ctx.app.inject({
+        method: "PATCH",
+        url: "/api/users/alice",
+        payload: { display_name: "Resurrected" },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("handle stays reserved — POST with the deleted user's handle returns 409", async () => {
+      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const res = await ctx.app.inject({
+        method: "POST",
+        url: "/api/users",
+        payload: { id: "alice2", display_name: "Alice II", kind: "human", handle: "alice" },
+      });
+      expect(res.statusCode).toBe(409);
+    });
+
+    it("DELETE clears token_hash", async () => {
+      await ctx.app.inject({
+        method: "PATCH",
+        url: "/api/users/alice",
+        payload: { token_hash: "deadbeef" },
+      });
+      const before = ctx.app.db
+        .select({ tokenHash: users.tokenHash })
+        .from(users)
+        .where(eq(users.id, "alice"))
+        .get();
+      expect(before?.tokenHash).toBe("deadbeef");
+
+      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const after = ctx.app.db
+        .select({ tokenHash: users.tokenHash })
+        .from(users)
+        .where(eq(users.id, "alice"))
+        .get();
+      expect(after?.tokenHash).toBeNull();
+    });
   });
 });

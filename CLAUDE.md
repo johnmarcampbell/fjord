@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Key constraints
 - **No authentication** — identity is user-selected and stored in localStorage, sent as `X-User-Id` header
 - **Optimistic concurrency** — tasks have a `version` field; PATCH requests must include the version the caller last saw, returning 409 if stale
-- **No soft deletes** — hard deletes only
+- **No soft deletes** — hard deletes only, with one exception: **users are soft-deleted** ([ADR-0004](docs/adr/0004-soft-delete-users.md)) because their IDs are referenced by tasks, events, comments, and journal entries
 - **Fixed columns** — `Backlog`, `To Do`, `In Progress`, `In Review`, `Done` (cannot be customized)
 - **Blocking as a graph** — tasks can block other tasks; cycles are prevented; blocked state is derived from the blocker's column (blocked if any blocker is not in `Done`)
 
@@ -137,7 +137,7 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 - **Archive requires Done** — `POST /api/tasks/:id/archive` returns 400 unless the task is in the `Done` column
 - **Blocker IDs are task IDs** — `blocker_id` in both the `POST .../blockers` body and the `DELETE .../blockers/:blocker_id` path is the ID of the blocking *task*, not a relationship/link ID
 - **Archived tasks hidden by default** — `GET /api/tasks` excludes archived tasks; use `?include_archived=true`
-- **No user cascade** — deleting a user leaves tasks with stale `assigned_to`/`reported_by` values
+- **Users are soft-deleted** — `DELETE /api/users/:id` sets `deleted_at` and nulls `token_hash`; the row stays so historical attribution on tasks, events, comments, and journal entries continues to render. `GET /api/users` includes deleted users (clients filter them out of selection UIs); `PATCH /api/users/:id` returns 404 for a deleted user. Handles remain reserved. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
 - **Journal vs comments** — journal entries (`POST .../journal`) are the assignee's durable working notes; comments (`POST .../comments`) are for cross-actor communication
 - **Handle format** — `handle` is lowercased and must match `^[a-z0-9_-]{1,32}$`; some words are reserved (`me`, `admin`, `system`, `api`, `app`, `root`, `support`, `help`, `agentic-kanban`, `agent`, `user`, `users`, `openclaw`); returns 400 if invalid or reserved, 409 if already taken
 - **token_hash write-only** — accepted in POST/PATCH body but never returned in any API response
@@ -166,7 +166,7 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 - `GET /api/users/:id`
 - `POST /api/users` — create (derives `handle` from `display_name` if omitted; picks deterministic emoji `avatar` if omitted)
 - `PATCH /api/users/:id` — update `display_name`, `handle`, `kind`, `title`, `bio`, `avatar`, `token_hash`; `id` and `created_at` are not editable
-- `DELETE /api/users/:id` — hard delete (no cascade; tasks retain stale user references)
+- `DELETE /api/users/:id` — soft delete (sets `deleted_at`, nulls `token_hash`); idempotent. The row stays so attribution still renders; handle remains reserved. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
 
 ### Stream
 - `GET /api/events/stream` — Server-Sent Events; emits `task.created`, `task.updated`, `task.deleted`, `task.event_added`
@@ -209,7 +209,7 @@ The backend serves both the API and the React build on a single port.
 
 - **No component/E2E tests** — component correctness is verified manually (run dev server, test in browser)
 - **No authentication** — relies on trusted gateway
-- **Soft deletes** — not implemented; use hard delete. Archive/unarchive is supported for tasks in `Done`.
+- **Soft deletes** — only for users (ADR-0004); tasks and projects are hard-deleted. Archive/unarchive is supported for tasks in `Done`.
 - **Configurable columns** — not supported; fixed set of five
 - **No file attachments** — only markdown comments
 - **No search** — full task list fetched on load

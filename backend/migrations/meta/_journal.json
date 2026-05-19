@@ -43,6 +43,13 @@
       "when": 1779209322040,
       "tag": "0005_user_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779219325576,
+      "tag": "0006_typical_giant_man",
+      "breakpoints": true
     }
   ]
 }

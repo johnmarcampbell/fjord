@@ -52,7 +52,8 @@ function AppShell() {
 
   useEffect(() => {
     if (!usersLoaded) return;
-    if (users && users.length === 0 && location.pathname !== "/users") {
+    const activeCount = users ? users.filter((u) => !u.deleted_at).length : 0;
+    if (activeCount === 0 && location.pathname !== "/users") {
       navigate("/users", { replace: true });
     }
   }, [usersLoaded, users, location.pathname, navigate]);

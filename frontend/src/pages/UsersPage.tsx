@@ -34,7 +34,8 @@ function NewUserTile({ onClick }: { onClick: () => void }) {
 }
 
 export function UsersPage() {
-  const { data: users = [], isLoading } = useUsers();
+  const { data: allUsers = [], isLoading } = useUsers();
+  const users = allUsers.filter((u) => !u.deleted_at);
   const [dialog, setDialog] = useState<DialogState>(null);
   const currentUserId = getCurrentUserId();
 

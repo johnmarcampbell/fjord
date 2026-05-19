@@ -30,7 +30,8 @@ export function FilterBar({ allTags }: FilterBarProps) {
 
   const { activeSpaceId } = useActiveSpace();
   const { data: projects = [] } = useProjects(activeSpaceId);
-  const { data: users = [] } = useUsers();
+  const { data: allUsers = [] } = useUsers();
+  const users = allUsers.filter((u) => !u.deleted_at);
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | "new" | null>(null);
@@ -49,11 +50,11 @@ export function FilterBar({ allTags }: FilterBarProps) {
     if (selectedUsers.length === 0) return "All users";
     if (selectedUsers.length === 1) {
       if (selectedUsers[0] === UNASSIGNED_SENTINEL) return "Unassigned";
-      const u = users.find((u) => u.id === selectedUsers[0]);
+      const u = allUsers.find((u) => u.id === selectedUsers[0]);
       return u?.display_name ?? "1 user";
     }
     return `${selectedUsers.length} users`;
-  }, [selectedUsers, users]);
+  }, [selectedUsers, allUsers]);
 
   const isAssignedToMeActive =
     currentUserId !== null &&

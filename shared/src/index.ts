@@ -19,6 +19,13 @@ export interface User {
   bio: string;
   avatar: string;
   created_at: string;
+  /**
+   * ISO timestamp set when the user is soft-deleted. `null` for active users.
+   * Deleted users continue to appear in `GET /api/users` so that historical
+   * attribution on tasks and events still renders; clients should filter them
+   * out of selection UIs.
+   */
+  deleted_at: string | null;
 }
 
 export interface Project {
