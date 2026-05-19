@@ -49,6 +49,7 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
     queryFn: () => api.listEvents(taskId),
   });
   const { data: users = [] } = useUsers();
+  const activeUsers = users.filter((u) => !u.deleted_at);
   // Scope the project picker to the task's own space — moving a task into a
   // project from another space would auto-shift it across spaces, which is
   // confusing and unsupported from the drawer.
@@ -175,7 +176,19 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
                 className="w-full rounded-lg border border-border bg-surface-subtle px-2.5 py-1.5 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
               >
                 <option value="">— unassigned —</option>
-                {users.map((u) => (
+                {task.assigned_to &&
+                  (() => {
+                    const assignee = users.find((u) => u.id === task.assigned_to);
+                    if (assignee && assignee.deleted_at) {
+                      return (
+                        <option key={assignee.id} value={assignee.id}>
+                          {assignee.display_name} (deleted)
+                        </option>
+                      );
+                    }
+                    return null;
+                  })()}
+                {activeUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.display_name}
                   </option>

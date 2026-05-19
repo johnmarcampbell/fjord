@@ -10,6 +10,7 @@ export const users = sqliteTable("users", {
   avatar: text("avatar").notNull(),
   tokenHash: text("token_hash"),
   createdAt: text("created_at").notNull(),
+  deletedAt: text("deleted_at"),
 });
 
 export const spaces = sqliteTable("spaces", {

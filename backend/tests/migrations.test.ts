@@ -103,6 +103,7 @@ describe("migration 0005_user_profile", () => {
     `);
 
     applyMigration(sqlite, "0005_user_profile");
+    applyMigration(sqlite, "0006_typical_giant_man");
 
     // handle and avatar should be NULL before backfill
     const before = sqlite.prepare("SELECT handle, avatar FROM users WHERE id = 'alice'").get() as any;

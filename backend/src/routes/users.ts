@@ -23,6 +23,7 @@ function toUser(row: typeof users.$inferSelect): User {
     bio: row.bio,
     avatar: row.avatar ?? "",
     created_at: row.createdAt,
+    deleted_at: row.deletedAt,
   };
 }
 
@@ -132,6 +133,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         avatar,
         tokenHash: body.token_hash ?? null,
         createdAt: nowIso(),
+        deletedAt: null,
       };
       app.db.insert(users).values(row).run();
       reply.code(201);
@@ -172,6 +174,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
       const existing = app.db.select().from(users).where(eq(users.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "User not found" });
+      if (existing.deletedAt) return reply.code(404).send({ error: "User not found" });
 
       const updates: Partial<typeof users.$inferInsert> = {};
 
@@ -220,9 +223,9 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     "/api/users/:id",
     {
       schema: {
-        summary: "Delete a user",
+        summary: "Soft-delete a user",
         description:
-          "Hard-delete a user. Tasks assigned to or reported by this user retain their assigned_to/reported_by values; no cascade is performed.",
+          "Marks the user as deleted by setting `deleted_at` and clearing `token_hash`. The row is retained so historical attribution on tasks and events stays intact. Idempotent: deleting an already-deleted user returns 204. The handle remains reserved (see ADR-0004).",
         tags: ["users"],
         params: {
           type: "object",
@@ -235,7 +238,13 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       const { id } = req.params as { id: string };
       const row = app.db.select().from(users).where(eq(users.id, id)).get();
       if (!row) return reply.code(404).send({ error: "User not found" });
-      app.db.delete(users).where(eq(users.id, id)).run();
+      if (!row.deletedAt) {
+        app.db
+          .update(users)
+          .set({ deletedAt: nowIso(), tokenHash: null })
+          .where(eq(users.id, id))
+          .run();
+      }
       reply.code(204);
     },
   );
