@@ -38,13 +38,24 @@ function validateHandle(input: string): string | null {
   return null;
 }
 
+function countGraphemes(input: string): number {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    let n = 0;
+    for (const _ of seg.segment(input)) n++;
+    return n;
+  }
+  let n = 0;
+  for (const _ of input) n++;
+  return n;
+}
+
 function validateAvatar(input: string): string | null {
   if (!input) return "Avatar is required";
   if (input.startsWith("http://") || input.startsWith("https://")) {
     if (input.length > 2048) return "Avatar URL too long (max 2048 chars)";
     return null;
   }
-  if (input.length < 1 || input.length > 8) return "Custom emoji must be 1-8 chars";
   let hasNonAscii = false;
   for (const ch of input) {
     if (ch.codePointAt(0)! > 127) {
@@ -53,6 +64,7 @@ function validateAvatar(input: string): string | null {
     }
   }
   if (!hasNonAscii) return "Avatar must be an emoji or http(s) URL";
+  if (countGraphemes(input) !== 1) return "Avatar must be a single emoji";
   return null;
 }
 
@@ -333,7 +345,7 @@ export function UserFormDialog({
                 onClick={() => setConfirmingDelete(true)}
                 className="text-xs font-semibold text-danger-text transition-colors hover:underline"
               >
-                Delete account
+                Delete user
               </button>
             ) : (
               <div className="flex items-center gap-3">
