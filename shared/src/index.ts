@@ -13,7 +13,11 @@ export type UserKind = "human" | "agent";
 export interface User {
   id: string;
   display_name: string;
+  handle: string;
   kind: UserKind;
+  title: string;
+  bio: string;
+  avatar: string;
   created_at: string;
 }
 
@@ -97,7 +101,39 @@ export interface CreateUserRequest {
   id: string;
   display_name: string;
   kind: UserKind;
+  handle?: string;
+  title?: string;
+  bio?: string;
+  avatar?: string;
+  token_hash?: string | null;
 }
+
+export interface UpdateUserRequest {
+  display_name?: string;
+  handle?: string;
+  kind?: UserKind;
+  title?: string;
+  bio?: string;
+  avatar?: string;
+  token_hash?: string | null;
+}
+
+export const AVATAR_EMOJI_LIST = [
+  "🦊", "🦁", "🐯", "🐼", "🐨",
+  "🐮", "🐸", "🐵", "🐧", "🦉",
+  "🦄", "🐙", "🦋", "🌸", "🌻",
+  "🌈", "⭐", "🔥", "⚡", "🚀",
+  "🎨", "🎯", "🧠", "💡", "☕",
+  "🌊", "🍀", "🍄", "🎵", "🧩",
+] as const;
+
+export const RESERVED_HANDLES: readonly string[] = [
+  "me", "admin", "system", "api", "app", "root",
+  "support", "help", "agentic-kanban", "agent",
+  "user", "users", "openclaw",
+] as const;
+
+export const HANDLE_REGEX = /^[a-z0-9_-]{1,32}$/;
 
 export interface CreateProjectRequest {
   name: string;

@@ -35,6 +35,7 @@ import {
   updateTask,
 } from "../services/tasks.js";
 import { SpaceArchivedError, UnknownSpaceError } from "../services/spaces.js";
+import { pickAvatar, slugify, resolveHandleCollision } from "../services/users.js";
 
 const ACTOR_HEADER = "x-user-id";
 
@@ -53,9 +54,16 @@ function requireActor(req: FastifyRequest, reply: FastifyReply): string | null {
   const exists = req.server.db.select().from(users).where(eq(users.id, actor)).get();
   if (!exists) {
     if (req.server.demo) {
+      const existingHandles = new Set(
+        req.server.db.select({ h: users.handle }).from(users).all()
+          .map((r) => r.h?.toLowerCase())
+          .filter((h): h is string => !!h),
+      );
+      const candidate = slugify(actor) || `user-${actor.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`;
+      const handle = resolveHandleCollision(candidate, (h) => existingHandles.has(h));
       req.server.db
         .insert(users)
-        .values({ id: actor, displayName: actor, kind: "human", createdAt: nowIso() })
+        .values({ id: actor, displayName: actor, handle, kind: "human", title: "", bio: "", avatar: pickAvatar(actor), tokenHash: null, createdAt: nowIso() })
         .run();
     } else {
       reply.code(400).send({ error: `Unknown user in ${ACTOR_HEADER}: ${actor}` });

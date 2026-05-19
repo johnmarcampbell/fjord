@@ -16,6 +16,7 @@ import { projectsRoutes } from "./routes/projects.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { streamRoutes } from "./routes/stream.js";
 import { nowIso } from "./services/tasks.js";
+import { pickAvatar, slugify, resolveHandleCollision, backfillUserProfiles } from "./services/users.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -69,12 +70,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     app.addHook("preHandler", async () => {
       if (resetter.shouldReset()) {
         resetter.reset(dbHandle);
+        backfillUserProfiles(dbHandle);
         app.events.publish({ type: "demo.reset" });
       }
     });
   } else {
     seedUsers(dbHandle, config.seedUsers);
   }
+
+  backfillUserProfiles(dbHandle);
 
   if (config.corsOrigins && config.corsOrigins.length > 0) {
     await app.register(fastifyCors, { origin: config.corsOrigins });
@@ -157,15 +161,26 @@ function seedUsers(
   seeds: Array<{ id: string; kind: "human" | "agent" }>,
 ): void {
   if (!seeds.length) return;
+  const existingRows = handle.db.select().from(users).all();
+  const takenLower = new Set(existingRows.map((r) => r.handle?.toLowerCase()).filter((x): x is string => !!x));
+
   for (const seed of seeds) {
     const existing = handle.db.select().from(users).where(eq(users.id, seed.id)).get();
     if (existing) continue;
+    const candidate = slugify(seed.id) || `user-${seed.id.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`;
+    const resolved = resolveHandleCollision(candidate, (h) => takenLower.has(h));
+    takenLower.add(resolved);
     handle.db
       .insert(users)
       .values({
         id: seed.id,
         displayName: seed.id,
+        handle: resolved,
         kind: seed.kind,
+        title: "",
+        bio: "",
+        avatar: pickAvatar(seed.id),
+        tokenHash: null,
         createdAt: nowIso(),
       })
       .run();

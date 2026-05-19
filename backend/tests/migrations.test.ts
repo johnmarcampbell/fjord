@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { backfillUserProfiles, slugify } from "../src/services/users.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");
@@ -80,5 +82,53 @@ describe("migration 0004_spaces", () => {
     expect(newTask.space_id).toBe("default");
 
     sqlite.close();
+  });
+});
+
+describe("migration 0005_user_profile", () => {
+  it("adds profile columns and backfill populates handle and avatar for pre-existing users", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+
+    applyMigration(sqlite, "0000_initial");
+    applyMigration(sqlite, "0001_projects_and_tags");
+    applyMigration(sqlite, "0002_confused_the_watchers");
+    applyMigration(sqlite, "0003_task_journal");
+    applyMigration(sqlite, "0004_spaces");
+
+    // Insert a user the old way (no handle/avatar)
+    sqlite.exec(`
+      INSERT INTO users (id, display_name, kind, created_at)
+        VALUES ('alice', 'Alice', 'human', '2025-01-01T00:00:00Z');
+    `);
+
+    applyMigration(sqlite, "0005_user_profile");
+
+    // handle and avatar should be NULL before backfill
+    const before = sqlite.prepare("SELECT handle, avatar FROM users WHERE id = 'alice'").get() as any;
+    expect(before.handle).toBeNull();
+    expect(before.avatar).toBeNull();
+
+    // Run backfill
+    const db = drizzle(sqlite);
+    const dbHandle = { db, sqlite, close: () => sqlite.close() } as any;
+    backfillUserProfiles(dbHandle);
+
+    const after = sqlite.prepare("SELECT handle, avatar FROM users WHERE id = 'alice'").get() as any;
+    expect(after.handle).toBe("alice");
+    expect(after.avatar).toBeTruthy();
+
+    sqlite.close();
+  });
+
+  it("seeded users via KANBAN_SEED_USERS have handle equal to slugified id", async () => {
+    const { makeTestApp } = await import("./helpers.js");
+    const ctx = await makeTestApp();
+    const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+    const users = res.json() as Array<{ id: string; handle: string }>;
+    for (const u of users) {
+      expect(u.handle).toBe(slugify(u.id));
+    }
+    await ctx.close();
   });
 });

@@ -132,6 +132,8 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 - **Archived tasks hidden by default** — `GET /api/tasks` excludes archived tasks; use `?include_archived=true`
 - **No user cascade** — deleting a user leaves tasks with stale `assigned_to`/`reported_by` values
 - **Journal vs comments** — journal entries (`POST .../journal`) are the assignee's durable working notes; comments (`POST .../comments`) are for cross-actor communication
+- **Handle format** — `handle` is lowercased and must match `^[a-z0-9_-]{1,32}$`; some words are reserved (`me`, `admin`, `system`, `api`, `app`, `root`, `support`, `help`, `agentic-kanban`, `agent`, `user`, `users`, `openclaw`); returns 400 if invalid or reserved, 409 if already taken
+- **token_hash write-only** — accepted in POST/PATCH body but never returned in any API response
 
 ### Tasks
 - `GET /api/tasks` — list all (includes `blocked_by` and `blocking` arrays); pass `?include_archived=true` to include archived tasks
@@ -155,7 +157,8 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 ### Users
 - `GET /api/users`
 - `GET /api/users/:id`
-- `POST /api/users` — create
+- `POST /api/users` — create (derives `handle` from `display_name` if omitted; picks deterministic emoji `avatar` if omitted)
+- `PATCH /api/users/:id` — update `display_name`, `handle`, `kind`, `title`, `bio`, `avatar`, `token_hash`; `id` and `created_at` are not editable
 - `DELETE /api/users/:id` — hard delete (no cascade; tasks retain stale user references)
 
 ### Stream

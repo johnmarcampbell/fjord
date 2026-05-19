@@ -3,7 +3,12 @@ import { sqliteTable, text, integer, real, primaryKey, index } from "drizzle-orm
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   displayName: text("display_name").notNull(),
+  handle: text("handle").notNull(),
   kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+  title: text("title").notNull().default(""),
+  bio: text("bio").notNull().default(""),
+  avatar: text("avatar").notNull(),
+  tokenHash: text("token_hash"),
   createdAt: text("created_at").notNull(),
 });
 

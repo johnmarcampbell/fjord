@@ -4,6 +4,13 @@ import { api } from "../lib/api.js";
 import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
 import { useUsers } from "../lib/queries.js";
 
+function AvatarGlyph({ avatar }: { avatar: string }) {
+  if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+    return <img src={avatar} alt="" className="h-5 w-5 rounded-full inline-block mr-1.5 align-middle" />;
+  }
+  return <span className="mr-1 align-middle" aria-hidden>{avatar}</span>;
+}
+
 export function UserPicker() {
   const { data: users = [], isLoading, isSuccess } = useUsers();
   const [current, setCurrent] = useState<string | null>(getCurrentUserId());
@@ -38,27 +45,33 @@ export function UserPicker() {
     return <div className="text-xs text-ink-subtle">Loading…</div>;
   }
 
+  const currentUser = users.find((u) => u.id === current);
+
   return (
     <div className="flex items-center gap-2">
       <span className="hidden text-xs text-ink-subtle sm:inline">Acting as</span>
-      <select
-        value={current ?? ""}
-        onChange={(e) => {
-          setCurrentUserId(e.target.value || null);
-          setCurrent(e.target.value || null);
-        }}
-        className="max-w-[120px] rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
-      >
-        <option value="" disabled>
-          (none)
-        </option>
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.display_name}
-            {u.kind === "agent" ? " (agent)" : ""}
+      <div className="flex items-center">
+        {currentUser && <AvatarGlyph avatar={currentUser.avatar} />}
+        <select
+          value={current ?? ""}
+          onChange={(e) => {
+            setCurrentUserId(e.target.value || null);
+            setCurrent(e.target.value || null);
+          }}
+          className="max-w-[120px] rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
+        >
+          <option value="" disabled>
+            (none)
           </option>
-        ))}
-      </select>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.avatar && !u.avatar.startsWith("http") ? `${u.avatar} ` : ""}
+              {u.display_name}
+              {u.kind === "agent" ? " (agent)" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {creating ? (
         <form
