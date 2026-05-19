@@ -1,0 +1,75 @@
+import { useState } from "react";
+import { useUsers } from "../lib/queries.js";
+import { getCurrentUserId } from "../lib/user.js";
+import { UserCard } from "../components/UserCard.js";
+import { UserFormDialog } from "../components/UserFormDialog.js";
+
+type DialogState =
+  | { mode: "create" }
+  | { mode: "edit"; userId: string }
+  | null;
+
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-44 animate-pulse rounded-xl border border-border bg-surface-subtle"
+        />
+      ))}
+    </div>
+  );
+}
+
+function NewUserTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex h-44 items-center justify-center rounded-xl border border-dashed border-border bg-transparent text-sm font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
+    >
+      + New user
+    </button>
+  );
+}
+
+export function UsersPage() {
+  const { data: users = [], isLoading } = useUsers();
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const currentUserId = getCurrentUserId();
+
+  return (
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-6 flex items-baseline justify-between">
+        <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">Users</h1>
+        <p className="text-xs text-ink-subtle">
+          {users.length} {users.length === 1 ? "user" : "users"}
+        </p>
+      </div>
+
+      {isLoading ? (
+        <SkeletonGrid />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {users.map((u) => (
+            <UserCard
+              key={u.id}
+              user={u}
+              isCurrent={u.id === currentUserId}
+              onEdit={() => setDialog({ mode: "edit", userId: u.id })}
+            />
+          ))}
+          <NewUserTile onClick={() => setDialog({ mode: "create" })} />
+        </div>
+      )}
+
+      {dialog && (
+        <UserFormDialog
+          mode={dialog.mode}
+          userId={dialog.mode === "edit" ? dialog.userId : undefined}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </main>
+  );
+}

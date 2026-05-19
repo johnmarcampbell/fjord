@@ -15,6 +15,7 @@ import type {
   UpdateProjectRequest,
   UpdateSpaceRequest,
   UpdateTaskRequest,
+  UpdateUserRequest,
   User,
 } from "@agentic-kanban/shared";
 import { getCurrentUserId } from "./user.js";
@@ -61,6 +62,10 @@ export const api = {
   listUsers: () => request<User[]>("/api/users"),
   createUser: (body: CreateUserRequest) =>
     request<User>("/api/users", { method: "POST", body: JSON.stringify(body) }),
+  updateUser: (id: string, body: UpdateUserRequest) =>
+    request<User>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteUser: (id: string) =>
+    request<void>(`/api/users/${id}`, { method: "DELETE" }),
 
   listProjects: (spaceId?: string) => {
     const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";

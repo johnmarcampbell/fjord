@@ -110,13 +110,20 @@ Read at startup from environment variables (Zod-validated in [backend/src/config
 ### Theme
 Light/dark mode stored in localStorage (`ak-theme`) and applied to `document.documentElement.data-theme`. Tailwind CSS respects this via the `data-theme` selector in [frontend/tailwind.config.ts](frontend/tailwind.config.ts).
 
+### Routes
+Routing uses `react-router-dom` v6.
+- `/` — board / backlog / archive (see `BoardPage`)
+- `/users` — user management; the `+ New user` tile creates users, and the current user can edit or self-delete their own card. The legacy header create flow has been removed (see [ADR-0003](docs/adr/0003-user-creation-on-users-page.md)). When the user table is empty, the app auto-redirects here.
+
 ### Key components
 - [frontend/src/components/Board.tsx](frontend/src/components/Board.tsx) — renders five columns, subscribes to task list
 - [frontend/src/components/Column.tsx](frontend/src/components/Column.tsx) — dnd-kit sortable container, handles drop (position update)
 - [frontend/src/components/TaskCard.tsx](frontend/src/components/TaskCard.tsx) — renders task with blocked state, opens drawer on click
 - [frontend/src/components/TaskDrawer.tsx](frontend/src/components/TaskDrawer.tsx) — side panel for editing task details, comments, blockers
 - [frontend/src/components/NewTaskDialog.tsx](frontend/src/components/NewTaskDialog.tsx) — modal for quick task creation
-- [frontend/src/components/UserPicker.tsx](frontend/src/components/UserPicker.tsx) — select or create user on first load
+- [frontend/src/components/UserPicker.tsx](frontend/src/components/UserPicker.tsx) — header "Acting as" selector (no creation flow; manage users at `/users`)
+- [frontend/src/components/UserCard.tsx](frontend/src/components/UserCard.tsx) — single user tile rendered on `/users`
+- [frontend/src/components/UserFormDialog.tsx](frontend/src/components/UserFormDialog.tsx) — shared create + edit + self-delete modal
 
 ### API client
 [frontend/src/lib/api.ts](frontend/src/lib/api.ts): Wrapper around fetch with user ID in headers. Throws `ApiError` (with status, message, body) on non-2xx responses.
