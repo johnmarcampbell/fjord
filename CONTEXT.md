@@ -38,6 +38,32 @@ A **User**'s visual identifier — either a single emoji (default) or an image
 URL. Every user has one; backfilled with a random pick from a curated emoji
 list for existing users.
 
+**Role**:
+A **User**'s global permission level: `Admin` or `Member`. Determines what they
+can do across the whole system. Distinct from **Title** (free-text job
+description) and from **Space access** (per-space grants).
+_Avoid_: permission, level.
+
+**Member**:
+A non-**Admin** **Role** — the default. Used only as a role name; do _not_ use
+"member" to refer to a **User** in general (that's just "user").
+_Avoid_: using for actors-in-general.
+
+**Space access**:
+A grant that lets a **Member** see and act within a specific **Space**.
+**Admin** **Users** have implicit access to every **Space** and do not need
+grants. **Space Owners** have implicit access to spaces they own. Modeled as
+a row in a grants table; not a property of the **User**.
+_Avoid_: membership, role-in-space.
+
+**Space Owner**:
+The **User** who created a **Space**. Recorded on the space row, not as a
+grant. Owners have implicit access to their own space and can grant/revoke
+**Space access**, edit the space's name/description, and archive it.
+Distinct from **Role** — a **Member** can be a Space Owner of spaces they
+created. **Admins** can manage any space without needing to be the owner.
+_Avoid_: creator, manager.
+
 ### Board
 
 **Column**:
@@ -74,7 +100,9 @@ a system-recorded change (column change, blocker added, etc.).
 
 ## Relationships
 
-- A **User** has exactly one **Kind**, one **Handle**, one **Display name**, and one **Avatar**.
+- A **User** has exactly one **Kind**, one **Handle**, one **Display name**, one **Avatar**, and one **Role**.
+- A **Member** has zero or more **Space access** grants. **Admins** do not need grants.
+- Every **Space** has exactly one **Space Owner** — the **User** who created it.
 - A **Task** is reported by one **User** and optionally assigned to one **User**.
 - A **Task** is blocked by zero or more other **Tasks** via **Blocker** edges.
 - A **Task** belongs to one **Space** and at most one **Project**.
@@ -82,6 +110,8 @@ a system-recorded change (column change, blocker added, etc.).
 ## Flagged ambiguities
 
 - **"Role"** was overloaded between (a) a User's free-text job description and
-  (b) a permissions grant. Resolved: the job description is **Title**.
-  Permissions are a separate concept deferred to issue #60 and intentionally
-  not represented in the schema until then.
+  (b) a permissions grant. Resolved: the job description is **Title**; **Role**
+  is the global Admin/Member level.
+- **"User"** was almost overloaded again as the name for the non-Admin role.
+  Resolved: the non-Admin role is **Member**. "User" remains exclusively the
+  actor term.
