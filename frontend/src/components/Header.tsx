@@ -1,5 +1,4 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { SpaceSwitcher } from "./SpaceSwitcher.js";
 import { UserPicker } from "./UserPicker.js";
 import { useTasks, useArchivedTasks } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
@@ -47,6 +46,7 @@ export function Header({
 
   const onBoard = location.pathname === "/";
   const onUsers = location.pathname === "/users";
+  const onSpaces = location.pathname.startsWith("/spaces");
   const boardCount = tasks.filter((t) => t.column !== "Backlog").length;
   const backlogCount = tasks.filter((t) => t.column === "Backlog").length;
   const archiveCount = archivedTasks?.length ?? null;
@@ -69,14 +69,22 @@ export function Header({
     }`;
   }
 
+  function spacesLinkClass() {
+    return `rounded-lg px-2 py-1.5 text-xs transition-colors ${
+      onSpaces ? "text-ink" : "text-ink-subtle hover:text-ink-muted"
+    }`;
+  }
+
   return (
     <header className="flex flex-col gap-2 border-b border-border bg-surface px-4 py-2.5 shadow-[0_1px_0_var(--color-border)] sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <span className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">Agentic Kanban</span>
-          <SpaceSwitcher />
         </div>
         <div className="flex items-center gap-1 sm:hidden">
+          <Link to="/spaces" className={spacesLinkClass()}>
+            Spaces
+          </Link>
           <Link to="/users" className={usersLinkClass()}>
             Users
           </Link>
@@ -127,6 +135,9 @@ export function Header({
             <span className="hidden sm:inline">+ New task</span>
           </button>
           <UserPicker />
+          <Link to="/spaces" className={`hidden sm:inline-block ${spacesLinkClass()}`}>
+            Spaces
+          </Link>
           <Link to="/users" className={`hidden sm:inline-block ${usersLinkClass()}`}>
             Users
           </Link>

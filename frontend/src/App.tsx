@@ -18,6 +18,8 @@ import { BoardViewProvider } from "./lib/BoardViewContext.js";
 import { Header } from "./components/Header.js";
 import { BoardPage } from "./pages/BoardPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
+import { SpacesPage } from "./pages/SpacesPage.js";
+import { SpaceDetailPage } from "./pages/SpaceDetailPage.js";
 
 export default function App() {
   return (
@@ -86,6 +88,8 @@ function AppShell() {
           }
         />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/spaces" element={<SpacesPage />} />
+        <Route path="/spaces/:id" element={<SpaceDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster
