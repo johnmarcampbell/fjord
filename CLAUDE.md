@@ -233,3 +233,4 @@ The backend serves both the API and the React build on a single port.
 - **Configurable columns** — not supported; fixed set of five
 - **No file attachments** — only markdown comments
 - **No search** — full task list fetched on load
+- **Demo mode must stay in sync** — any new schema table or column that affects the user-visible feature set should be reflected in [`backend/demo/seed.sql`](backend/demo/seed.sql). The seed is the canonical demo state and is re-applied on every periodic reset.
