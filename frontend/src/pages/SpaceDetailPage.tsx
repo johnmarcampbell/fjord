@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api.js";
 import { useProjects, useSpaceAccess, useTasks, useUsers } from "../lib/queries.js";
+import { useActiveSpace } from "../lib/SpaceContext.js";
 import { getCurrentUserId } from "../lib/user.js";
 import { canManageSpace } from "../lib/policy.js";
 import { SpaceDetailHeader } from "../components/SpaceDetailHeader.js";
@@ -34,6 +35,11 @@ function Skeleton() {
 export function SpaceDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const { activeSpaceId, setActiveSpaceId } = useActiveSpace();
+
+  useEffect(() => {
+    if (id && id !== activeSpaceId) setActiveSpaceId(id);
+  }, [id, activeSpaceId, setActiveSpaceId]);
 
   const spaceQuery = useQuery({
     queryKey: ["space", id],
@@ -90,7 +96,7 @@ export function SpaceDetailPage() {
     <>
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <SpaceDetailHeader space={space} owner={owner} canEdit={canEdit} />
-        <SpaceAccessList space={space} users={users} grants={grants} />
+        <SpaceAccessList space={space} users={users} grants={grants} canManage={canEdit} />
         <SpaceProjectTree
           projects={projects}
           tasks={tasks}

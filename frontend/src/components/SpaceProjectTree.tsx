@@ -232,7 +232,7 @@ export function SpaceProjectTree({
                   <span className="text-xs text-ink-subtle">({section.tasks.length})</span>
                 </button>
                 {!isCollapsed && (
-                  <div className="flex flex-col gap-1.5 px-3 pb-3">
+                  <div className="flex flex-col gap-1.5 px-3 pb-3 pt-2">
                     {section.tasks.length === 0 ? (
                       <p className="text-xs italic text-ink-subtle">No tasks</p>
                     ) : (

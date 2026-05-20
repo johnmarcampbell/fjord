@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { DEFAULT_SPACE_ID, type Space, type User } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-    return <img src={avatar} alt="" className="h-8 w-8 rounded-full object-cover" />;
+    return <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />;
   }
   return (
     <span
-      className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-subtle text-lg"
+      className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-subtle text-base"
       aria-hidden
     >
       {avatar}
@@ -28,6 +29,7 @@ export function SpaceDetailHeader({
   canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [editingName, setEditingName] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [nameDraft, setNameDraft] = useState(space.name);
@@ -61,6 +63,31 @@ export function SpaceDetailHeader({
       setEditingDesc(false);
     },
     onError: (err) => handleError(err, "Update failed"),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => api.archiveSpace(space.id),
+    onSuccess: () => invalidate(),
+    onError: (err) => handleError(err, "Archive failed"),
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: () => api.unarchiveSpace(space.id),
+    onSuccess: () => invalidate(),
+    onError: (err) => handleError(err, "Unarchive failed"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteSpace(space.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
+      toast.success(`Space "${space.name}" deleted`);
+      navigate("/spaces");
+    },
+    onError: (err) => handleError(err, "Delete failed"),
   });
 
   function saveName() {
@@ -154,6 +181,48 @@ export function SpaceDetailHeader({
                 archived
               </span>
             )}
+            {canEdit && (
+              <div className="ml-auto flex items-center gap-2">
+                {isArchived ? (
+                  <button
+                    type="button"
+                    onClick={() => unarchiveMutation.mutate()}
+                    disabled={unarchiveMutation.isPending}
+                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-50"
+                  >
+                    Unarchive
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => archiveMutation.mutate()}
+                    disabled={archiveMutation.isPending || isDefault}
+                    title={isDefault ? "The default space cannot be archived" : undefined}
+                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted"
+                  >
+                    Archive
+                  </button>
+                )}
+                {!isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Delete "${space.name}"? Empty projects in it will be removed. Spaces with tasks cannot be deleted.`,
+                        )
+                      ) {
+                        deleteMutation.mutate();
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="rounded-lg border border-danger-border px-2.5 py-1 text-xs font-medium text-danger-text transition-colors hover:bg-danger-bg disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -225,9 +294,9 @@ export function SpaceDetailHeader({
           Owner
         </span>
         {owner ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface-subtle px-3 py-1.5">
             <AvatarGlyph avatar={owner.avatar} />
-            <span className="text-sm text-ink">@{owner.handle}</span>
+            <span className="text-xs font-medium text-ink">@{owner.handle}</span>
           </div>
         ) : (
           <span className="text-sm italic text-ink-subtle">unknown</span>

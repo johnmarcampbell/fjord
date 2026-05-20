@@ -1,5 +1,4 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { SpaceSwitcher } from "./SpaceSwitcher.js";
 import { UserPicker } from "./UserPicker.js";
 import { useTasks, useArchivedTasks } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
@@ -81,7 +80,6 @@ export function Header({
       <div className="flex items-center justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <span className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">Agentic Kanban</span>
-          <SpaceSwitcher />
         </div>
         <div className="flex items-center gap-1 sm:hidden">
           <Link to="/spaces" className={spacesLinkClass()}>

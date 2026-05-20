@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Board } from "../components/Board.js";
 import { BacklogView } from "../components/BacklogView.js";
 import { ArchiveView } from "../components/ArchiveView.js";
@@ -8,7 +9,6 @@ import { useTasks, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useBoardView } from "../lib/BoardViewContext.js";
 import { getCurrentUserId } from "../lib/user.js";
-import { isAdmin } from "../lib/policy.js";
 
 export function BoardPage({
   creating,
@@ -23,7 +23,6 @@ export function BoardPage({
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const { data: users = [] } = useUsers();
   const currentUser = users.find((u) => u.id === getCurrentUserId());
-  const currentIsAdmin = currentUser ? isAdmin(currentUser) : false;
 
   if (spaces.length === 0 && users.length > 0) {
     return (
@@ -31,9 +30,9 @@ export function BoardPage({
         <div className="max-w-sm">
           <p className="text-sm font-medium text-ink">No spaces accessible</p>
           <p className="mt-2 text-xs text-ink-subtle">
-            {currentIsAdmin
-              ? "Create a space with \"+ New space\" in the header to get started."
-              : "You don't have access to any spaces yet. Create one with \"+ New space\" or ask an Admin / Space Owner for access."}
+            {currentUser
+              ? <>Head to <Link to="/spaces" className="font-medium text-accent hover:underline">Spaces</Link> to create one or browse what you have access to.</>
+              : "Sign in to see your spaces."}
           </p>
         </div>
       </main>
