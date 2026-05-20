@@ -179,32 +179,31 @@ export function SpaceProjectTree({
               <option value="due_date">Due date</option>
             </select>
           </label>
-          <div className="flex overflow-hidden rounded-lg border border-border">
-            <button
-              type="button"
-              onClick={() => setSortDir("asc")}
-              className={`px-2 py-1 text-xs font-medium transition-colors ${
-                sortDir === "asc"
-                  ? "bg-accent text-accent-fg"
-                  : "bg-surface-subtle text-ink-muted hover:bg-surface-hover"
-              }`}
-              aria-label="Sort ascending"
+          <button
+            type="button"
+            onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            aria-label={sortDir === "asc" ? "Sort descending" : "Sort ascending"}
+            title={sortDir === "asc" ? "Ascending — click to flip" : "Descending — click to flip"}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-surface-subtle text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: sortDir === "desc" ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 120ms",
+              }}
             >
-              Asc
-            </button>
-            <button
-              type="button"
-              onClick={() => setSortDir("desc")}
-              className={`px-2 py-1 text-xs font-medium transition-colors ${
-                sortDir === "desc"
-                  ? "bg-accent text-accent-fg"
-                  : "bg-surface-subtle text-ink-muted hover:bg-surface-hover"
-              }`}
-              aria-label="Sort descending"
-            >
-              Desc
-            </button>
-          </div>
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
