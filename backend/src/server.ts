@@ -92,9 +92,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     const url = req.url.split("?")[0];
     if (!url.startsWith("/api/")) return;
     if (ACTOR_SKIP.has(url) || url.startsWith("/api/docs")) return;
-    // GET /api/users and GET /api/users/:id are unauthenticated reads — needed so
-    // the UserPicker can bootstrap even when no user is stored in localStorage.
-    if (req.method === "GET" && (url === "/api/users" || url.startsWith("/api/users/"))) return;
     const result = await resolveActor(app.db, req.headers[ACTOR_HEADER], app.demo);
     if ("error" in result) {
       return reply.code(result.status).send({ error: result.error });
