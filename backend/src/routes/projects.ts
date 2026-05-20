@@ -13,6 +13,8 @@ import {
   assertSpaceWriteable,
   moveProjectToSpace,
 } from "../services/spaces.js";
+import { AssigneeNoAccessError } from "../services/tasks.js";
+import { canAccessSpace } from "../auth/policy.js";
 
 function toProject(row: typeof projects.$inferSelect) {
   return {
@@ -79,8 +81,10 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
       const body = req.body as CreateProjectRequest;
       const spaceId = body.space_id ?? DEFAULT_SPACE_ID;
+      if (!canAccessSpace(actor, spaceId)) return reply.code(403).send({ error: "Forbidden" });
       try {
         assertSpaceWriteable(app.db, spaceId);
       } catch (err) {
@@ -131,18 +135,22 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const body = req.body as UpdateProjectRequest;
+      const actor = req.actor!;
       const existing = app.db.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "Project not found" });
+      if (!canAccessSpace(actor, existing.spaceId)) return reply.code(403).send({ error: "Forbidden" });
 
       if (body.space_id && body.space_id !== existing.spaceId) {
-        const actor = req.actor!.id;
+        if (!canAccessSpace(actor, body.space_id)) return reply.code(403).send({ error: "Forbidden" });
         try {
-          moveProjectToSpace(app.db, app.events, actor, id, body.space_id);
+          moveProjectToSpace(app.db, app.events, actor.id, id, body.space_id);
         } catch (err) {
           if (err instanceof UnknownSpaceError)
             return reply.code(400).send({ error: "Unknown space_id" });
           if (err instanceof SpaceArchivedError)
             return reply.code(400).send({ error: "Target space is archived" });
+          if (err instanceof AssigneeNoAccessError)
+            return reply.code(400).send({ error: err.message });
           throw err;
         }
       }
@@ -174,8 +182,10 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const { id } = req.params as { id: string };
+      const actor = req.actor!;
       const existing = app.db.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "Project not found" });
+      if (!canAccessSpace(actor, existing.spaceId)) return reply.code(403).send({ error: "Forbidden" });
       app.db.update(tasks).set({ projectId: null }).where(eq(tasks.projectId, id)).run();
       app.db.delete(projects).where(eq(projects.id, id)).run();
       reply.code(204);

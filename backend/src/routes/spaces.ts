@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
 import type { CreateGrantRequest, CreateSpaceRequest, Grant, UpdateSpaceRequest } from "@agentic-kanban/shared";
 import {
@@ -311,9 +311,13 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       const row = app.db
         .select()
         .from(userSpaceAccess)
-        .where(eq(userSpaceAccess.userId, targetUserId))
-        .all()
-        .find((r) => r.spaceId === spaceId)!;
+        .where(
+          and(
+            eq(userSpaceAccess.userId, targetUserId),
+            eq(userSpaceAccess.spaceId, spaceId),
+          ),
+        )
+        .get()!;
       return toGrant(row);
     },
   );
@@ -343,9 +347,18 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       }
       if (!canGrantAccessForSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
 
+      if (space.created_by === targetUserId) {
+        return reply.code(400).send({ error: "Cannot revoke access from the space owner" });
+      }
+
       app.db
         .delete(userSpaceAccess)
-        .where(eq(userSpaceAccess.userId, targetUserId))
+        .where(
+          and(
+            eq(userSpaceAccess.userId, targetUserId),
+            eq(userSpaceAccess.spaceId, spaceId),
+          ),
+        )
         .run();
 
       reply.code(200).send({});

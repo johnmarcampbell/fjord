@@ -8,7 +8,8 @@ import {
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
 import { projects, spaces, taskEvents, tasks } from "../db/schema.js";
-import { newId, nowIso } from "./tasks.js";
+import { newId, nowIso, userCanAccessSpace, AssigneeNoAccessError } from "./tasks.js";
+import { users } from "../db/schema.js";
 
 export class SpaceNotFoundError extends Error {
   readonly name = "SpaceNotFoundError";
@@ -169,6 +170,28 @@ export function moveProjectToSpace(
   if (!project) throw new Error("Project not found");
   assertSpaceWriteable(db, newSpaceId);
   if (project.spaceId === newSpaceId) return;
+
+  // Reject the move if any assignee would lose visibility of their task.
+  const tasksToCheck = db
+    .select({ assignedTo: tasks.assignedTo })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId))
+    .all();
+  const checked = new Set<string>();
+  for (const t of tasksToCheck) {
+    if (!t.assignedTo || checked.has(t.assignedTo)) continue;
+    checked.add(t.assignedTo);
+    if (!userCanAccessSpace(db, t.assignedTo, newSpaceId)) {
+      const u = db
+        .select({ handle: users.handle })
+        .from(users)
+        .where(eq(users.id, t.assignedTo))
+        .get();
+      throw new AssigneeNoAccessError(
+        `Assignee ${u?.handle ?? t.assignedTo} does not have access to destination space. Reassign or grant access first.`,
+      );
+    }
+  }
 
   const oldSpaceId = project.spaceId;
   const now = nowIso();

@@ -6,6 +6,7 @@ import { api, ApiError } from "../lib/api.js";
 import { useSpaces, useUsers } from "../lib/queries.js";
 import { getCurrentUserId } from "../lib/user.js";
 import { canManageSpace } from "../lib/policy.js";
+import { ManageAccessDialog } from "./ManageAccessDialog.js";
 
 export function ManageSpacesDialog({ onClose }: { onClose: () => void }) {
   const { data: spaces = [] } = useSpaces({ includeArchived: true });
@@ -49,6 +50,7 @@ function SpaceRow({ space, canManage }: { space: Space; canManage: boolean }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(space.name);
+  const [managingAccess, setManagingAccess] = useState(false);
   const isDefault = space.id === DEFAULT_SPACE_ID;
   const isArchived = space.archived_at !== null;
 
@@ -155,6 +157,13 @@ function SpaceRow({ space, canManage }: { space: Space; canManage: boolean }) {
           >
             rename
           </button>
+          <button
+            type="button"
+            onClick={() => setManagingAccess(true)}
+            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink"
+          >
+            manage access
+          </button>
           {isArchived ? (
             <button
               type="button"
@@ -193,6 +202,9 @@ function SpaceRow({ space, canManage }: { space: Space; canManage: boolean }) {
             </button>
           )}
         </div>
+      )}
+      {managingAccess && (
+        <ManageAccessDialog space={space} onClose={() => setManagingAccess(false)} />
       )}
     </li>
   );

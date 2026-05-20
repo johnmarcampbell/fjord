@@ -2,11 +2,13 @@ import type {
   AddBlockerRequest,
   AddCommentRequest,
   AddJournalEntryRequest,
+  CreateGrantRequest,
   CreateProjectRequest,
   CreateSpaceRequest,
   CreateTaskRequest,
   CreateUserRequest,
   EventKind,
+  Grant,
   Project,
   ServerConfig,
   Space,
@@ -92,6 +94,16 @@ export const api = {
     request<Space>(`/api/spaces/${id}/archive`, { method: "POST" }),
   unarchiveSpace: (id: string) =>
     request<Space>(`/api/spaces/${id}/unarchive`, { method: "POST" }),
+
+  listSpaceAccess: (spaceId: string) =>
+    request<Grant[]>(`/api/spaces/${spaceId}/access`),
+  grantSpaceAccess: (spaceId: string, body: CreateGrantRequest) =>
+    request<Grant>(`/api/spaces/${spaceId}/access`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  revokeSpaceAccess: (spaceId: string, userId: string) =>
+    request<void>(`/api/spaces/${spaceId}/access/${userId}`, { method: "DELETE" }),
 
   listTasks: (spaceId?: string) => {
     const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";

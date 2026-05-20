@@ -10,7 +10,7 @@ import {
 } from "@agentic-kanban/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
-import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
+import { spaces, taskDependencies, taskEvents, tasks, userSpaceAccess, users, projects } from "../db/schema.js";
 import { assertSpaceWriteable } from "./spaces.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -59,6 +59,49 @@ export class TaskStateError extends Error {
   constructor(message: string) {
     super(message);
   }
+}
+
+export class AssigneeNoAccessError extends Error {
+  readonly name = "AssigneeNoAccessError";
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * True if the given user can access the given space (Admin, Owner, or has an
+ * explicit grant). Used by cross-space-move guards to reject moves that would
+ * orphan an assignee.
+ */
+export function userCanAccessSpace(db: DB, userId: string, spaceId: string): boolean {
+  const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
+  if (!user) return false;
+  if (user.role === "Admin") return true;
+  const owns = db
+    .select({ id: spaces.id })
+    .from(spaces)
+    .where(and(eq(spaces.id, spaceId), eq(spaces.createdBy, userId)))
+    .get();
+  if (owns) return true;
+  const grant = db
+    .select({ userId: userSpaceAccess.userId })
+    .from(userSpaceAccess)
+    .where(and(eq(userSpaceAccess.userId, userId), eq(userSpaceAccess.spaceId, spaceId)))
+    .get();
+  return !!grant;
+}
+
+function assertAssigneeCanAccessSpace(db: DB, assigneeId: string, destSpaceId: string): void {
+  if (userCanAccessSpace(db, assigneeId, destSpaceId)) return;
+  const u = db
+    .select({ handle: users.handle })
+    .from(users)
+    .where(eq(users.id, assigneeId))
+    .get();
+  const handle = u?.handle ?? assigneeId;
+  throw new AssigneeNoAccessError(
+    `Assignee ${handle} does not have access to destination space. Reassign or grant access first.`,
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -305,7 +348,12 @@ export function updateTask(
   } else {
     newSpaceId = existing.spaceId;
   }
-  if (newSpaceId !== existing.spaceId) assertSpaceWriteable(db, newSpaceId);
+  if (newSpaceId !== existing.spaceId) {
+    assertSpaceWriteable(db, newSpaceId);
+    const nextAssignee =
+      body.assigned_to === undefined ? existing.assignedTo : body.assigned_to;
+    if (nextAssignee) assertAssigneeCanAccessSpace(db, nextAssignee, newSpaceId);
+  }
 
   const newTagsArr =
     body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
