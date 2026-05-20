@@ -2,6 +2,9 @@ import { eq } from "drizzle-orm";
 import { AVATAR_EMOJI_LIST, HANDLE_REGEX, RESERVED_HANDLES } from "@agentic-kanban/shared";
 import { users } from "../db/schema.js";
 import type { DBHandle } from "../db/index.js";
+import { nowIso } from "./tasks.js";
+
+export const DEFAULT_ADMINISTRATOR_ID = "default-administrator";
 
 const RESERVED_SET = new Set(RESERVED_HANDLES.map((h) => h.toLowerCase()));
 
@@ -93,12 +96,45 @@ export function validateAvatar(input: string): string {
 }
 
 /**
+ * Creates the Default Administrator user if it does not already exist.
+ * Idempotent — safe to call on every startup.
+ */
+export function seedDefaultAdministrator(handle: DBHandle): void {
+  const existing = handle.db
+    .select()
+    .from(users)
+    .where(eq(users.id, DEFAULT_ADMINISTRATOR_ID))
+    .get();
+  if (existing) return;
+
+  handle.db
+    .insert(users)
+    .values({
+      id: DEFAULT_ADMINISTRATOR_ID,
+      displayName: "Administrator",
+      handle: "admin",
+      kind: "human",
+      role: "Admin",
+      title: "Administrator",
+      bio: "Built-in administrator. Cannot be deleted.",
+      avatar: "🛡️",
+      tokenHash: null,
+      createdAt: nowIso(),
+      deletedAt: null,
+    })
+    .run();
+}
+
+/**
  * Backfill handle and avatar for any users where they are NULL.
  * Idempotent — only updates rows that need it. Called at startup after
  * migrations and after seed/reset.
  */
 export function backfillUserProfiles(handle: DBHandle): void {
-  const rows = handle.db.select().from(users).all();
+  const rows = handle.db
+    .select({ id: users.id, displayName: users.displayName, handle: users.handle, avatar: users.avatar })
+    .from(users)
+    .all();
   const takenLower = new Set<string>();
   for (const r of rows) {
     if (r.handle) takenLower.add(r.handle.toLowerCase());

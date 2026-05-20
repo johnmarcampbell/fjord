@@ -132,15 +132,24 @@ Routing uses `react-router-dom` v6.
 
 All write endpoints require `X-User-Id` header. Every task has a `version` integer; PATCH requires the version the caller last saw (optimistic concurrency, returns 409 on mismatch).
 
+### Roles and access control
+Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `default-administrator` user always has Admin role and cannot be deleted.
+
+- **Admins** can access all spaces, manage all users, and manage any space.
+- **Members** can only access spaces they created or have been explicitly granted access to (via `POST /api/spaces/:id/access`). Members can create spaces (they become Owner of that space) but 403 on other spaces' resources.
+- **Soft-deleted actors** receive 400 on any authenticated request.
+
 ### Gotchas for agents
 - **PATCH requires `version`** — always include the `version` field from the last task you fetched; returns 409 if stale
 - **Archive requires Done** — `POST /api/tasks/:id/archive` returns 400 unless the task is in the `Done` column
 - **Blocker IDs are task IDs** — `blocker_id` in both the `POST .../blockers` body and the `DELETE .../blockers/:blocker_id` path is the ID of the blocking *task*, not a relationship/link ID
 - **Archived tasks hidden by default** — `GET /api/tasks` excludes archived tasks; use `?include_archived=true`
+- **Tasks/projects scoped to accessible spaces** — `GET /api/tasks` and `GET /api/projects` return only items in spaces the actor can access; Admins see everything
 - **Users are soft-deleted** — `DELETE /api/users/:id` sets `deleted_at` and nulls `token_hash`; the row stays so historical attribution on tasks, events, comments, and journal entries continues to render. `GET /api/users` includes deleted users (clients filter them out of selection UIs); `PATCH /api/users/:id` returns 404 for a deleted user. Handles remain reserved. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
 - **Journal vs comments** — journal entries (`POST .../journal`) are the assignee's durable working notes; comments (`POST .../comments`) are for cross-actor communication
 - **Handle format** — `handle` is lowercased and must match `^[a-z0-9_-]{1,32}$`; some words are reserved (`me`, `admin`, `system`, `api`, `app`, `root`, `support`, `help`, `agentic-kanban`, `agent`, `user`, `users`, `openclaw`); returns 400 if invalid or reserved, 409 if already taken
 - **token_hash write-only** — accepted in POST/PATCH body but never returned in any API response
+- **role field** — `POST /api/users` and `PATCH /api/users/:id` accept `role: "Admin" | "Member"`; only Admins may set a role; the default-administrator's role cannot be changed
 
 ### Tasks
 - `GET /api/tasks` — list all (includes `blocked_by` and `blocking` arrays); pass `?include_archived=true` to include archived tasks
@@ -164,12 +173,23 @@ All write endpoints require `X-User-Id` header. Every task has a `version` integ
 ### Users
 - `GET /api/users`
 - `GET /api/users/:id`
-- `POST /api/users` — create (derives `handle` from `display_name` if omitted; picks deterministic emoji `avatar` if omitted)
-- `PATCH /api/users/:id` — update `display_name`, `handle`, `kind`, `title`, `bio`, `avatar`, `token_hash`; `id` and `created_at` are not editable
-- `DELETE /api/users/:id` — soft delete (sets `deleted_at`, nulls `token_hash`); idempotent. The row stays so attribution still renders; handle remains reserved. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
+- `POST /api/users` — create (Admin only); derives `handle` from `display_name` if omitted; picks deterministic emoji `avatar` if omitted; accepts optional `role`
+- `PATCH /api/users/:id` — update `display_name`, `handle`, `kind`, `title`, `bio`, `avatar`, `token_hash`; Admins may also set `role`; `id` and `created_at` are not editable
+- `DELETE /api/users/:id` — soft delete (sets `deleted_at`, nulls `token_hash`); idempotent. The row stays so attribution still renders; handle remains reserved. The `default-administrator` cannot be deleted. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
+
+### Spaces
+- `GET /api/spaces` — list accessible spaces (all for Admins; owned + granted for Members)
+- `POST /api/spaces` — create (any user); creator becomes Owner (`created_by`)
+- `PATCH /api/spaces/:id` — rename; Owner or Admin only
+- `DELETE /api/spaces/:id` — hard delete (must be empty of tasks); Owner or Admin only
+- `POST /api/spaces/:id/archive` — archive; Owner or Admin only
+- `POST /api/spaces/:id/unarchive` — restore; Owner or Admin only
+- `GET /api/spaces/:id/access` — list grants (Owner or Admin only); returns `[{ user_id, space_id, granted_at, granted_by }]`
+- `POST /api/spaces/:id/access` — grant a user access; body: `{ "user_id": "<id>" }`; Owner or Admin only; 400 if user is Admin or already has access
+- `DELETE /api/spaces/:id/access/:user_id` — revoke access; Owner or Admin only; 400 if target is the space Owner
 
 ### Stream
-- `GET /api/events/stream` — Server-Sent Events; emits `task.created`, `task.updated`, `task.deleted`, `task.event_added`
+- `GET /api/events/stream` — Server-Sent Events; emits `task.created`, `task.updated`, `task.deleted`, `task.event_added` (filtered to the subscriber's accessible spaces at connect time)
 
 ### Server
 - `GET /api/health` — liveness check; always public (no auth required)

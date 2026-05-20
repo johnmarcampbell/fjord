@@ -5,6 +5,7 @@ export const users = sqliteTable("users", {
   displayName: text("display_name").notNull(),
   handle: text("handle").notNull(),
   kind: text("kind", { enum: ["human", "agent"] }).notNull(),
+  role: text("role", { enum: ["Admin", "Member"] }).notNull().default("Member"),
   title: text("title").notNull().default(""),
   bio: text("bio").notNull().default(""),
   avatar: text("avatar").notNull(),
@@ -20,6 +21,7 @@ export const spaces = sqliteTable("spaces", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   archivedAt: text("archived_at"),
+  createdBy: text("created_by").notNull().default("default-administrator").references(() => users.id),
 });
 
 export const projects = sqliteTable(
@@ -105,5 +107,25 @@ export const taskDependencies = sqliteTable(
   (table) => ({
     pk: primaryKey({ columns: [table.blockerId, table.blockedId] }),
     blockedIdx: index("task_deps_blocked_idx").on(table.blockedId),
+  }),
+);
+
+export const userSpaceAccess = sqliteTable(
+  "user_space_access",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    grantedAt: text("granted_at").notNull(),
+    grantedBy: text("granted_by")
+      .notNull()
+      .references(() => users.id),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.spaceId] }),
+    userIdx: index("user_space_access_user_idx").on(table.userId),
   }),
 );

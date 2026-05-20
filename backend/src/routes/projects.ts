@@ -1,5 +1,5 @@
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { asc, eq } from "drizzle-orm";
+import type { FastifyPluginAsync } from "fastify";
+import { asc, eq, inArray } from "drizzle-orm";
 import {
   DEFAULT_SPACE_ID,
   type CreateProjectRequest,
@@ -13,14 +13,6 @@ import {
   assertSpaceWriteable,
   moveProjectToSpace,
 } from "../services/spaces.js";
-
-const ACTOR_HEADER = "x-user-id";
-
-function getActorId(req: FastifyRequest): string | null {
-  const v = req.headers[ACTOR_HEADER];
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
 
 function toProject(row: typeof projects.$inferSelect) {
   return {
@@ -50,9 +42,19 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req) => {
+      const actor = req.actor!;
       const { space_id } = req.query as { space_id?: string };
       const query = app.db.select().from(projects).orderBy(asc(projects.createdAt));
-      const rows = space_id ? query.where(eq(projects.spaceId, space_id)).all() : query.all();
+      let rows;
+      if (space_id) {
+        rows = query.where(eq(projects.spaceId, space_id)).all();
+      } else if (actor.accessibleSpaceIds === "all") {
+        rows = query.all();
+      } else {
+        const ids = [...actor.accessibleSpaceIds];
+        if (ids.length === 0) return [];
+        rows = query.where(inArray(projects.spaceId, ids)).all();
+      }
       return rows.map(toProject);
     },
   );
@@ -133,9 +135,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       if (!existing) return reply.code(404).send({ error: "Project not found" });
 
       if (body.space_id && body.space_id !== existing.spaceId) {
-        const actor = getActorId(req);
-        if (!actor)
-          return reply.code(400).send({ error: `Missing required header: ${ACTOR_HEADER}` });
+        const actor = req.actor!.id;
         try {
           moveProjectToSpace(app.db, app.events, actor, id, body.space_id);
         } catch (err) {

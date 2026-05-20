@@ -16,13 +16,17 @@ import { projectsRoutes } from "./routes/projects.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { streamRoutes } from "./routes/stream.js";
 import { nowIso } from "./services/tasks.js";
-import { pickAvatar, slugify, resolveHandleCollision, backfillUserProfiles } from "./services/users.js";
+import { pickAvatar, slugify, resolveHandleCollision, backfillUserProfiles, seedDefaultAdministrator } from "./services/users.js";
+import { ACTOR_HEADER, resolveActor, type Actor } from "./auth/actor.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     db: DB;
     events: EventBus;
     demo: boolean;
+  }
+  interface FastifyRequest {
+    actor?: Actor;
   }
 }
 
@@ -64,6 +68,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   app.decorate("events", new EventBus());
   app.decorate("demo", config.demo);
 
+  seedDefaultAdministrator(dbHandle);
+
   if (config.demo) {
     const resetter = new DemoResetter(config.demoResetMinutes * 60 * 1000);
     resetter.reset(dbHandle);
@@ -79,6 +85,19 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   }
 
   backfillUserProfiles(dbHandle);
+
+  // Actor resolution — runs on all API routes except the allow-list
+  const ACTOR_SKIP = new Set(["/api/health", "/api/auth/validate", "/api/config"]);
+  app.addHook("preHandler", async (req, reply) => {
+    const url = req.url.split("?")[0];
+    if (!url.startsWith("/api/")) return;
+    if (ACTOR_SKIP.has(url) || url.startsWith("/api/docs")) return;
+    const result = await resolveActor(app.db, req.headers[ACTOR_HEADER], app.demo);
+    if ("error" in result) {
+      return reply.code(result.status).send({ error: result.error });
+    }
+    req.actor = result.actor;
+  });
 
   if (config.corsOrigins && config.corsOrigins.length > 0) {
     await app.register(fastifyCors, { origin: config.corsOrigins });
@@ -177,6 +196,7 @@ function seedUsers(
         displayName: seed.id,
         handle: resolved,
         kind: seed.kind,
+        role: "Admin",
         title: "",
         bio: "",
         avatar: pickAvatar(seed.id),

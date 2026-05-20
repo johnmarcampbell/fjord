@@ -1,4 +1,5 @@
 import type { User, UserKind } from "@agentic-kanban/shared";
+import { DEFAULT_ADMINISTRATOR_ID } from "../lib/policy.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
@@ -32,12 +33,15 @@ function KindIndicator({ kind }: { kind: UserKind }) {
 export function UserCard({
   user,
   isCurrent,
+  canEdit,
   onEdit,
 }: {
   user: User;
   isCurrent: boolean;
+  canEdit: boolean;
   onEdit: () => void;
 }) {
+  const isDefaultAdmin = user.id === DEFAULT_ADMINISTRATOR_ID;
   return (
     <div
       className={`relative flex h-44 flex-col rounded-xl border bg-surface p-4 shadow-sm transition-colors ${
@@ -52,7 +56,14 @@ export function UserCard({
       <div className="flex items-start gap-3">
         <AvatarGlyph avatar={user.avatar} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-ink">{user.display_name}</div>
+          <div className="flex items-center gap-2">
+            <div className="truncate text-sm font-bold text-ink">{user.display_name}</div>
+            {isDefaultAdmin && (
+              <span className="shrink-0 rounded-full bg-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+                Admin
+              </span>
+            )}
+          </div>
           <div className="truncate text-xs text-ink-subtle">@{user.handle}</div>
           {user.title && <div className="mt-1 truncate text-xs text-ink-muted">{user.title}</div>}
         </div>
@@ -66,7 +77,7 @@ export function UserCard({
       </div>
       <div className="mt-2 flex items-center justify-between">
         <KindIndicator kind={user.kind} />
-        {isCurrent && (
+        {canEdit && (
           <button
             onClick={onEdit}
             className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-surface-hover"

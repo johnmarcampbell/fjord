@@ -3,6 +3,7 @@ import { useUsers } from "../lib/queries.js";
 import { getCurrentUserId } from "../lib/user.js";
 import { UserCard } from "../components/UserCard.js";
 import { UserFormDialog } from "../components/UserFormDialog.js";
+import { isAdmin } from "../lib/policy.js";
 
 type DialogState =
   | { mode: "create" }
@@ -38,6 +39,8 @@ export function UsersPage() {
   const users = allUsers.filter((u) => !u.deleted_at);
   const [dialog, setDialog] = useState<DialogState>(null);
   const currentUserId = getCurrentUserId();
+  const currentUser = allUsers.find((u) => u.id === currentUserId);
+  const admin = currentUser ? isAdmin(currentUser) : false;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -57,10 +60,11 @@ export function UsersPage() {
               key={u.id}
               user={u}
               isCurrent={u.id === currentUserId}
+              canEdit={admin || u.id === currentUserId}
               onEdit={() => setDialog({ mode: "edit", userId: u.id })}
             />
           ))}
-          <NewUserTile onClick={() => setDialog({ mode: "create" })} />
+          {admin && <NewUserTile onClick={() => setDialog({ mode: "create" })} />}
         </div>
       )}
 

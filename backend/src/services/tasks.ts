@@ -261,7 +261,7 @@ export function createTask(
       byAssignee: row.assignedTo === actor,
     })
     .run();
-  events.publish({ type: "task.created", task_id: id });
+  events.publish({ type: "task.created", task_id: id, space_id: spaceId });
   return hydrateTask(db, { ...row });
 }
 
@@ -361,15 +361,16 @@ export function updateTask(
 
   if (eventRows.length) db.insert(taskEvents).values(eventRows).run();
 
-  events.publish({ type: "task.updated", task_id: id, version: updates.version });
+  events.publish({ type: "task.updated", task_id: id, version: updates.version, space_id: newSpaceId });
   const newRow = db.select().from(tasks).where(eq(tasks.id, id)).get()!;
   return hydrateTask(db, newRow);
 }
 
 export function deleteTask(db: DB, events: EventBus, id: string): void {
-  if (!db.select().from(tasks).where(eq(tasks.id, id)).get()) throw new TaskNotFoundError();
+  const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
+  if (!task) throw new TaskNotFoundError();
   db.delete(tasks).where(eq(tasks.id, id)).run();
-  events.publish({ type: "task.deleted", task_id: id });
+  events.publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
 }
 
 export function addComment(
@@ -395,7 +396,7 @@ export function addComment(
     byAssignee: existing.assignedTo === actor,
   };
   db.insert(taskEvents).values(row).run();
-  events.publish({ type: "task.event_added", task_id: taskId, event_id: eventId, kind: "comment" });
+  events.publish({ type: "task.event_added", task_id: taskId, event_id: eventId, kind: "comment", space_id: existing.spaceId });
   return toEvent(row);
 }
 
@@ -427,6 +428,7 @@ export function addJournalEntry(
     task_id: taskId,
     event_id: eventId,
     kind: "journal_entry",
+    space_id: existing.spaceId,
   });
   return toEvent(row);
 }
@@ -473,8 +475,9 @@ export function addBlocker(
     task_id: taskId,
     event_id: eventId,
     kind: "blocker_added",
+    space_id: blocked.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: blocked.version });
+  events.publish({ type: "task.updated", task_id: taskId, version: blocked.version, space_id: blocked.spaceId });
   return hydrateTask(db, blocked);
 }
 
@@ -521,8 +524,9 @@ export function removeBlocker(
     task_id: taskId,
     event_id: eventId,
     kind: "blocker_removed",
+    space_id: task?.spaceId ?? "",
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0 });
+  events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0, space_id: task?.spaceId ?? "" });
 }
 
 export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
@@ -556,8 +560,9 @@ export function archiveTask(db: DB, events: EventBus, actor: string, taskId: str
     task_id: taskId,
     event_id: eventId,
     kind: "task_archived",
+    space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion });
+  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
   return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
 }
 
@@ -592,7 +597,8 @@ export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: s
     task_id: taskId,
     event_id: eventId,
     kind: "task_unarchived",
+    space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion });
+  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
   return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
 }

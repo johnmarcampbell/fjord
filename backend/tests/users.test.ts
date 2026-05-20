@@ -244,14 +244,17 @@ describe("users", () => {
   });
 
   it("lists seeded users", async () => {
-    const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+    const res = await ctx.inject({ method: "GET", url: "/api/users" });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.map((u: any) => u.id).sort()).toEqual(["agent-coder", "alice"]);
+    const ids = body.map((u: any) => u.id).sort();
+    expect(ids).toContain("alice");
+    expect(ids).toContain("agent-coder");
+    expect(ids).toContain("default-administrator");
   });
 
   it("GET /api/users returns new fields and omits token_hash", async () => {
-    const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+    const res = await ctx.inject({ method: "GET", url: "/api/users" });
     const [user] = res.json();
     expect(user).toHaveProperty("handle");
     expect(user).toHaveProperty("title");
@@ -261,7 +264,7 @@ describe("users", () => {
   });
 
   it("GET /api/users/:id returns new fields and omits token_hash", async () => {
-    const res = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+    const res = await ctx.inject({ method: "GET", url: "/api/users/alice" });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body).toHaveProperty("handle");
@@ -272,7 +275,7 @@ describe("users", () => {
   });
 
   it("creates a new user", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human" },
@@ -282,7 +285,7 @@ describe("users", () => {
   });
 
   it("POST derives handle from display_name when not provided", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob Jones", kind: "human" },
@@ -292,7 +295,7 @@ describe("users", () => {
   });
 
   it("POST picks deterministic avatar from id when not provided", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "testuser", display_name: "Test", kind: "human" },
@@ -302,7 +305,7 @@ describe("users", () => {
   });
 
   it("POST accepts explicit handle and lowercases it", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "BobHandle" },
@@ -312,7 +315,7 @@ describe("users", () => {
   });
 
   it("POST rejects reserved handle", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "admin" },
@@ -321,7 +324,7 @@ describe("users", () => {
   });
 
   it("POST rejects handle with spaces", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "has spaces" },
@@ -331,7 +334,7 @@ describe("users", () => {
 
   it("POST rejects duplicate handle (case-insensitive)", async () => {
     // alice already has handle "alice"
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "ALICE" },
@@ -340,7 +343,7 @@ describe("users", () => {
   });
 
   it("POST rejects avatar with javascript: scheme", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", avatar: "javascript:alert(1)" },
@@ -349,7 +352,7 @@ describe("users", () => {
   });
 
   it("POST rejects plain ASCII avatar", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", avatar: "abc" },
@@ -358,7 +361,7 @@ describe("users", () => {
   });
 
   it("POST accepts emoji avatar", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", avatar: "🦊" },
@@ -368,7 +371,7 @@ describe("users", () => {
   });
 
   it("POST accepts https URL avatar", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", avatar: "https://example.com/a.png" },
@@ -378,7 +381,7 @@ describe("users", () => {
   });
 
   it("POST accepts token_hash but does not return it", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human", token_hash: "secret123" },
@@ -388,7 +391,7 @@ describe("users", () => {
   });
 
   it("POST response includes handle, title, bio, avatar", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "bob", display_name: "Bob", kind: "human" },
@@ -402,7 +405,7 @@ describe("users", () => {
   });
 
   it("rejects duplicate user creation", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "alice", display_name: "Alice", kind: "human" },
@@ -411,7 +414,7 @@ describe("users", () => {
   });
 
   it("rejects invalid user kind", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
       payload: { id: "x", display_name: "X", kind: "robot" },
@@ -421,10 +424,10 @@ describe("users", () => {
 
   // PATCH tests
   it("PATCH display_name works without touching other fields", async () => {
-    const before = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+    const before = await ctx.inject({ method: "GET", url: "/api/users/alice" });
     const originalHandle = before.json().handle;
 
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { display_name: "Alice Updated" },
@@ -435,7 +438,7 @@ describe("users", () => {
   });
 
   it("PATCH handle to a valid new value works and is lowercased", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { handle: "AliceNew" },
@@ -445,7 +448,7 @@ describe("users", () => {
   });
 
   it("PATCH handle to a reserved word returns 400", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { handle: "admin" },
@@ -454,7 +457,7 @@ describe("users", () => {
   });
 
   it("PATCH handle to another user's handle returns 409", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { handle: "agent-coder" },
@@ -463,10 +466,10 @@ describe("users", () => {
   });
 
   it("PATCH handle to its own current handle is a no-op and succeeds", async () => {
-    const before = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+    const before = await ctx.inject({ method: "GET", url: "/api/users/alice" });
     const currentHandle = before.json().handle;
 
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { handle: currentHandle },
@@ -477,7 +480,7 @@ describe("users", () => {
 
   it("PATCH ignores extra 'id' field — user id cannot change", async () => {
     // additionalProperties: false strips unknown fields; the empty body is a no-op
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { display_name: "Alice Hacked", id: "hacked" },
@@ -487,7 +490,7 @@ describe("users", () => {
   });
 
   it("PATCH kind from human to agent succeeds", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { kind: "agent" },
@@ -497,7 +500,7 @@ describe("users", () => {
   });
 
   it("PATCH avatar validates URL scheme", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { avatar: "ftp://bad.com/a.png" },
@@ -506,7 +509,7 @@ describe("users", () => {
   });
 
   it("PATCH avatar with valid emoji succeeds", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { avatar: "🎵" },
@@ -516,7 +519,7 @@ describe("users", () => {
   });
 
   it("PATCH token_hash: null clears it", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { token_hash: null },
@@ -526,7 +529,7 @@ describe("users", () => {
   });
 
   it("PATCH nonexistent user returns 404", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/nobody",
       payload: { display_name: "Ghost" },
@@ -535,7 +538,7 @@ describe("users", () => {
   });
 
   it("PATCH response excludes token_hash", async () => {
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { title: "Engineer" },
@@ -548,36 +551,37 @@ describe("users", () => {
 
   describe("soft delete", () => {
     it("DELETE returns 204 and marks the user deleted_at", async () => {
-      const before = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      const before = await ctx.inject({ method: "GET", url: "/api/users/alice" });
       expect(before.json().deleted_at).toBeNull();
 
-      const del = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const del = await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       expect(del.statusCode).toBe(204);
 
-      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      // Use default-administrator since alice is now deleted
+      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(after.statusCode).toBe(200);
       expect(typeof after.json().deleted_at).toBe("string");
     });
 
     it("DELETE is idempotent — second call still returns 204 and leaves deleted_at unchanged", async () => {
-      const first = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const first = await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       expect(first.statusCode).toBe(204);
-      const stamp = (await ctx.app.inject({ method: "GET", url: "/api/users/alice" })).json()
+      const stamp = (await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
         .deleted_at;
-      const second = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const second = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(second.statusCode).toBe(204);
-      const stamp2 = (await ctx.app.inject({ method: "GET", url: "/api/users/alice" })).json()
+      const stamp2 = (await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
         .deleted_at;
       expect(stamp2).toBe(stamp);
     });
 
     it("DELETE returns 404 when the id does not exist", async () => {
-      const res = await ctx.app.inject({ method: "DELETE", url: "/api/users/nobody" });
+      const res = await ctx.inject({ method: "DELETE", url: "/api/users/nobody" });
       expect(res.statusCode).toBe(404);
     });
 
     it("DELETE succeeds even when the user has reported tasks (no FK error)", async () => {
-      const create = await ctx.app.inject({
+      const create = await ctx.inject({
         method: "POST",
         url: "/api/tasks",
         headers: { "x-user-id": "alice" },
@@ -585,16 +589,16 @@ describe("users", () => {
       });
       expect(create.statusCode).toBe(201);
 
-      const del = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      const del = await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       expect(del.statusCode).toBe(204);
 
-      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice" });
+      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(typeof after.json().deleted_at).toBe("string");
     });
 
     it("GET /api/users still includes deleted users (clients filter)", async () => {
-      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
-      const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+      await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
+      const res = await ctx.app.inject({ method: "GET", url: "/api/users", headers: { "x-user-id": "default-administrator" } });
       const ids = res.json().map((u: any) => u.id);
       expect(ids).toContain("alice");
       const alice = res.json().find((u: any) => u.id === "alice");
@@ -602,27 +606,30 @@ describe("users", () => {
     });
 
     it("PATCH on a deleted user returns 404", async () => {
-      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
+      // Use admin actor since alice is now deleted
       const res = await ctx.app.inject({
         method: "PATCH",
         url: "/api/users/alice",
+        headers: { "x-user-id": "default-administrator" },
         payload: { display_name: "Resurrected" },
       });
       expect(res.statusCode).toBe(404);
     });
 
     it("handle stays reserved — POST with the deleted user's handle returns 409", async () => {
-      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       const res = await ctx.app.inject({
         method: "POST",
         url: "/api/users",
+        headers: { "x-user-id": "default-administrator" },
         payload: { id: "alice2", display_name: "Alice II", kind: "human", handle: "alice" },
       });
       expect(res.statusCode).toBe(409);
     });
 
     it("DELETE clears token_hash", async () => {
-      await ctx.app.inject({
+      await ctx.inject({
         method: "PATCH",
         url: "/api/users/alice",
         payload: { token_hash: "deadbeef" },
@@ -634,7 +641,7 @@ describe("users", () => {
         .get();
       expect(before?.tokenHash).toBe("deadbeef");
 
-      await ctx.app.inject({ method: "DELETE", url: "/api/users/alice" });
+      await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       const after = ctx.app.db
         .select({ tokenHash: users.tokenHash })
         .from(users)

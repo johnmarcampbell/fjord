@@ -42,6 +42,7 @@ export function toSpace(row: typeof spaces.$inferSelect): Space {
     archived_at: row.archivedAt ?? null,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
+    created_by: row.createdBy,
   };
 }
 
@@ -77,7 +78,7 @@ export function getSpace(db: DB, id: string): Space {
   return toSpace(row);
 }
 
-export function createSpace(db: DB, body: CreateSpaceRequest): Space {
+export function createSpace(db: DB, body: CreateSpaceRequest, actorId: string): Space {
   const now = nowIso();
   const row = {
     id: newId(),
@@ -86,6 +87,7 @@ export function createSpace(db: DB, body: CreateSpaceRequest): Space {
     createdAt: now,
     updatedAt: now,
     archivedAt: null,
+    createdBy: actorId,
   };
   db.insert(spaces).values(row).run();
   return toSpace(row);
@@ -205,6 +207,6 @@ export function moveProjectToSpace(
   });
 
   for (const t of affected) {
-    events.publish({ type: "task.updated", task_id: t.id, version: t.version });
+    events.publish({ type: "task.updated", task_id: t.id, version: t.version, space_id: newSpaceId });
   }
 }

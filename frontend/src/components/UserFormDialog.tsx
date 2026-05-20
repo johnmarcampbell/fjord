@@ -4,16 +4,19 @@ import {
   AVATAR_EMOJI_LIST,
   HANDLE_REGEX,
   RESERVED_HANDLES,
+  type Role,
   type UserKind,
 } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
 import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
+import { DEFAULT_ADMINISTRATOR_ID, isAdmin } from "../lib/policy.js";
 
 type FormState = {
   display_name: string;
   handle: string;
   kind: UserKind;
+  role: Role;
   title: string;
   bio: string;
   avatar: string;
@@ -93,6 +96,9 @@ export function UserFormDialog({
     () => (mode === "edit" && userId ? users.find((u) => u.id === userId) : undefined),
     [mode, userId, users],
   );
+  const currentUser = users.find((u) => u.id === getCurrentUserId());
+  const currentIsAdmin = currentUser ? isAdmin(currentUser) : false;
+  const isDefaultAdmin = userId === DEFAULT_ADMINISTRATOR_ID;
 
   const [form, setForm] = useState<FormState>(() => {
     if (existing) {
@@ -100,6 +106,7 @@ export function UserFormDialog({
         display_name: existing.display_name,
         handle: existing.handle,
         kind: existing.kind,
+        role: existing.role,
         title: existing.title ?? "",
         bio: existing.bio ?? "",
         avatar: existing.avatar || AVATAR_EMOJI_LIST[0],
@@ -109,6 +116,7 @@ export function UserFormDialog({
       display_name: "",
       handle: "",
       kind: "human",
+      role: "Member",
       title: "",
       bio: "",
       avatar: AVATAR_EMOJI_LIST[0],
@@ -193,6 +201,7 @@ export function UserFormDialog({
       display_name: displayNameTrimmed,
       handle: form.handle.toLowerCase(),
       kind: form.kind,
+      role: currentIsAdmin ? form.role : (existing?.role ?? "Member"),
       title: form.title.trim(),
       bio: form.bio,
       avatar: form.avatar,
@@ -259,7 +268,7 @@ export function UserFormDialog({
           <p className="mt-1 text-xs text-danger-text">{fieldErrors.handle}</p>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className={`mt-4 grid gap-4 ${currentIsAdmin ? "grid-cols-3" : "grid-cols-2"}`}>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
               Kind
@@ -273,6 +282,22 @@ export function UserFormDialog({
               <option value="agent">Agent (bot)</option>
             </select>
           </div>
+          {currentIsAdmin && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Role
+              </label>
+              <select
+                value={form.role}
+                onChange={(e) => update("role", e.target.value as Role)}
+                disabled={isDefaultAdmin}
+                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors disabled:opacity-60"
+              >
+                <option value="Member">Member</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
               Title
@@ -337,7 +362,7 @@ export function UserFormDialog({
           </div>
         )}
 
-        {mode === "edit" && (
+        {mode === "edit" && !isDefaultAdmin && (
           <div className="mt-6 border-t border-border pt-4">
             {!confirmingDelete ? (
               <button
