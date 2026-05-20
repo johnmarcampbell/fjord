@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { StreamEvent } from "@agentic-kanban/shared";
 import { getStoredToken, setStoredToken, dispatchLogout } from "./auth.js";
+import { getCurrentUserId } from "./user.js";
 
 export function useStreamSubscription(queryClient: QueryClient): void {
   const abortRef = useRef<AbortController | null>(null);
@@ -14,7 +15,8 @@ export function useStreamSubscription(queryClient: QueryClient): void {
         abortRef.current = new AbortController();
         try {
           const token = getStoredToken();
-          const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+          const headers: Record<string, string> = { "X-User-Id": getCurrentUserId() };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
           const res = await fetch("/api/events/stream", {
             headers,
             signal: abortRef.current.signal,

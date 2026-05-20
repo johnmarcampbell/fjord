@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, eq, ne, sql } from "drizzle-orm";
-import type { CreateUserRequest, UpdateUserRequest, User } from "@agentic-kanban/shared";
+import type { CreateUserRequest, Role, UpdateUserRequest, User } from "@agentic-kanban/shared";
 import { users } from "../db/schema.js";
 import { nowIso } from "../services/tasks.js";
 import {
@@ -11,7 +11,9 @@ import {
   pickAvatar,
   slugify,
   resolveHandleCollision,
+  DEFAULT_ADMINISTRATOR_ID,
 } from "../services/users.js";
+import { canDeleteUser, canEditUser, canManageUsers } from "../auth/policy.js";
 
 function toUser(row: typeof users.$inferSelect): User {
   return {
@@ -19,6 +21,7 @@ function toUser(row: typeof users.$inferSelect): User {
     display_name: row.displayName,
     handle: row.handle ?? "",
     kind: row.kind,
+    role: row.role as Role,
     title: row.title,
     bio: row.bio,
     avatar: row.avatar ?? "",
@@ -76,6 +79,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
             id: { type: "string", minLength: 1, maxLength: 64 },
             display_name: { type: "string", minLength: 1, maxLength: 128 },
             kind: { type: "string", enum: ["human", "agent"] },
+            role: { type: "string", enum: ["Admin", "Member"] },
             handle: { type: "string", minLength: 1, maxLength: 32 },
             title: { type: "string", maxLength: 80 },
             bio: { type: "string", maxLength: 280 },
@@ -86,7 +90,14 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
+      if (!canManageUsers(actor)) return reply.code(403).send({ error: "Forbidden" });
+
       const body = req.body as CreateUserRequest;
+      if (body.role !== undefined && !canManageUsers(actor)) {
+        return reply.code(400).send({ error: "Only Admins may set role" });
+      }
+
       const existing = app.db.select().from(users).where(eq(users.id, body.id)).get();
       if (existing) return reply.code(409).send({ error: "User already exists" });
 
@@ -128,6 +139,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         displayName: body.display_name,
         handle,
         kind: body.kind,
+        role: (body.role ?? "Member") as "Admin" | "Member",
         title: body.title ?? "",
         bio: body.bio ?? "",
         avatar,
@@ -159,6 +171,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
             display_name: { type: "string", minLength: 1, maxLength: 128 },
             handle: { type: "string", minLength: 1, maxLength: 32 },
             kind: { type: "string", enum: ["human", "agent"] },
+            role: { type: "string", enum: ["Admin", "Member"] },
             title: { type: "string", maxLength: 80 },
             bio: { type: "string", maxLength: 280 },
             avatar: { type: "string", minLength: 1, maxLength: 2048 },
@@ -170,7 +183,22 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const { id } = req.params as { id: string };
+      const actor = req.actor!;
       const body = req.body as UpdateUserRequest;
+
+      // Default Administrator invariant guards (before authorization)
+      if (id === DEFAULT_ADMINISTRATOR_ID) {
+        if (body.role !== undefined || body.handle !== undefined) {
+          return reply.code(400).send({ error: "Cannot change role or handle of the Default Administrator" });
+        }
+      }
+
+      if (!canEditUser(actor, id)) return reply.code(403).send({ error: "Forbidden" });
+
+      // Non-Admins cannot set role
+      if (body.role !== undefined && !canManageUsers(actor)) {
+        return reply.code(400).send({ error: "Only Admins may change role" });
+      }
 
       const existing = app.db.select().from(users).where(eq(users.id, id)).get();
       if (!existing) return reply.code(404).send({ error: "User not found" });
@@ -180,6 +208,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
       if (body.display_name !== undefined) updates.displayName = body.display_name;
       if (body.kind !== undefined) updates.kind = body.kind;
+      if (body.role !== undefined) updates.role = body.role;
       if (body.title !== undefined) updates.title = body.title;
       if (body.bio !== undefined) updates.bio = body.bio;
       if (body.token_hash !== undefined) updates.tokenHash = body.token_hash;
@@ -236,6 +265,14 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const { id } = req.params as { id: string };
+      const actor = req.actor!;
+
+      if (id === DEFAULT_ADMINISTRATOR_ID) {
+        return reply.code(400).send({ error: "Cannot delete the Default Administrator" });
+      }
+
+      if (!canDeleteUser(actor, id)) return reply.code(403).send({ error: "Forbidden" });
+
       const row = app.db.select().from(users).where(eq(users.id, id)).get();
       if (!row) return reply.code(404).send({ error: "User not found" });
       if (!row.deletedAt) {

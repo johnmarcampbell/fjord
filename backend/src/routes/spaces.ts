@@ -1,5 +1,6 @@
+import { and, eq } from "drizzle-orm";
 import type { FastifyPluginAsync } from "fastify";
-import type { CreateSpaceRequest, UpdateSpaceRequest } from "@agentic-kanban/shared";
+import type { CreateGrantRequest, CreateSpaceRequest, Grant, UpdateSpaceRequest } from "@agentic-kanban/shared";
 import {
   CannotDeleteDefaultSpaceError,
   SpaceArchiveBlockedError,
@@ -13,6 +14,18 @@ import {
   unarchiveSpace,
   updateSpace,
 } from "../services/spaces.js";
+import { canAccessSpace, canGrantAccessForSpace, canManageSpace } from "../auth/policy.js";
+import { userSpaceAccess, users } from "../db/schema.js";
+import { nowIso } from "../services/tasks.js";
+
+function toGrant(row: typeof userSpaceAccess.$inferSelect): Grant {
+  return {
+    user_id: row.userId,
+    space_id: row.spaceId,
+    granted_at: row.grantedAt,
+    granted_by: row.grantedBy,
+  };
+}
 
 export const spacesRoutes: FastifyPluginAsync = async (app) => {
   app.get(
@@ -30,9 +43,12 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req) => {
+      const actor = req.actor!;
       const includeArchived =
         (req.query as { include_archived?: string }).include_archived === "true";
-      return listSpaces(app.db, { includeArchived });
+      const all = listSpaces(app.db, { includeArchived });
+      if (actor.accessibleSpaceIds === "all") return all;
+      return all.filter((s) => actor.accessibleSpaceIds !== "all" && (actor.accessibleSpaceIds as Set<string>).has(s.id));
     },
   );
 
@@ -50,8 +66,11 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
       try {
-        return getSpace(app.db, (req.params as { id: string }).id);
+        const space = getSpace(app.db, (req.params as { id: string }).id);
+        if (!canAccessSpace(actor, space.id)) return reply.code(403).send({ error: "Forbidden" });
+        return space;
       } catch (err) {
         if (err instanceof SpaceNotFoundError)
           return reply.code(404).send({ error: "Space not found" });
@@ -77,7 +96,8 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const created = createSpace(app.db, req.body as CreateSpaceRequest);
+      const actor = req.actor!;
+      const created = createSpace(app.db, req.body as CreateSpaceRequest, actor.id);
       reply.code(201);
       return created;
     },
@@ -104,12 +124,11 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
       try {
-        return updateSpace(
-          app.db,
-          (req.params as { id: string }).id,
-          req.body as UpdateSpaceRequest,
-        );
+        const space = getSpace(app.db, (req.params as { id: string }).id);
+        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+        return updateSpace(app.db, space.id, req.body as UpdateSpaceRequest);
       } catch (err) {
         if (err instanceof SpaceNotFoundError)
           return reply.code(404).send({ error: "Space not found" });
@@ -132,8 +151,12 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
+      const spaceId = (req.params as { id: string }).id;
       try {
-        deleteSpace(app.db, (req.params as { id: string }).id);
+        const space = getSpace(app.db, spaceId);
+        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+        deleteSpace(app.db, spaceId);
         reply.code(204);
       } catch (err) {
         if (err instanceof CannotDeleteDefaultSpaceError)
@@ -163,8 +186,11 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
       try {
-        return archiveSpace(app.db, (req.params as { id: string }).id);
+        const space = getSpace(app.db, (req.params as { id: string }).id);
+        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+        return archiveSpace(app.db, space.id);
       } catch (err) {
         if (err instanceof SpaceArchiveBlockedError)
           return reply
@@ -191,13 +217,151 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const actor = req.actor!;
       try {
-        return unarchiveSpace(app.db, (req.params as { id: string }).id);
+        const space = getSpace(app.db, (req.params as { id: string }).id);
+        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+        return unarchiveSpace(app.db, space.id);
       } catch (err) {
         if (err instanceof SpaceNotFoundError)
           return reply.code(404).send({ error: "Space not found" });
         throw err;
       }
+    },
+  );
+
+  // ── Space access grants ────────────────────────────────────────────────────
+
+  app.get(
+    "/api/spaces/:id/access",
+    {
+      schema: {
+        summary: "List access grants for a space",
+        tags: ["spaces"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = req.actor!;
+      const spaceId = (req.params as { id: string }).id;
+      try {
+        getSpace(app.db, spaceId);
+      } catch {
+        return reply.code(404).send({ error: "Space not found" });
+      }
+      if (!canAccessSpace(actor, spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      const rows = app.db
+        .select()
+        .from(userSpaceAccess)
+        .where(eq(userSpaceAccess.spaceId, spaceId))
+        .all();
+      return rows.map(toGrant);
+    },
+  );
+
+  app.post(
+    "/api/spaces/:id/access",
+    {
+      schema: {
+        summary: "Grant a user access to a space",
+        tags: ["spaces"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+        body: {
+          type: "object",
+          required: ["user_id"],
+          properties: {
+            user_id: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = req.actor!;
+      const spaceId = (req.params as { id: string }).id;
+      const { user_id: targetUserId } = req.body as CreateGrantRequest;
+
+      let space;
+      try {
+        space = getSpace(app.db, spaceId);
+      } catch {
+        return reply.code(404).send({ error: "Space not found" });
+      }
+      if (!canGrantAccessForSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+
+      const targetUser = app.db.select().from(users).where(eq(users.id, targetUserId)).get();
+      if (!targetUser) return reply.code(400).send({ error: "User not found" });
+      if (targetUser.deletedAt) return reply.code(400).send({ error: "Cannot grant access to deleted user" });
+      if (targetUser.role === "Admin") return reply.code(400).send({ error: "Admin already has access to all spaces" });
+
+      app.db
+        .insert(userSpaceAccess)
+        .values({ userId: targetUserId, spaceId, grantedAt: nowIso(), grantedBy: actor.id })
+        .onConflictDoNothing()
+        .run();
+
+      reply.code(201);
+      const row = app.db
+        .select()
+        .from(userSpaceAccess)
+        .where(
+          and(
+            eq(userSpaceAccess.userId, targetUserId),
+            eq(userSpaceAccess.spaceId, spaceId),
+          ),
+        )
+        .get()!;
+      return toGrant(row);
+    },
+  );
+
+  app.delete(
+    "/api/spaces/:id/access/:user_id",
+    {
+      schema: {
+        summary: "Revoke a user's access to a space (idempotent)",
+        tags: ["spaces"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" }, user_id: { type: "string" } },
+          required: ["id", "user_id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = req.actor!;
+      const { id: spaceId, user_id: targetUserId } = req.params as { id: string; user_id: string };
+
+      let space;
+      try {
+        space = getSpace(app.db, spaceId);
+      } catch {
+        return reply.code(404).send({ error: "Space not found" });
+      }
+      if (!canGrantAccessForSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+
+      if (space.created_by === targetUserId) {
+        return reply.code(400).send({ error: "Cannot revoke access from the space owner" });
+      }
+
+      app.db
+        .delete(userSpaceAccess)
+        .where(
+          and(
+            eq(userSpaceAccess.userId, targetUserId),
+            eq(userSpaceAccess.spaceId, spaceId),
+          ),
+        )
+        .run();
+
+      reply.code(200).send({});
     },
   );
 };

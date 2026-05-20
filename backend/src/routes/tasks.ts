@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type {
   AddBlockerRequest,
@@ -9,8 +9,9 @@ import type {
   UpdateTaskRequest,
 } from "@agentic-kanban/shared";
 import { COLUMNS, EVENT_KINDS } from "@agentic-kanban/shared";
-import { taskEvents, tasks, users } from "../db/schema.js";
+import { taskEvents, tasks } from "../db/schema.js";
 import {
+  AssigneeNoAccessError,
   BlockerNotFoundError,
   CycleError,
   DependencyNotFoundError,
@@ -28,52 +29,39 @@ import {
   createTask,
   deleteTask,
   hydrateTask,
-  nowIso,
   removeBlocker,
   toEvent,
   unarchiveTask,
   updateTask,
 } from "../services/tasks.js";
 import { SpaceArchivedError, UnknownSpaceError } from "../services/spaces.js";
-import { pickAvatar, slugify, resolveHandleCollision } from "../services/users.js";
-
-const ACTOR_HEADER = "x-user-id";
-
-function getActorId(req: FastifyRequest): string | null {
-  const v = req.headers[ACTOR_HEADER];
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
-
-function requireActor(req: FastifyRequest, reply: FastifyReply): string | null {
-  const actor = getActorId(req);
-  if (!actor) {
-    reply.code(400).send({ error: `Missing required header: ${ACTOR_HEADER}` });
-    return null;
-  }
-  const exists = req.server.db.select().from(users).where(eq(users.id, actor)).get();
-  if (!exists) {
-    if (req.server.demo) {
-      const existingHandles = new Set(
-        req.server.db.select({ h: users.handle }).from(users).all()
-          .map((r) => r.h?.toLowerCase())
-          .filter((h): h is string => !!h),
-      );
-      const candidate = slugify(actor) || `user-${actor.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`;
-      const handle = resolveHandleCollision(candidate, (h) => existingHandles.has(h));
-      req.server.db
-        .insert(users)
-        .values({ id: actor, displayName: actor, handle, kind: "human", title: "", bio: "", avatar: pickAvatar(actor), tokenHash: null, createdAt: nowIso() })
-        .run();
-    } else {
-      reply.code(400).send({ error: `Unknown user in ${ACTOR_HEADER}: ${actor}` });
-      return null;
-    }
-  }
-  return actor;
-}
+import { canAccessSpace } from "../auth/policy.js";
+import type { Actor } from "../auth/actor.js";
+import type { DB } from "../db/index.js";
 
 const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
+
+/**
+ * Load a task by id and enforce that the actor has access to its space.
+ * Returns the task row on success; sends a 404/403 response and returns null otherwise.
+ */
+function loadTaskForActor(
+  db: DB,
+  actor: Actor,
+  taskId: string,
+  reply: FastifyReply,
+): typeof tasks.$inferSelect | null {
+  const row = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+  if (!row) {
+    reply.code(404).send({ error: "Task not found" });
+    return null;
+  }
+  if (!canAccessSpace(actor, row.spaceId)) {
+    reply.code(403).send({ error: "Forbidden" });
+    return null;
+  }
+  return row;
+}
 
 function parseKindFilter(raw: string | undefined): EventKind[] | null {
   if (!raw) return null;
@@ -118,6 +106,8 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
     reply.code(404).send({ error: "Dependency not found" });
   } else if (err instanceof TaskStateError) {
     reply.code(400).send({ error: err.message });
+  } else if (err instanceof AssigneeNoAccessError) {
+    reply.code(400).send({ error: err.message });
   } else {
     throw err;
   }
@@ -140,11 +130,18 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req) => {
+      const actor = req.actor!;
       const q = req.query as { include_archived?: string; space_id?: string };
       const includeArchived = q.include_archived === "true";
       const conditions = [];
       if (!includeArchived) conditions.push(eq(tasks.archived, false));
-      if (q.space_id) conditions.push(eq(tasks.spaceId, q.space_id));
+      if (q.space_id) {
+        conditions.push(eq(tasks.spaceId, q.space_id));
+      } else if (actor.accessibleSpaceIds !== "all") {
+        const ids = [...actor.accessibleSpaceIds];
+        if (ids.length === 0) return [];
+        conditions.push(inArray(tasks.spaceId, ids));
+      }
       const where =
         conditions.length === 0
           ? undefined
@@ -172,8 +169,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      const row = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!row) return reply.code(404).send({ error: "Task not found" });
+      const row = loadTaskForActor(app.db, req.actor!, id, reply);
+      if (!row) return;
       return hydrateTask(app.db, row);
     },
   );
@@ -201,11 +198,14 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!;
+      const body = req.body as CreateTaskRequest;
+      if (body.space_id && !canAccessSpace(actor, body.space_id)) {
+        return reply.code(403).send({ error: "Forbidden" });
+      }
       try {
         reply.code(201);
-        return createTask(app.db, app.events, actor, req.body as CreateTaskRequest);
+        return createTask(app.db, app.events, actor.id, body);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -242,11 +242,16 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!;
       const { id } = req.params as { id: string };
+      const existing = loadTaskForActor(app.db, actor, id, reply);
+      if (!existing) return;
+      const body = req.body as UpdateTaskRequest;
+      if (body.space_id && body.space_id !== existing.spaceId && !canAccessSpace(actor, body.space_id)) {
+        return reply.code(403).send({ error: "Forbidden" });
+      }
       try {
-        return updateTask(app.db, app.events, actor, id, req.body as UpdateTaskRequest);
+        return updateTask(app.db, app.events, actor.id, id, body);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -267,9 +272,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         deleteTask(app.db, app.events, id);
         reply.code(204);
@@ -309,8 +313,8 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const { id } = req.params as { id: string };
-      const existing = app.db.select().from(tasks).where(eq(tasks.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Task not found" });
+      const existing = loadTaskForActor(app.db, req.actor!, id, reply);
+      if (!existing) return;
       const { kind: kindParam } = req.query as { kind?: string };
       const kinds = parseKindFilter(kindParam);
       if (kinds !== null && kinds.length === 0) return [];
@@ -351,9 +355,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       const { body } = req.body as AddCommentRequest;
       try {
         reply.code(201);
@@ -394,9 +398,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       const { body } = req.body as AddJournalEntryRequest;
       try {
         reply.code(201);
@@ -426,9 +430,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       const { blocker_id: blockerId } = req.body as AddBlockerRequest;
       try {
         reply.code(201);
@@ -453,12 +457,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id, blocker_id: blockerId } = req.params as {
         id: string;
         blocker_id: string;
       };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         removeBlocker(app.db, app.events, actor, id, blockerId);
         reply.code(204);
@@ -484,9 +488,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         reply.code(200);
         return archiveTask(app.db, app.events, actor, id);
@@ -510,9 +514,9 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const actor = requireActor(req, reply);
-      if (!actor) return;
+      const actor = req.actor!.id;
       const { id } = req.params as { id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         reply.code(200);
         return unarchiveTask(app.db, app.events, actor, id);

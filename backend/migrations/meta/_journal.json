@@ -50,6 +50,13 @@
       "when": 1779219325576,
       "tag": "0006_typical_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779248968056,
+      "tag": "0007_dizzy_komodo",
+      "breakpoints": true
     }
   ]
 }

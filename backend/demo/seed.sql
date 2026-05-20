@@ -3,34 +3,37 @@
 
 DELETE FROM task_dependencies;
 DELETE FROM task_events;
+DELETE FROM user_space_access;
 DELETE FROM tasks;
 DELETE FROM projects;
-DELETE FROM users;
 DELETE FROM spaces;
+DELETE FROM users;
 
--- Spaces
+-- Users (must come before spaces because spaces.created_by references users.id)
+-- default-administrator is spelled out in full so backfillUserProfiles preserves handle='admin'.
+-- Alice and John are Admins; everyone else is a Member.
+-- Handles and avatars for non-admin users are left NULL and filled in by backfillUserProfiles.
+INSERT INTO users (id, display_name, handle, kind, role, title, bio, avatar, created_at) VALUES
+  ('default-administrator', 'Administrator', 'admin', 'human', 'Admin',
+   'Administrator', 'Built-in administrator. Cannot be deleted.', '🛡️', '2025-01-01T00:00:00Z');
+
+INSERT INTO users (id, display_name, kind, role, created_at) VALUES
+  ('alice',           'Alice',            'human', 'Admin',  '2025-01-10T09:00:00Z'),
+  ('john',            'John',             'human', 'Admin',  '2025-01-10T09:01:00Z'),
+  ('agent-backend',   'Backend Dev',      'agent', 'Member', '2025-01-10T09:02:00Z'),
+  ('agent-frontend',  'Frontend Dev',     'agent', 'Member', '2025-01-10T09:02:00Z'),
+  ('agent-designer',  'Designer',         'agent', 'Member', '2025-01-10T09:03:00Z'),
+  -- Sandbox-only personas
+  ('morgan-pentest',  'Morgan (Pentest)', 'human', 'Member', '2025-02-15T09:00:00Z'),
+  ('agent-explorer',  'Explorer',         'agent', 'Member', '2025-02-18T09:00:00Z');
+
+-- Spaces (created_by references users inserted above)
 -- Main demo data lives in 'default'; 'sandbox' showcases a separate space.
 -- Project/task INSERTs below mostly omit space_id and rely on the column
 -- DEFAULT 'default' to backfill — only entries that belong to 'sandbox' specify it.
-INSERT INTO spaces (id, name, description, created_at, updated_at) VALUES
-  ('default', 'Default', '',                            '2025-01-10T09:00:00Z', '2025-01-10T09:00:00Z'),
-  ('sandbox', 'Sandbox', 'Experiments and side quests', '2025-02-15T09:00:00Z', '2025-02-15T09:00:00Z');
-
--- Users
--- The default-space crew (alice, john, the three agents) collaborate across both
--- spaces. The two sandbox-only personas (morgan-pentest, agent-explorer) are
--- conceptually scoped to Sandbox only — per-user space access isn't enforced
--- yet (#60), but the seed sets up the data so the access grants populate
--- naturally once permissions land.
-INSERT INTO users (id, display_name, kind, created_at) VALUES
-  ('alice',           'Alice',            'human', '2025-01-10T09:00:00Z'),
-  ('john',            'John',             'human', '2025-01-10T09:01:00Z'),
-  ('agent-backend',   'Backend Dev',      'agent', '2025-01-10T09:02:00Z'),
-  ('agent-frontend',  'Frontend Dev',     'agent', '2025-01-10T09:02:00Z'),
-  ('agent-designer',  'Designer',         'agent', '2025-01-10T09:03:00Z'),
-  -- Sandbox-only personas
-  ('morgan-pentest',  'Morgan (Pentest)', 'human', '2025-02-15T09:00:00Z'),
-  ('agent-explorer',  'Explorer',         'agent', '2025-02-18T09:00:00Z');
+INSERT INTO spaces (id, name, description, created_by, created_at, updated_at) VALUES
+  ('default', 'Default', '',                            'alice', '2025-01-10T09:00:00Z', '2025-01-10T09:00:00Z'),
+  ('sandbox', 'Sandbox', 'Experiments and side quests', 'john',  '2025-02-15T09:00:00Z', '2025-02-15T09:00:00Z');
 
 -- Projects
 INSERT INTO projects (id, name, color, description, due_at, created_at) VALUES
@@ -348,6 +351,20 @@ INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-pt-auth-fin
 INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-pt-api-fuzz',      'task-pt-report');
 -- task-ex-golden-set is downstream of the reranker comparison (need to know the candidate set)
 INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-ex-reranker',      'task-ex-golden-set');
+
+-- Space access grants
+-- Admins (alice, john, default-administrator) have global access — no grants needed.
+-- Members need explicit grants for each space where they have tasks.
+-- Default space: agent-backend, agent-frontend, agent-designer are assigned tasks there.
+-- Sandbox space: agent-backend, agent-frontend, morgan-pentest, and agent-explorer have tasks there.
+INSERT INTO user_space_access (user_id, space_id, granted_at, granted_by) VALUES
+  ('agent-backend',  'default', '2025-01-10T09:10:00Z', 'alice'),
+  ('agent-frontend', 'default', '2025-01-10T09:10:00Z', 'alice'),
+  ('agent-designer', 'default', '2025-01-10T09:10:00Z', 'alice'),
+  ('agent-backend',  'sandbox', '2025-02-15T09:10:00Z', 'john'),
+  ('agent-frontend', 'sandbox', '2025-02-15T09:10:00Z', 'john'),
+  ('morgan-pentest', 'sandbox', '2025-02-15T09:10:00Z', 'john'),
+  ('agent-explorer', 'sandbox', '2025-02-18T09:10:00Z', 'john');
 
 -- Task events / comments
 INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_value, to_value, blocker_id) VALUES

@@ -10,7 +10,7 @@ import {
 } from "@agentic-kanban/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
-import { taskDependencies, taskEvents, tasks, users, projects } from "../db/schema.js";
+import { spaces, taskDependencies, taskEvents, tasks, userSpaceAccess, users, projects } from "../db/schema.js";
 import { assertSpaceWriteable } from "./spaces.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -59,6 +59,49 @@ export class TaskStateError extends Error {
   constructor(message: string) {
     super(message);
   }
+}
+
+export class AssigneeNoAccessError extends Error {
+  readonly name = "AssigneeNoAccessError";
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * True if the given user can access the given space (Admin, Owner, or has an
+ * explicit grant). Used by cross-space-move guards to reject moves that would
+ * orphan an assignee.
+ */
+export function userCanAccessSpace(db: DB, userId: string, spaceId: string): boolean {
+  const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
+  if (!user) return false;
+  if (user.role === "Admin") return true;
+  const owns = db
+    .select({ id: spaces.id })
+    .from(spaces)
+    .where(and(eq(spaces.id, spaceId), eq(spaces.createdBy, userId)))
+    .get();
+  if (owns) return true;
+  const grant = db
+    .select({ userId: userSpaceAccess.userId })
+    .from(userSpaceAccess)
+    .where(and(eq(userSpaceAccess.userId, userId), eq(userSpaceAccess.spaceId, spaceId)))
+    .get();
+  return !!grant;
+}
+
+function assertAssigneeCanAccessSpace(db: DB, assigneeId: string, destSpaceId: string): void {
+  if (userCanAccessSpace(db, assigneeId, destSpaceId)) return;
+  const u = db
+    .select({ handle: users.handle })
+    .from(users)
+    .where(eq(users.id, assigneeId))
+    .get();
+  const handle = u?.handle ?? assigneeId;
+  throw new AssigneeNoAccessError(
+    `Assignee ${handle} does not have access to destination space. Reassign or grant access first.`,
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -261,7 +304,7 @@ export function createTask(
       byAssignee: row.assignedTo === actor,
     })
     .run();
-  events.publish({ type: "task.created", task_id: id });
+  events.publish({ type: "task.created", task_id: id, space_id: spaceId });
   return hydrateTask(db, { ...row });
 }
 
@@ -305,7 +348,12 @@ export function updateTask(
   } else {
     newSpaceId = existing.spaceId;
   }
-  if (newSpaceId !== existing.spaceId) assertSpaceWriteable(db, newSpaceId);
+  if (newSpaceId !== existing.spaceId) {
+    assertSpaceWriteable(db, newSpaceId);
+    const nextAssignee =
+      body.assigned_to === undefined ? existing.assignedTo : body.assigned_to;
+    if (nextAssignee) assertAssigneeCanAccessSpace(db, nextAssignee, newSpaceId);
+  }
 
   const newTagsArr =
     body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
@@ -361,15 +409,16 @@ export function updateTask(
 
   if (eventRows.length) db.insert(taskEvents).values(eventRows).run();
 
-  events.publish({ type: "task.updated", task_id: id, version: updates.version });
+  events.publish({ type: "task.updated", task_id: id, version: updates.version, space_id: newSpaceId });
   const newRow = db.select().from(tasks).where(eq(tasks.id, id)).get()!;
   return hydrateTask(db, newRow);
 }
 
 export function deleteTask(db: DB, events: EventBus, id: string): void {
-  if (!db.select().from(tasks).where(eq(tasks.id, id)).get()) throw new TaskNotFoundError();
+  const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
+  if (!task) throw new TaskNotFoundError();
   db.delete(tasks).where(eq(tasks.id, id)).run();
-  events.publish({ type: "task.deleted", task_id: id });
+  events.publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
 }
 
 export function addComment(
@@ -395,7 +444,7 @@ export function addComment(
     byAssignee: existing.assignedTo === actor,
   };
   db.insert(taskEvents).values(row).run();
-  events.publish({ type: "task.event_added", task_id: taskId, event_id: eventId, kind: "comment" });
+  events.publish({ type: "task.event_added", task_id: taskId, event_id: eventId, kind: "comment", space_id: existing.spaceId });
   return toEvent(row);
 }
 
@@ -427,6 +476,7 @@ export function addJournalEntry(
     task_id: taskId,
     event_id: eventId,
     kind: "journal_entry",
+    space_id: existing.spaceId,
   });
   return toEvent(row);
 }
@@ -473,8 +523,9 @@ export function addBlocker(
     task_id: taskId,
     event_id: eventId,
     kind: "blocker_added",
+    space_id: blocked.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: blocked.version });
+  events.publish({ type: "task.updated", task_id: taskId, version: blocked.version, space_id: blocked.spaceId });
   return hydrateTask(db, blocked);
 }
 
@@ -521,8 +572,9 @@ export function removeBlocker(
     task_id: taskId,
     event_id: eventId,
     kind: "blocker_removed",
+    space_id: task?.spaceId ?? "",
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0 });
+  events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0, space_id: task?.spaceId ?? "" });
 }
 
 export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
@@ -556,8 +608,9 @@ export function archiveTask(db: DB, events: EventBus, actor: string, taskId: str
     task_id: taskId,
     event_id: eventId,
     kind: "task_archived",
+    space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion });
+  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
   return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
 }
 
@@ -592,7 +645,8 @@ export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: s
     task_id: taskId,
     event_id: eventId,
     kind: "task_unarchived",
+    space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion });
+  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
   return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
 }

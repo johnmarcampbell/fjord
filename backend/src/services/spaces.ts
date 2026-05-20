@@ -8,7 +8,8 @@ import {
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
 import { projects, spaces, taskEvents, tasks } from "../db/schema.js";
-import { newId, nowIso } from "./tasks.js";
+import { newId, nowIso, userCanAccessSpace, AssigneeNoAccessError } from "./tasks.js";
+import { users } from "../db/schema.js";
 
 export class SpaceNotFoundError extends Error {
   readonly name = "SpaceNotFoundError";
@@ -42,6 +43,7 @@ export function toSpace(row: typeof spaces.$inferSelect): Space {
     archived_at: row.archivedAt ?? null,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
+    created_by: row.createdBy,
   };
 }
 
@@ -77,7 +79,7 @@ export function getSpace(db: DB, id: string): Space {
   return toSpace(row);
 }
 
-export function createSpace(db: DB, body: CreateSpaceRequest): Space {
+export function createSpace(db: DB, body: CreateSpaceRequest, actorId: string): Space {
   const now = nowIso();
   const row = {
     id: newId(),
@@ -86,6 +88,7 @@ export function createSpace(db: DB, body: CreateSpaceRequest): Space {
     createdAt: now,
     updatedAt: now,
     archivedAt: null,
+    createdBy: actorId,
   };
   db.insert(spaces).values(row).run();
   return toSpace(row);
@@ -168,6 +171,28 @@ export function moveProjectToSpace(
   assertSpaceWriteable(db, newSpaceId);
   if (project.spaceId === newSpaceId) return;
 
+  // Reject the move if any assignee would lose visibility of their task.
+  const tasksToCheck = db
+    .select({ assignedTo: tasks.assignedTo })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId))
+    .all();
+  const checked = new Set<string>();
+  for (const t of tasksToCheck) {
+    if (!t.assignedTo || checked.has(t.assignedTo)) continue;
+    checked.add(t.assignedTo);
+    if (!userCanAccessSpace(db, t.assignedTo, newSpaceId)) {
+      const u = db
+        .select({ handle: users.handle })
+        .from(users)
+        .where(eq(users.id, t.assignedTo))
+        .get();
+      throw new AssigneeNoAccessError(
+        `Assignee ${u?.handle ?? t.assignedTo} does not have access to destination space. Reassign or grant access first.`,
+      );
+    }
+  }
+
   const oldSpaceId = project.spaceId;
   const now = nowIso();
 
@@ -205,6 +230,6 @@ export function moveProjectToSpace(
   });
 
   for (const t of affected) {
-    events.publish({ type: "task.updated", task_id: t.id, version: t.version });
+    events.publish({ type: "task.updated", task_id: t.id, version: t.version, space_id: newSpaceId });
   }
 }

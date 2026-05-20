@@ -3,10 +3,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DEFAULT_SPACE_ID, type Space } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
-import { useSpaces } from "../lib/queries.js";
+import { useSpaces, useUsers } from "../lib/queries.js";
+import { getCurrentUserId } from "../lib/user.js";
+import { canManageSpace } from "../lib/policy.js";
+import { ManageAccessDialog } from "./ManageAccessDialog.js";
 
 export function ManageSpacesDialog({ onClose }: { onClose: () => void }) {
   const { data: spaces = [] } = useSpaces({ includeArchived: true });
+  const { data: users = [] } = useUsers();
+  const currentUser = users.find((u) => u.id === getCurrentUserId());
 
   return (
     <div
@@ -29,7 +34,11 @@ export function ManageSpacesDialog({ onClose }: { onClose: () => void }) {
 
         <ul className="divide-y divide-border">
           {spaces.map((s) => (
-            <SpaceRow key={s.id} space={s} />
+            <SpaceRow
+              key={s.id}
+              space={s}
+              canManage={currentUser ? canManageSpace(currentUser, s) : false}
+            />
           ))}
         </ul>
       </div>
@@ -37,10 +46,11 @@ export function ManageSpacesDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SpaceRow({ space }: { space: Space }) {
+function SpaceRow({ space, canManage }: { space: Space; canManage: boolean }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(space.name);
+  const [managingAccess, setManagingAccess] = useState(false);
   const isDefault = space.id === DEFAULT_SPACE_ID;
   const isArchived = space.archived_at !== null;
 
@@ -138,7 +148,7 @@ function SpaceRow({ space }: { space: Space }) {
         )}
       </div>
 
-      {!editing && (
+      {!editing && canManage && (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -146,6 +156,13 @@ function SpaceRow({ space }: { space: Space }) {
             className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink"
           >
             rename
+          </button>
+          <button
+            type="button"
+            onClick={() => setManagingAccess(true)}
+            className="text-xs font-medium text-ink-subtle transition-colors hover:text-ink"
+          >
+            manage access
           </button>
           {isArchived ? (
             <button
@@ -185,6 +202,9 @@ function SpaceRow({ space }: { space: Space }) {
             </button>
           )}
         </div>
+      )}
+      {managingAccess && (
+        <ManageAccessDialog space={space} onClose={() => setManagingAccess(false)} />
       )}
     </li>
   );

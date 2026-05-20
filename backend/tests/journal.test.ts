@@ -6,7 +6,7 @@ async function createTask(
   actor: string,
   payload: Record<string, unknown>,
 ) {
-  const res = await ctx.app.inject({
+  const res = await ctx.inject({
     method: "POST",
     url: "/api/tasks",
     headers: { "x-user-id": actor },
@@ -21,7 +21,7 @@ async function postJournal(
   actor: string,
   body: string,
 ) {
-  return ctx.app.inject({
+  return ctx.inject({
     method: "POST",
     url: `/api/tasks/${taskId}/journal`,
     headers: { "x-user-id": actor },
@@ -68,7 +68,7 @@ describe("task journal", () => {
     const t = await createTask(ctx, "alice", { title: "T", assigned_to: "alice" });
     await postJournal(ctx, t.id, "alice", "from assignee");
     const events = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=journal_entry`,
       })
@@ -81,7 +81,7 @@ describe("task journal", () => {
     const t = await createTask(ctx, "alice", { title: "T", assigned_to: "alice" });
     await postJournal(ctx, t.id, "agent-coder", "side note from a helper");
     const events = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=journal_entry`,
       })
@@ -95,7 +95,7 @@ describe("task journal", () => {
     await postJournal(ctx, t.id, "alice", "thoughts");
     await postJournal(ctx, t.id, "agent-coder", "more thoughts");
     const events = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=journal_entry`,
       })
@@ -109,7 +109,7 @@ describe("task journal", () => {
     await postJournal(ctx, t.id, "alice", "while assigned to alice");
 
     // Reassign to agent-coder
-    await ctx.app.inject({
+    await ctx.inject({
       method: "PATCH",
       url: `/api/tasks/${t.id}`,
       headers: { "x-user-id": "alice" },
@@ -120,7 +120,7 @@ describe("task journal", () => {
     await postJournal(ctx, t.id, "alice", "now I'm just commenting");
 
     const events = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=journal_entry`,
       })
@@ -137,7 +137,7 @@ describe("task journal", () => {
 
   it("GET /events?kind= filters by single kind", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
-    await ctx.app.inject({
+    await ctx.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/comments`,
       headers: { "x-user-id": "alice" },
@@ -146,7 +146,7 @@ describe("task journal", () => {
     await postJournal(ctx, t.id, "alice", "a journal entry");
 
     const journals = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=journal_entry`,
       })
@@ -155,7 +155,7 @@ describe("task journal", () => {
     expect(journals[0].kind).toBe("journal_entry");
 
     const comments = (
-      await ctx.app.inject({
+      await ctx.inject({
         method: "GET",
         url: `/api/tasks/${t.id}/events?kind=comment`,
       })
@@ -166,7 +166,7 @@ describe("task journal", () => {
 
   it("GET /events?kind= accepts CSV", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
-    await ctx.app.inject({
+    await ctx.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/comments`,
       headers: { "x-user-id": "alice" },
@@ -174,7 +174,7 @@ describe("task journal", () => {
     });
     await postJournal(ctx, t.id, "alice", "a journal entry");
 
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "GET",
       url: `/api/tasks/${t.id}/events?kind=journal_entry,comment`,
     });
@@ -187,7 +187,7 @@ describe("task journal", () => {
   it("GET /events?kind= with only unknown kinds returns empty", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
     await postJournal(ctx, t.id, "alice", "x");
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "GET",
       url: `/api/tasks/${t.id}/events?kind=not_a_real_kind`,
     });
@@ -197,13 +197,13 @@ describe("task journal", () => {
 
   it("GET /api/tasks returns comment_count and journal_count", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
-    await ctx.app.inject({
+    await ctx.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/comments`,
       headers: { "x-user-id": "alice" },
       payload: { body: "c1" },
     });
-    await ctx.app.inject({
+    await ctx.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/comments`,
       headers: { "x-user-id": "alice" },
@@ -213,7 +213,7 @@ describe("task journal", () => {
     await postJournal(ctx, t.id, "alice", "j2");
     await postJournal(ctx, t.id, "alice", "j3");
 
-    const list = (await ctx.app.inject({ method: "GET", url: "/api/tasks" })).json();
+    const list = (await ctx.inject({ method: "GET", url: "/api/tasks" })).json();
     const target = list.find((task: { id: string }) => task.id === t.id);
     expect(target.comment_count).toBe(2);
     expect(target.journal_count).toBe(3);
@@ -221,7 +221,7 @@ describe("task journal", () => {
 
   it("GET /api/tasks returns zero counts for tasks with no events of that kind", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
-    const list = (await ctx.app.inject({ method: "GET", url: "/api/tasks" })).json();
+    const list = (await ctx.inject({ method: "GET", url: "/api/tasks" })).json();
     const target = list.find((task: { id: string }) => task.id === t.id);
     expect(target.comment_count).toBe(0);
     expect(target.journal_count).toBe(0);

@@ -125,11 +125,89 @@ describe("migration 0005_user_profile", () => {
   it("seeded users via KANBAN_SEED_USERS have handle equal to slugified id", async () => {
     const { makeTestApp } = await import("./helpers.js");
     const ctx = await makeTestApp();
-    const res = await ctx.app.inject({ method: "GET", url: "/api/users" });
+    const res = await ctx.inject({ method: "GET", url: "/api/users" });
     const users = res.json() as Array<{ id: string; handle: string }>;
     for (const u of users) {
+      // The default-administrator user has handle "admin" (reserved) - skip it
+      if (u.id === "default-administrator") continue;
       expect(u.handle).toBe(slugify(u.id));
     }
     await ctx.close();
+  });
+});
+
+describe("migration 0007_dizzy_komodo", () => {
+  it("backfills existing users to Admin role", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+
+    applyMigration(sqlite, "0000_initial");
+    applyMigration(sqlite, "0001_projects_and_tags");
+    applyMigration(sqlite, "0002_confused_the_watchers");
+    applyMigration(sqlite, "0003_task_journal");
+    applyMigration(sqlite, "0004_spaces");
+    applyMigration(sqlite, "0005_user_profile");
+    applyMigration(sqlite, "0006_typical_giant_man");
+
+    sqlite.exec(`
+      INSERT INTO users (id, display_name, handle, kind, title, bio, avatar, token_hash, created_at, deleted_at)
+        VALUES
+          ('alice', 'Alice', 'alice', 'human', '', '', '🦊', NULL, '2025-01-01T00:00:00Z', NULL),
+          ('bob', 'Bob', 'bob', 'human', '', '', '🦁', NULL, '2025-01-01T00:00:01Z', NULL);
+    `);
+
+    applyMigration(sqlite, "0007_dizzy_komodo");
+
+    const alice = sqlite.prepare("SELECT role FROM users WHERE id = 'alice'").get() as any;
+    const bob = sqlite.prepare("SELECT role FROM users WHERE id = 'bob'").get() as any;
+    expect(alice.role).toBe("Admin");
+    expect(bob.role).toBe("Admin");
+
+    sqlite.close();
+  });
+
+  it("backfills existing spaces with created_by = default-administrator", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+
+    applyMigration(sqlite, "0000_initial");
+    applyMigration(sqlite, "0001_projects_and_tags");
+    applyMigration(sqlite, "0002_confused_the_watchers");
+    applyMigration(sqlite, "0003_task_journal");
+    applyMigration(sqlite, "0004_spaces");
+    applyMigration(sqlite, "0005_user_profile");
+    applyMigration(sqlite, "0006_typical_giant_man");
+
+    // The default space was inserted by migration 0004
+    applyMigration(sqlite, "0007_dizzy_komodo");
+
+    const space = sqlite.prepare("SELECT created_by FROM spaces WHERE id = 'default'").get() as any;
+    expect(space.created_by).toBe("default-administrator");
+
+    sqlite.close();
+  });
+
+  it("new users default to Member role", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+
+    applyMigration(sqlite, "0000_initial");
+    applyMigration(sqlite, "0001_projects_and_tags");
+    applyMigration(sqlite, "0002_confused_the_watchers");
+    applyMigration(sqlite, "0003_task_journal");
+    applyMigration(sqlite, "0004_spaces");
+    applyMigration(sqlite, "0005_user_profile");
+    applyMigration(sqlite, "0006_typical_giant_man");
+    applyMigration(sqlite, "0007_dizzy_komodo");
+
+    sqlite.exec(`
+      INSERT INTO users (id, display_name, handle, kind, title, bio, avatar, token_hash, created_at, deleted_at)
+        VALUES ('newuser', 'New User', 'newuser', 'human', '', '', '🦊', NULL, '2025-02-01T00:00:00Z', NULL);
+    `);
+
+    const row = sqlite.prepare("SELECT role FROM users WHERE id = 'newuser'").get() as any;
+    expect(row.role).toBe("Member");
+
+    sqlite.close();
   });
 });

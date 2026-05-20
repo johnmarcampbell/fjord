@@ -1,5 +1,9 @@
 # Defer permissions: no `role_global` on users
 
+**Superseded by [ADR-0005](0005-role-column-on-users.md)** — issue #60 implemented the `role` column as `Admin | Member`.
+
+---
+
 Issue #57 originally proposed a nullable `role_global` enum on the `users` table
 as a placeholder for the future Admin/User permissions concept. We dropped it.
 Permissions are a *grant*, not a property of the person — putting them on the

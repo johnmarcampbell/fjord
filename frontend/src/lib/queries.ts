@@ -41,3 +41,11 @@ export function useArchivedTasks(spaceId?: string) {
     queryFn: () => api.listArchivedTasks(spaceId),
   });
 }
+
+export function useSpaceAccess(spaceId: string | null) {
+  return useQuery({
+    queryKey: ["space-access", spaceId],
+    queryFn: () => api.listSpaceAccess(spaceId!),
+    enabled: !!spaceId,
+  });
+}

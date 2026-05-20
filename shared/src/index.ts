@@ -10,11 +10,14 @@ export type Column = (typeof COLUMNS)[number];
 
 export type UserKind = "human" | "agent";
 
+export type Role = "Admin" | "Member";
+
 export interface User {
   id: string;
   display_name: string;
   handle: string;
   kind: UserKind;
+  role: Role;
   title: string;
   bio: string;
   avatar: string;
@@ -47,6 +50,18 @@ export interface Space {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  created_by: string;
+}
+
+export interface Grant {
+  user_id: string;
+  space_id: string;
+  granted_at: string;
+  granted_by: string;
+}
+
+export interface CreateGrantRequest {
+  user_id: string;
 }
 
 export interface Task {
@@ -108,6 +123,7 @@ export interface CreateUserRequest {
   id: string;
   display_name: string;
   kind: UserKind;
+  role?: Role;
   handle?: string;
   title?: string;
   bio?: string;
@@ -119,6 +135,7 @@ export interface UpdateUserRequest {
   display_name?: string;
   handle?: string;
   kind?: UserKind;
+  role?: Role;
   title?: string;
   bio?: string;
   avatar?: string;
@@ -205,10 +222,10 @@ export interface AddBlockerRequest {
 }
 
 export type StreamEvent =
-  | { type: "task.created"; task_id: string }
-  | { type: "task.updated"; task_id: string; version: number }
-  | { type: "task.deleted"; task_id: string }
-  | { type: "task.event_added"; task_id: string; event_id: string; kind: EventKind }
+  | { type: "task.created"; task_id: string; space_id: string }
+  | { type: "task.updated"; task_id: string; version: number; space_id: string }
+  | { type: "task.deleted"; task_id: string; space_id: string }
+  | { type: "task.event_added"; task_id: string; event_id: string; kind: EventKind; space_id: string }
   | { type: "demo.reset" };
 
 export interface ServerConfig {

@@ -33,7 +33,7 @@ describe("tasks", () => {
     expect(task.reported_by).toBe("alice");
     expect(task.version).toBe(1);
 
-    const events = await ctx.app.inject({
+    const events = await ctx.inject({
       method: "GET",
       url: `/api/tasks/${task.id}/events`,
     });
@@ -95,7 +95,7 @@ describe("tasks", () => {
       payload: { version: 1, column: "In Review" },
     });
     const events = (
-      await ctx.app.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
+      await ctx.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
     ).json();
     const colChange = events.find((e: any) => e.kind === "column_changed");
     expect(colChange.actor_id).toBe("agent-coder");
@@ -127,7 +127,7 @@ describe("tasks", () => {
     });
     expect(add.statusCode).toBe(201);
     const refetched = (
-      await ctx.app.inject({ method: "GET", url: `/api/tasks/${b.id}` })
+      await ctx.inject({ method: "GET", url: `/api/tasks/${b.id}` })
     ).json();
     expect(refetched.blocked_by).toEqual([a.id]);
 
@@ -177,7 +177,7 @@ describe("tasks", () => {
       headers: { "x-user-id": "alice" },
     });
     expect(del.statusCode).toBe(204);
-    const get = await ctx.app.inject({
+    const get = await ctx.inject({
       method: "GET",
       url: `/api/tasks/${t.id}`,
     });
