@@ -84,6 +84,7 @@ export const api = {
     const qs = opts.includeArchived ? "?include_archived=true" : "";
     return request<Space[]>(`/api/spaces${qs}`);
   },
+  getSpace: (id: string) => request<Space>(`/api/spaces/${id}`),
   createSpace: (body: CreateSpaceRequest) =>
     request<Space>("/api/spaces", { method: "POST", body: JSON.stringify(body) }),
   updateSpace: (id: string, body: UpdateSpaceRequest) =>

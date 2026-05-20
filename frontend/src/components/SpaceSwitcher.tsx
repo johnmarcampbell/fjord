@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMatch, useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ManageSpacesDialog } from "./ManageSpacesDialog.js";
@@ -7,9 +8,21 @@ import { ManageSpacesDialog } from "./ManageSpacesDialog.js";
 export function SpaceSwitcher() {
   const { activeSpaceId, spaces, setActiveSpaceId } = useActiveSpace();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const onDetail = useMatch("/spaces/:id");
   const [creating, setCreating] = useState(false);
   const [managing, setManaging] = useState(false);
   const [newName, setNewName] = useState("");
+
+  function handleSelect(newId: string) {
+    if (onDetail) {
+      navigate(`/spaces/${newId}`);
+    } else {
+      setActiveSpaceId(newId);
+    }
+  }
+
+  const selectValue = onDetail?.params.id ?? activeSpaceId;
 
   const createMutation = useMutation({
     mutationFn: () => api.createSpace({ name: newName.trim() }),
@@ -25,8 +38,8 @@ export function SpaceSwitcher() {
     <div className="flex items-center gap-2">
       <span className="hidden text-xs text-ink-subtle sm:inline">Space</span>
       <select
-        value={activeSpaceId}
-        onChange={(e) => setActiveSpaceId(e.target.value)}
+        value={selectValue}
+        onChange={(e) => handleSelect(e.target.value)}
         className="max-w-[140px] rounded-lg border border-border bg-surface-subtle px-2 py-1.5 text-xs font-medium text-ink focus:border-border-focus focus:outline-none transition-colors"
       >
         {spaces.map((s) => (

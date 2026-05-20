@@ -47,6 +47,7 @@ export function Header({
 
   const onBoard = location.pathname === "/";
   const onUsers = location.pathname === "/users";
+  const onSpaces = location.pathname.startsWith("/spaces");
   const boardCount = tasks.filter((t) => t.column !== "Backlog").length;
   const backlogCount = tasks.filter((t) => t.column === "Backlog").length;
   const archiveCount = archivedTasks?.length ?? null;
@@ -69,6 +70,12 @@ export function Header({
     }`;
   }
 
+  function spacesLinkClass() {
+    return `rounded-lg px-2 py-1.5 text-xs transition-colors ${
+      onSpaces ? "text-ink" : "text-ink-subtle hover:text-ink-muted"
+    }`;
+  }
+
   return (
     <header className="flex flex-col gap-2 border-b border-border bg-surface px-4 py-2.5 shadow-[0_1px_0_var(--color-border)] sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between gap-3 sm:gap-4">
@@ -77,6 +84,9 @@ export function Header({
           <SpaceSwitcher />
         </div>
         <div className="flex items-center gap-1 sm:hidden">
+          <Link to="/spaces" className={spacesLinkClass()}>
+            Spaces
+          </Link>
           <Link to="/users" className={usersLinkClass()}>
             Users
           </Link>
@@ -127,6 +137,9 @@ export function Header({
             <span className="hidden sm:inline">+ New task</span>
           </button>
           <UserPicker />
+          <Link to="/spaces" className={`hidden sm:inline-block ${spacesLinkClass()}`}>
+            Spaces
+          </Link>
           <Link to="/users" className={`hidden sm:inline-block ${usersLinkClass()}`}>
             Users
           </Link>
