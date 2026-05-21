@@ -114,6 +114,7 @@ Light/dark mode stored in localStorage (`ak-theme`) and applied to `document.doc
 Routing uses `react-router-dom` v6.
 - `/` — board / backlog / archive (see `BoardPage`)
 - `/users` — user management; the `+ New user` tile creates users, and the current user can edit or self-delete their own card. The legacy header create flow has been removed (see [ADR-0003](docs/adr/0003-user-creation-on-users-page.md)). When the user table is empty, the app auto-redirects here.
+- `/tasks/:id` — full task detail; shareable URL. The `TaskDrawer` is the at-a-glance peek and links here via the ↗ "Open full view" button.
 
 ### Key components
 - [frontend/src/components/Board.tsx](frontend/src/components/Board.tsx) — renders five columns, subscribes to task list
