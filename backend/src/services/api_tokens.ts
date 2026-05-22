@@ -118,7 +118,14 @@ export async function verifyBearer(db: DB, token: string): Promise<VerifiedToken
   const row = db.select().from(apiTokens).where(eq(apiTokens.lookupHash, lookupHash)).get();
   if (!row) return null;
   if (row.revokedAt) return null;
-  if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) return null;
+  if (row.expiresAt !== null) {
+    const ms = Date.parse(row.expiresAt);
+    // Fail closed: an unparseable expires_at is treated as expired, not as
+    // never-expiring. The route layer already rejects bad input on issuance,
+    // so this only triggers on data corruption — but we'd rather reject a
+    // mystery row than authenticate one.
+    if (!Number.isFinite(ms) || ms <= Date.now()) return null;
+  }
   const ok = await verifyPassword(token, row.tokenHash);
   if (!ok) return null;
   return { userId: row.userId, tokenId: row.id, lastUsedAt: row.lastUsedAt };

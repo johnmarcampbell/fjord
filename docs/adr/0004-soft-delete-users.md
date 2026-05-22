@@ -16,14 +16,19 @@ self-delete.
 
 Soft delete keeps all three. The row stays in `users`, all foreign keys
 remain valid, historical comments and events still attribute correctly, and
-the only behavioural change is that selection UIs (`UserPicker`,
-`UsersPage`, `FilterBar`, the `TaskDrawer` assignee picker) filter out users
-where `deleted_at` is set. The schema gains a single nullable `deleted_at`
-column on `users`; `DELETE /api/users/:id` becomes an idempotent
-`UPDATE users SET deleted_at = now(), token_hash = NULL WHERE id = ?`.
+the only behavioural change is that selection UIs (`UsersPage`,
+`FilterBar`, the `TaskDrawer` assignee picker) filter out users where
+`deleted_at` is set. The schema gains a single nullable `deleted_at` column
+on `users`; `DELETE /api/users/:id` becomes an idempotent
+`UPDATE users SET deleted_at = now(), password_hash = NULL WHERE id = ?`
+plus a follow-on `DELETE FROM sessions WHERE user_id = ?`
+(see [ADR-0008](0008-password-authentication.md)).
 
-The `token_hash` is nulled on delete so a soft-deleted user with an
-outstanding token cannot keep authenticating.
+The credential state (password and sessions) is wiped on delete so a
+soft-deleted user cannot keep authenticating. Any API token rows the user
+still owns stay in the `api_tokens` table for audit, but they no longer
+authenticate either: the actor resolver loads the bound user and rejects
+anyone with `deleted_at` set.
 
 The handle remains reserved. The unique index on `lower(handle)` already
 covers this because the row stays; a future user cannot grab `@alice` after

@@ -36,6 +36,9 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
           required: ["name"],
           properties: {
             name: { type: "string", minLength: 1, maxLength: 80 },
+            // ISO8601 UTC instant, e.g. 2026-12-31T23:59:59Z or with offset.
+            // Validated more strictly in the handler — JSON Schema's date-time
+            // format isn't enforced by Fastify's default Ajv config.
             expires_at: { type: ["string", "null"], maxLength: 64 },
           },
           additionalProperties: false,
@@ -54,10 +57,22 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
       if (target.deletedAt) return reply.code(404).send({ error: "User not found" });
 
       const body = req.body as CreateApiTokenRequest;
+      let expiresAt: string | null = null;
+      if (body.expires_at !== undefined && body.expires_at !== null) {
+        const ms = Date.parse(body.expires_at);
+        if (!Number.isFinite(ms)) {
+          return reply.code(400).send({ error: "expires_at must be an ISO8601 timestamp" });
+        }
+        if (ms <= Date.now()) {
+          return reply.code(400).send({ error: "expires_at must be in the future" });
+        }
+        // Normalize to canonical UTC ISO so downstream comparisons are unambiguous.
+        expiresAt = new Date(ms).toISOString();
+      }
       const issued = await issueToken(app.db, {
         userId: id,
         name: body.name,
-        expiresAt: body.expires_at ?? null,
+        expiresAt,
       });
       reply.code(201);
       return {

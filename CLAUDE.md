@@ -252,7 +252,7 @@ The backend serves both the API and the React build on a single port.
 ## Notes
 
 - **No component/E2E tests** — component correctness is verified manually (run dev server, test in browser)
-- **No authentication** — relies on trusted gateway
+- **Authentication** — password + session cookie for humans, API tokens for agents; demo mode auto-logs visitors in as `default-administrator` (see [ADR-0008](docs/adr/0008-password-authentication.md))
 - **Soft deletes** — only for users (ADR-0004); tasks and projects are hard-deleted. Archive/unarchive is supported for tasks in `Done`.
 - **Configurable columns** — not supported; fixed set of five
 - **No file attachments** — only markdown comments

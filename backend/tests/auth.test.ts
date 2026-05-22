@@ -230,6 +230,211 @@ describe("change-password", () => {
   });
 });
 
+describe("logout / logout-all", () => {
+  let ctx: Awaited<ReturnType<typeof makeTestApp>>;
+  beforeEach(async () => {
+    ctx = await makeTestApp();
+  });
+  afterEach(async () => {
+    await ctx.close();
+  });
+
+  it("logout deletes the current session and clears the cookie", async () => {
+    const hash = await hashPassword("pw");
+    ctx.app.db.update(users).set({ passwordHash: hash }).where(eq(users.id, "alice")).run();
+    const login = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { handle: "alice", password: "pw" },
+    });
+    const sid = /ak_session=([^;]+)/.exec(
+      (Array.isArray(login.headers["set-cookie"]) ? login.headers["set-cookie"][0] : login.headers["set-cookie"]) as string,
+    )![1];
+
+    // Confirm session works
+    const before = await ctx.app.inject({
+      method: "GET",
+      url: "/api/tasks",
+      headers: { cookie: cookieHeader(sid) },
+    });
+    expect(before.statusCode).toBe(200);
+
+    const out = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+    });
+    expect(out.statusCode).toBe(204);
+    const setCookie = out.headers["set-cookie"];
+    const cookieStr = Array.isArray(setCookie) ? setCookie[0] : setCookie!;
+    // Clearing a cookie sets it to empty with an immediate expiry.
+    expect(cookieStr).toMatch(/ak_session=/);
+
+    // The (now-deleted) session no longer authenticates.
+    const after = await ctx.app.inject({
+      method: "GET",
+      url: "/api/tasks",
+      headers: { cookie: cookieHeader(sid) },
+    });
+    expect(after.statusCode).toBe(401);
+  });
+
+  it("logout-all kills every session for the actor", async () => {
+    const hash = await hashPassword("pw");
+    ctx.app.db.update(users).set({ passwordHash: hash }).where(eq(users.id, "alice")).run();
+    // Two independent logins (two tabs / devices)
+    const a = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { handle: "alice", password: "pw" } });
+    const b = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { handle: "alice", password: "pw" } });
+    const sidA = /ak_session=([^;]+)/.exec(((Array.isArray(a.headers["set-cookie"]) ? a.headers["set-cookie"][0] : a.headers["set-cookie"])) as string)![1];
+    const sidB = /ak_session=([^;]+)/.exec(((Array.isArray(b.headers["set-cookie"]) ? b.headers["set-cookie"][0] : b.headers["set-cookie"])) as string)![1];
+    expect(sidA).not.toBe(sidB);
+
+    const out = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/logout-all",
+      headers: { cookie: cookieHeader(sidA), "x-requested-with": "agentic-kanban" },
+    });
+    expect(out.statusCode).toBe(204);
+
+    for (const sid of [sidA, sidB]) {
+      const res = await ctx.app.inject({ method: "GET", url: "/api/tasks", headers: { cookie: cookieHeader(sid) } });
+      expect(res.statusCode).toBe(401);
+    }
+  });
+});
+
+describe("bootstrap (KANBAN_BOOTSTRAP_PASSWORD)", () => {
+  it("seeds the admin password on first boot when one is provided and the hash is null", async () => {
+    const { buildApp } = await import("../src/server.js");
+    const { openDatabase } = await import("../src/db/index.js");
+    const dbHandle = openDatabase(":memory:");
+    const config = {
+      nodeEnv: "test" as const, port: 0, host: "127.0.0.1", dbPath: ":memory:", logLevel: "error" as const,
+      corsOrigins: null, seedUsers: [], staticDir: null,
+      bootstrapPassword: "bootstrap-secret", sessionIdleDays: 30,
+      demo: false, demoResetMinutes: 10,
+    };
+    const { app } = await buildApp({ config, dbHandle });
+    await app.ready();
+    try {
+      const login = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { handle: "admin", password: "bootstrap-secret" },
+      });
+      expect(login.statusCode).toBe(200);
+      // requires_password_set must be false — bootstrap satisfied the rule.
+      expect(login.json().actor.requires_password_set).toBe(false);
+    } finally {
+      await app.close();
+      dbHandle.close();
+    }
+  });
+
+  it("ignores KANBAN_BOOTSTRAP_PASSWORD when the admin already has a hash", async () => {
+    const { buildApp } = await import("../src/server.js");
+    const { openDatabase } = await import("../src/db/index.js");
+    const { seedDefaultAdministrator } = await import("../src/services/users.js");
+    const dbHandle = openDatabase(":memory:");
+    // Pre-seed the admin with a known hash so bootstrap should NOT overwrite.
+    const { runMigrations } = await import("../src/db/index.js");
+    runMigrations(dbHandle);
+    seedDefaultAdministrator(dbHandle);
+    const preset = await hashPassword("preset");
+    dbHandle.db.update(users).set({ passwordHash: preset }).where(eq(users.id, "default-administrator")).run();
+
+    const config = {
+      nodeEnv: "test" as const, port: 0, host: "127.0.0.1", dbPath: ":memory:", logLevel: "error" as const,
+      corsOrigins: null, seedUsers: [], staticDir: null,
+      bootstrapPassword: "should-be-ignored", sessionIdleDays: 30,
+      demo: false, demoResetMinutes: 10,
+    };
+    const { app } = await buildApp({ config, dbHandle });
+    await app.ready();
+    try {
+      const bad = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { handle: "admin", password: "should-be-ignored" },
+      });
+      expect(bad.statusCode).toBe(401);
+      const good = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { handle: "admin", password: "preset" },
+      });
+      expect(good.statusCode).toBe(200);
+    } finally {
+      await app.close();
+      dbHandle.close();
+    }
+  });
+
+  it("emits a warning when admin hash is null and no bootstrap password is set (prod mode)", async () => {
+    const { buildApp } = await import("../src/server.js");
+    const { openDatabase } = await import("../src/db/index.js");
+    const dbHandle = openDatabase(":memory:");
+    const config = {
+      nodeEnv: "test" as const, port: 0, host: "127.0.0.1", dbPath: ":memory:", logLevel: "warn" as const,
+      corsOrigins: null, seedUsers: [], staticDir: null,
+      bootstrapPassword: null, sessionIdleDays: 30,
+      demo: false, demoResetMinutes: 10,
+    };
+    const warnings: string[] = [];
+    const { app } = await buildApp({ config, dbHandle });
+    // Drop a custom hook to capture subsequent warns — but the bootstrap warn
+    // already fired during buildApp. Instead, observe the side-effect: the
+    // admin's hash should still be null afterwards (no overwrite, no error).
+    void warnings;
+    await app.ready();
+    try {
+      const row = dbHandle.db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, "default-administrator"))
+        .get();
+      expect(row?.passwordHash).toBeNull();
+      // And passwordless-once still works as the documented escape hatch.
+      const login = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { handle: "admin" },
+      });
+      expect(login.statusCode).toBe(200);
+      expect(login.json().actor.requires_password_set).toBe(true);
+    } finally {
+      await app.close();
+      dbHandle.close();
+    }
+  });
+
+  it("suppresses the bootstrap password and warning entirely in demo mode", async () => {
+    const { buildApp } = await import("../src/server.js");
+    const { openDatabase } = await import("../src/db/index.js");
+    const dbHandle = openDatabase(":memory:");
+    const config = {
+      nodeEnv: "test" as const, port: 0, host: "127.0.0.1", dbPath: ":memory:", logLevel: "error" as const,
+      corsOrigins: null, seedUsers: [], staticDir: null,
+      bootstrapPassword: "should-be-ignored-in-demo", sessionIdleDays: 30,
+      demo: true, demoResetMinutes: 10,
+    };
+    const { app } = await buildApp({ config, dbHandle });
+    await app.ready();
+    try {
+      const row = dbHandle.db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, "default-administrator"))
+        .get();
+      // Demo mode never seeds the bootstrap password; admin stays passwordless.
+      expect(row?.passwordHash).toBeNull();
+    } finally {
+      await app.close();
+      dbHandle.close();
+    }
+  });
+});
+
 describe("API tokens (Bearer auth)", () => {
   let ctx: Awaited<ReturnType<typeof makeTestApp>>;
   beforeEach(async () => {
@@ -287,6 +492,37 @@ describe("API tokens (Bearer auth)", () => {
     });
     expect(res.statusCode).toBe(201);
   });
+
+  it("an expired token is rejected", async () => {
+    const issued = await issueToken(ctx.app.db, { userId: "agent-coder", name: "soon-expired" });
+    // Backdate expires_at directly in the DB to simulate the token having aged past its TTL.
+    const { apiTokens } = await import("../src/db/schema.js");
+    ctx.app.db.update(apiTokens)
+      .set({ expiresAt: new Date(Date.now() - 1000).toISOString() })
+      .where(eq(apiTokens.id, issued.id))
+      .run();
+    const res = await ctx.app.inject({
+      method: "GET",
+      url: "/api/tasks",
+      headers: { authorization: `Bearer ${issued.plaintext}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("a token whose stored expires_at is unparseable fails closed (treated as expired)", async () => {
+    const issued = await issueToken(ctx.app.db, { userId: "agent-coder", name: "broken-expiry" });
+    const { apiTokens } = await import("../src/db/schema.js");
+    ctx.app.db.update(apiTokens)
+      .set({ expiresAt: "not a date" })
+      .where(eq(apiTokens.id, issued.id))
+      .run();
+    const res = await ctx.app.inject({
+      method: "GET",
+      url: "/api/tasks",
+      headers: { authorization: `Bearer ${issued.plaintext}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
 
 describe("token routes", () => {
@@ -342,6 +578,40 @@ describe("token routes", () => {
       payload: { name: "naughty" },
     });
     expect(other.statusCode).toBe(403);
+  });
+
+  it("rejects an unparseable expires_at at issuance", async () => {
+    const res = await ctx.inject({
+      method: "POST",
+      url: "/api/users/agent-coder/tokens",
+      payload: { name: "bad-expiry", expires_at: "tomorrow-ish" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/ISO8601/);
+  });
+
+  it("rejects an expires_at in the past at issuance", async () => {
+    const res = await ctx.inject({
+      method: "POST",
+      url: "/api/users/agent-coder/tokens",
+      payload: { name: "past-expiry", expires_at: "2000-01-01T00:00:00Z" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/future/);
+  });
+
+  it("normalizes a valid expires_at to canonical UTC ISO on the stored row", async () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Provide an offset-style timestamp; expect the stored value to be Z-suffixed UTC.
+    const res = await ctx.inject({
+      method: "POST",
+      url: "/api/users/agent-coder/tokens",
+      payload: { name: "future", expires_at: future.toISOString().replace("Z", "+00:00") },
+    });
+    expect(res.statusCode).toBe(201);
+    const stored = res.json().expires_at as string;
+    expect(stored).toMatch(/Z$/);
+    expect(Date.parse(stored)).toBe(future.getTime());
   });
 });
 

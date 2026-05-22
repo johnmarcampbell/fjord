@@ -80,10 +80,10 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
    '2025-01-12T08:00:00Z', '2025-01-18T10:00:00Z', 3, 0, NULL),
 
   ('task-user-identity',
-   'User identity via localStorage',
-   'UserPicker component: select or create a user on first load, persist to localStorage, send as X-User-Id header.',
-   'Done', 5.0, 'alice', 'agent-frontend', NULL, 'proj-core',
-   '["frontend"]',
+   'Password authentication (replaces trusted-gateway identity)',
+   'Humans sign in with handle + scrypt-hashed password and get a session cookie; agents and CLI callers authenticate with API tokens. Demo mode auto-issues a session for the default-administrator so visitors never see a login screen.',
+   'Done', 5.0, 'alice', 'agent-backend', NULL, 'proj-core',
+   '["backend","frontend","auth"]',
    '2025-01-13T09:00:00Z', '2025-01-19T15:00:00Z', 2, 0, NULL);
 
 -- In Review

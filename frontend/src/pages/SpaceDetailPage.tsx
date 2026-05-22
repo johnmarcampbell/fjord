@@ -54,6 +54,7 @@ export function SpaceDetailPage() {
   const { data: grants = [] } = useSpaceAccess(spaceQuery.data ? id : null);
   const { data: projects = [] } = useProjects(spaceQuery.data ? id : undefined);
   const { data: tasks = [] } = useTasks(spaceQuery.data ? id : undefined);
+  const { data: me } = useCurrentUser();
 
   if (spaceQuery.isLoading) return <Skeleton />;
 
@@ -88,7 +89,6 @@ export function SpaceDetailPage() {
   const space = spaceQuery.data;
   if (!space) return <Skeleton />;
 
-  const { data: me } = useCurrentUser();
   const currentUser = me ? users.find((u) => u.id === me.id) : undefined;
   const canEdit = currentUser ? canManageSpace(currentUser, space) : false;
   const owner = users.find((u) => u.id === space.created_by);

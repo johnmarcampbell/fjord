@@ -1,7 +1,9 @@
 # agentic-kanban
 
-A small Kanban board for collaboration between one or two humans and agents,
-deployed inside a trusted gateway alongside Openclaw.
+A small Kanban board for collaboration between one or two humans and agents.
+Deployed alongside Openclaw, with first-class authentication: humans sign in
+with handle + password and get a session cookie; agents and CLI callers use
+API tokens.
 
 ## Language
 

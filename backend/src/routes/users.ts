@@ -271,7 +271,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Soft-delete a user",
         description:
-          "Marks the user as deleted by setting `deleted_at` and clearing `token_hash`. The row is retained so historical attribution on tasks and events stays intact. Idempotent: deleting an already-deleted user returns 204. The handle remains reserved (see ADR-0004).",
+          "Marks the user as deleted by setting `deleted_at`, clearing `password_hash`, and deleting any active sessions. The row is retained so historical attribution on tasks and events stays intact. Idempotent: deleting an already-deleted user returns 204. The handle remains reserved (see ADR-0004).",
         tags: ["users"],
         params: {
           type: "object",

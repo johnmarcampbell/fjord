@@ -1,5 +1,11 @@
 # Task journal — design
 
+> **Historical note (issue #80):** this doc predates per-user authentication
+> and references the old `X-User-Id` header throughout. The journal feature
+> as shipped is unchanged in spirit, but the actual auth header on the wire
+> is now an `ak_session` cookie (humans) or `Authorization: Bearer ak_...`
+> (agents). See [ADR-0008](adr/0008-password-authentication.md).
+
 A per-task append-only journal of free-form working notes, intended primarily for the assignee (human or agent) to record what they've tried, what worked, what didn't, and what they plan to try next. Agents restart often and lose context; the journal is the durable record of work-in-progress that lets a fresh agent (or a returning human) catch up without rediscovering everything.
 
 ## Goals
