@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { slugify } from "@agentic-kanban/shared";
 import { backfillUserProfiles } from "../src/services/users.js";
+import { repairSchemaDrift } from "../src/db/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");
@@ -208,6 +209,51 @@ describe("migration 0007_dizzy_komodo", () => {
 
     const row = sqlite.prepare("SELECT role FROM users WHERE id = 'newuser'").get() as any;
     expect(row.role).toBe("Member");
+
+    sqlite.close();
+  });
+});
+
+describe("schema drift repair", () => {
+  it("restores role/auth objects when migration metadata got ahead of schema", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+
+    applyMigration(sqlite, "0000_initial");
+    applyMigration(sqlite, "0001_projects_and_tags");
+    applyMigration(sqlite, "0002_confused_the_watchers");
+    applyMigration(sqlite, "0003_task_journal");
+    applyMigration(sqlite, "0004_spaces");
+    applyMigration(sqlite, "0005_user_profile");
+    applyMigration(sqlite, "0006_typical_giant_man");
+
+    repairSchemaDrift(sqlite);
+
+    const roleColumn = sqlite
+      .prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'role'")
+      .get() as { 1: number } | undefined;
+    const passwordHashColumn = sqlite
+      .prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'password_hash'")
+      .get() as { 1: number } | undefined;
+    const spaceCreatedByColumn = sqlite
+      .prepare("SELECT 1 FROM pragma_table_info('spaces') WHERE name = 'created_by'")
+      .get() as { 1: number } | undefined;
+    const userSpaceAccessTable = sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_space_access'")
+      .get() as { 1: number } | undefined;
+    const sessionsTable = sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'")
+      .get() as { 1: number } | undefined;
+    const apiTokensTable = sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'api_tokens'")
+      .get() as { 1: number } | undefined;
+
+    expect(roleColumn).toBeTruthy();
+    expect(passwordHashColumn).toBeTruthy();
+    expect(spaceCreatedByColumn).toBeTruthy();
+    expect(userSpaceAccessTable).toBeTruthy();
+    expect(sessionsTable).toBeTruthy();
+    expect(apiTokensTable).toBeTruthy();
 
     sqlite.close();
   });
