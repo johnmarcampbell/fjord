@@ -131,11 +131,11 @@ Routing uses `react-router-dom` v6.
 - [frontend/src/components/TaskCard.tsx](frontend/src/components/TaskCard.tsx) — renders task with blocked state, opens drawer on click
 - [frontend/src/components/TaskDrawer.tsx](frontend/src/components/TaskDrawer.tsx) — side panel for editing task details, comments, blockers
 - [frontend/src/components/NewTaskDialog.tsx](frontend/src/components/NewTaskDialog.tsx) — modal for quick task creation
-- [frontend/src/components/UserMenu.tsx](frontend/src/components/UserMenu.tsx) — header avatar/menu with "Change password", "Profile & API tokens", "Log out"
-- [frontend/src/components/UserCard.tsx](frontend/src/components/UserCard.tsx) — single user tile rendered on `/users`; admins see a "Reset password" button on other users' cards
-- [frontend/src/components/UserFormDialog.tsx](frontend/src/components/UserFormDialog.tsx) — shared create + edit + self-delete modal
+- [frontend/src/components/UserMenu.tsx](frontend/src/components/UserMenu.tsx) — header avatar/menu with "Profile & API tokens" (deep-links to `/users?edit=<self>`), "Change password", "Log out"
+- [frontend/src/components/UserCard.tsx](frontend/src/components/UserCard.tsx) — single user tile rendered on `/users`
+- [frontend/src/components/UserFormDialog.tsx](frontend/src/components/UserFormDialog.tsx) — shared create + edit modal. In edit mode it now hosts the per-user **API tokens** section (`TokenList`), an admin-only **Reset password** action for other users, and self-delete. Whoever can open the dialog (admin, or the user themselves) can manage that user's tokens.
 - [frontend/src/components/ChangePasswordDialog.tsx](frontend/src/components/ChangePasswordDialog.tsx) — voluntary password-change flow (current + new + confirm)
-- [frontend/src/components/TokenList.tsx](frontend/src/components/TokenList.tsx) and [frontend/src/components/TokenCreateDialog.tsx](frontend/src/components/TokenCreateDialog.tsx) — API token management; shown for the current user on `/users`
+- [frontend/src/components/TokenList.tsx](frontend/src/components/TokenList.tsx) and [frontend/src/components/TokenCreateDialog.tsx](frontend/src/components/TokenCreateDialog.tsx) — API token management, embedded in `UserFormDialog`. Both surfaces label the bound user (`@handle`) so admins issuing tokens for agents can't get the binding wrong.
 
 ### API client
 [frontend/src/lib/api.ts](frontend/src/lib/api.ts): Wrapper around `fetch` that sends `credentials: "include"` (session cookie) and `X-Requested-With: agentic-kanban` on writes. Throws `ApiError` (with status, message, body) on non-2xx responses. On 401 it dispatches the auth-logout event so `AuthGate` re-renders the login page.

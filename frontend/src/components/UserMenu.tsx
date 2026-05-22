@@ -42,11 +42,11 @@ export function UserMenu() {
             <div className="text-[11px] text-ink-subtle">@{me.handle}</div>
           </div>
           <Link
-            to={`/users`}
+            to={`/users?edit=${encodeURIComponent(me.id)}`}
             onClick={() => setOpen(false)}
             className="block px-3 py-1.5 text-xs text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           >
-            Profile & API tokens
+            Profile &amp; API tokens
           </Link>
           <button
             type="button"

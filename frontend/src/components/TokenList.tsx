@@ -8,7 +8,7 @@ function fmt(d: string | null): string {
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function TokenList({ userId }: { userId: string }) {
+export function TokenList({ userId, ownerHandle }: { userId: string; ownerHandle?: string }) {
   const qc = useQueryClient();
   const [showRevoked, setShowRevoked] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -23,9 +23,16 @@ export function TokenList({ userId }: { userId: string }) {
   });
 
   return (
-    <section className="mt-6 rounded-xl border border-border bg-surface p-4">
+    <section className="mt-6 rounded-xl border border-border bg-surface-subtle p-4">
       <header className="mb-3 flex items-baseline justify-between">
-        <h3 className="text-sm font-bold text-ink">API tokens</h3>
+        <div>
+          <h3 className="text-sm font-bold text-ink">API tokens</h3>
+          {ownerHandle && (
+            <p className="text-[11px] text-ink-subtle">
+              Authenticate as <span className="font-mono">@{ownerHandle}</span> from scripts and agents.
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 text-xs text-ink-subtle">
             <input
@@ -88,7 +95,7 @@ export function TokenList({ userId }: { userId: string }) {
         </ul>
       )}
 
-      {creating && <TokenCreateDialog userId={userId} onClose={() => setCreating(false)} />}
+      {creating && <TokenCreateDialog userId={userId} ownerHandle={ownerHandle} onClose={() => setCreating(false)} />}
     </section>
   );
 }

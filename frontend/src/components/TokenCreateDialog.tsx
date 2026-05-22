@@ -10,7 +10,15 @@ function expiryAt(preset: ExpiryPreset): string | null {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-export function TokenCreateDialog({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function TokenCreateDialog({
+  userId,
+  ownerHandle,
+  onClose,
+}: {
+  userId: string;
+  ownerHandle?: string;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [expires, setExpires] = useState<ExpiryPreset>("never");
@@ -52,7 +60,12 @@ export function TokenCreateDialog({ userId, onClose }: { userId: string; onClose
               create.mutate();
             }}
           >
-            <h2 className="mb-3 text-base font-bold text-ink">New API token</h2>
+            <h2 className="mb-1 text-base font-bold text-ink">New API token</h2>
+            {ownerHandle && (
+              <p className="mb-3 text-xs text-ink-subtle">
+                Authenticates as <span className="font-mono">@{ownerHandle}</span>. Inherits their role.
+              </p>
+            )}
             <label className="mb-2 block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Name</span>
               <input
@@ -103,7 +116,8 @@ export function TokenCreateDialog({ userId, onClose }: { userId: string; onClose
           <div>
             <h2 className="mb-2 text-base font-bold text-ink">Token created</h2>
             <p className="mb-3 text-sm text-ink-muted">
-              Copy this token now — it won't be shown again.
+              Copy this token now — it won't be shown again. Anyone with this
+              token can act as <span className="font-mono">{ownerHandle ? `@${ownerHandle}` : "this user"}</span> until it's revoked.
             </p>
             <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-surface-subtle px-3 py-2 font-mono text-sm text-ink">
               <span className="flex-1 overflow-x-auto whitespace-nowrap">{created}</span>

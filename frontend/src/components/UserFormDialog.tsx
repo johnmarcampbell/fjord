@@ -11,6 +11,7 @@ import { api, ApiError } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
 import { useCurrentUser, useInvalidateMe } from "../lib/auth.js";
 import { DEFAULT_ADMINISTRATOR_ID, isAdmin } from "../lib/policy.js";
+import { TokenList } from "./TokenList.js";
 
 type FormState = {
   display_name: string;
@@ -161,6 +162,20 @@ export function UserFormDialog({
     },
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) => api.resetUserPassword(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const canResetOthersPassword =
+    mode === "edit" &&
+    currentIsAdmin &&
+    !!existing &&
+    existing.kind === "human" &&
+    existing.id !== me?.id;
+
   useEffect(() => {
     const err = createMutation.error ?? updateMutation.error ?? deleteMutation.error;
     if (!err) {
@@ -225,12 +240,10 @@ export function UserFormDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <form
-        onSubmit={onSubmit}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-modal border border-border bg-surface p-5 shadow-modal"
-      >
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto rounded-modal border border-border bg-surface shadow-modal">
+      <form onSubmit={onSubmit} className="p-5">
         <h2 className="mb-4 text-base font-bold text-ink">
-          {mode === "create" ? "New user" : "Edit profile"}
+          {mode === "create" ? "New user" : `Edit ${existing?.display_name ?? "user"}`}
         </h2>
 
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -363,6 +376,45 @@ export function UserFormDialog({
           </div>
         )}
 
+        {canResetOthersPassword && (
+          <div className="mt-6 border-t border-border pt-4">
+            {!confirmingReset ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingReset(true)}
+                className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink hover:underline"
+                title="Clear this user's password. They can sign in once with no password to set a new one."
+              >
+                Reset password
+              </button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-ink-muted">
+                  Clear @{existing?.handle}'s password? They'll set a new one on next login.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => resetPasswordMutation.mutate(userId!)}
+                  disabled={resetPasswordMutation.isPending}
+                  className="rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-surface-hover disabled:opacity-40"
+                >
+                  Confirm reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(false)}
+                  className="text-xs text-ink-subtle transition-colors hover:text-ink-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {resetPasswordMutation.isSuccess && !confirmingReset && (
+              <p className="mt-2 text-[11px] text-ink-subtle">Password cleared. Their sessions have been signed out.</p>
+            )}
+          </div>
+        )}
+
         {mode === "edit" && !isDefaultAdmin && (
           <div className="mt-6 border-t border-border pt-4">
             {!confirmingDelete ? (
@@ -413,6 +465,13 @@ export function UserFormDialog({
           </button>
         </div>
       </form>
+
+      {mode === "edit" && userId && existing && !existing.deleted_at && (
+        <div className="border-t border-border px-5 pb-5">
+          <TokenList userId={userId} ownerHandle={existing.handle} />
+        </div>
+      )}
+      </div>
     </div>
   );
 }
