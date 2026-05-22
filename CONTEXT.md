@@ -1,7 +1,9 @@
 # agentic-kanban
 
-A small Kanban board for collaboration between one or two humans and agents,
-deployed inside a trusted gateway alongside Openclaw.
+A small Kanban board for collaboration between one or two humans and agents.
+Deployed alongside Openclaw, with first-class authentication: humans sign in
+with handle + password and get a session cookie; agents and CLI callers use
+API tokens.
 
 ## Language
 
@@ -85,6 +87,40 @@ exactly one space; the default space is `default`.
 **Project**:
 An optional grouping of **Tasks** within a **Space**.
 
+### Authentication
+
+**Password**:
+A human **User**'s secret used to **Login** and establish a **Session**. Stored
+as a scrypt hash on the user row. Optional — a user with no password set can
+log in once without one to set it (this is how new users and the default
+administrator bootstrap). Agents never have a password; they use **API tokens**.
+_Avoid_: passcode, PIN.
+
+**Session**:
+A short-lived authenticated state for a logged-in human, backed by a row in
+the `sessions` table and an `HttpOnly` cookie. Created by `POST /api/auth/login`,
+ended by logout or idle expiry. Distinct from **API token** (long-lived, for
+programmatic callers).
+_Avoid_: signin, login (as noun — see **Login**).
+
+**API token**:
+A long-lived bearer credential issued to a **User** for programmatic API
+access. Typically held by **Agent** **Users**; humans may also issue them for
+CLI use. Has a **Name**, a **Token preview**, and an optional expiry. Multiple
+per user. Sent as `Authorization: Bearer ak_...`.
+_Avoid_: key, secret, API key.
+
+**Token preview**:
+A non-secret summary of an **API token** (prefix + first and last few chars of
+the random portion, e.g. `ak_a1b2...o5p6`) shown in the management UI so users
+can identify and revoke specific tokens. The full token is shown exactly once
+at creation and never stored in plaintext.
+
+**Login**:
+The action of establishing a **Session** by submitting credentials. Verb only;
+the resulting state is a **Session**, not a "login".
+_Avoid_ using as a noun.
+
 ### Events
 
 **Comment**:
@@ -106,6 +142,9 @@ a system-recorded change (column change, blocker added, etc.).
 - A **Task** is reported by one **User** and optionally assigned to one **User**.
 - A **Task** is blocked by zero or more other **Tasks** via **Blocker** edges.
 - A **Task** belongs to one **Space** and at most one **Project**.
+- A human **User** has at most one **Password** (nullable) and zero or more
+  active **Sessions**. An **Agent** **User** has no **Password**.
+- Any **User** has zero or more **API tokens**.
 
 ## Flagged ambiguities
 

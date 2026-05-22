@@ -2,6 +2,9 @@ import type {
   AddBlockerRequest,
   AddCommentRequest,
   AddJournalEntryRequest,
+  ApiTokenSummary,
+  CreateApiTokenRequest,
+  CreateApiTokenResponse,
   CreateGrantRequest,
   CreateProjectRequest,
   CreateSpaceRequest,
@@ -20,8 +23,10 @@ import type {
   UpdateUserRequest,
   User,
 } from "@agentic-kanban/shared";
-import { getCurrentUserId } from "./user.js";
-import { getStoredToken, setStoredToken, dispatchLogout } from "./auth.js";
+import { dispatchLogout } from "./auth.js";
+
+const CSRF_HEADER = "X-Requested-With";
+const CSRF_VALUE = "agentic-kanban";
 
 export class ApiError extends Error {
   constructor(
@@ -33,26 +38,23 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: RequestInit & { needsUser?: boolean } = {},
-): Promise<T> {
+function isWriteMethod(method: string | undefined): boolean {
+  const m = (method ?? "GET").toUpperCase();
+  return m === "POST" || m === "PATCH" || m === "PUT" || m === "DELETE";
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set("Content-Type", "application/json");
-  const userId = getCurrentUserId();
-  if (userId) headers.set("X-User-Id", userId);
-  const token = getStoredToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(path, { ...init, headers });
+  if (isWriteMethod(init.method)) headers.set(CSRF_HEADER, CSRF_VALUE);
+  const res = await fetch(path, { ...init, credentials: "include", headers });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {
     if (res.status === 401) {
-      setStoredToken(null);
       dispatchLogout();
     }
-    const message =
-      (body && (body.error || body.message)) || `HTTP ${res.status}`;
+    const message = (body && (body.error || body.message)) || `HTTP ${res.status}`;
     throw new ApiError(res.status, message, body);
   }
   return body as T;
@@ -68,6 +70,24 @@ export const api = {
     request<User>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteUser: (id: string) =>
     request<void>(`/api/users/${id}`, { method: "DELETE" }),
+
+  resetUserPassword: (id: string) =>
+    request<User>(`/api/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ password_hash: null }),
+    }),
+
+  listUserTokens: (userId: string, includeRevoked = false) => {
+    const qs = includeRevoked ? "?include_revoked=true" : "";
+    return request<ApiTokenSummary[]>(`/api/users/${userId}/tokens${qs}`);
+  },
+  createUserToken: (userId: string, body: CreateApiTokenRequest) =>
+    request<CreateApiTokenResponse>(`/api/users/${userId}/tokens`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  revokeUserToken: (userId: string, tokenId: string) =>
+    request<void>(`/api/users/${userId}/tokens/${tokenId}`, { method: "DELETE" }),
 
   listProjects: (spaceId?: string) => {
     const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";

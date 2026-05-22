@@ -7,7 +7,7 @@ import { useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
-import { getCurrentUserId } from "../lib/user.js";
+import { useCurrentUser } from "../lib/auth.js";
 
 const PRESET_COLORS = [
   "#4A7FA5", "#6B9E8A", "#C9A94A", "#6B7F8E",
@@ -38,7 +38,8 @@ export function FilterBar({ allTags }: FilterBarProps) {
   const [tagInput, setTagInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const currentUserId = getCurrentUserId();
+  const { data: me } = useCurrentUser();
+  const currentUserId = me?.id ?? null;
   const selectedProjectObj = projects.find((p) => p.id === selectedProject);
 
   const suggestions = allTags.filter(

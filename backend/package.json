@@ -12,10 +12,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "reset-admin-password": "tsx src/scripts/reset-admin-password.ts"
   },
   "dependencies": {
     "@agentic-kanban/shared": "*",
+    "@fastify/cookie": "11.0.2",
     "@fastify/cors": "10.1.0",
     "@fastify/static": "9.1.3",
     "@fastify/swagger": "9.7.0",

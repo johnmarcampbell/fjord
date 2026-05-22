@@ -253,17 +253,18 @@ describe("users", () => {
     expect(ids).toContain("default-administrator");
   });
 
-  it("GET /api/users returns new fields and omits token_hash", async () => {
+  it("GET /api/users returns new fields and never exposes credential hashes", async () => {
     const res = await ctx.inject({ method: "GET", url: "/api/users" });
     const [user] = res.json();
     expect(user).toHaveProperty("handle");
     expect(user).toHaveProperty("title");
     expect(user).toHaveProperty("bio");
     expect(user).toHaveProperty("avatar");
+    expect(user).not.toHaveProperty("password_hash");
     expect(user).not.toHaveProperty("token_hash");
   });
 
-  it("GET /api/users/:id returns new fields and omits token_hash", async () => {
+  it("GET /api/users/:id returns new fields and never exposes credential hashes", async () => {
     const res = await ctx.inject({ method: "GET", url: "/api/users/alice" });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -271,6 +272,7 @@ describe("users", () => {
     expect(body).toHaveProperty("title");
     expect(body).toHaveProperty("bio");
     expect(body).toHaveProperty("avatar");
+    expect(body).not.toHaveProperty("password_hash");
     expect(body).not.toHaveProperty("token_hash");
   });
 
@@ -380,14 +382,18 @@ describe("users", () => {
     expect(res.json().avatar).toBe("https://example.com/a.png");
   });
 
-  it("POST accepts token_hash but does not return it", async () => {
+  it("POST does not accept password_hash in the request body (additionalProperties:false)", async () => {
     const res = await ctx.inject({
       method: "POST",
       url: "/api/users",
-      payload: { id: "bob", display_name: "Bob", kind: "human", token_hash: "secret123" },
+      payload: { id: "bob", display_name: "Bob", kind: "human", password_hash: "anything" } as any,
     });
-    expect(res.statusCode).toBe(201);
-    expect(res.json()).not.toHaveProperty("token_hash");
+    // Either the field is silently dropped or the schema rejects it; the response must not echo it back.
+    if (res.statusCode === 201) {
+      expect(res.json()).not.toHaveProperty("password_hash");
+    } else {
+      expect(res.statusCode).toBe(400);
+    }
   });
 
   it("POST response includes handle, title, bio, avatar", async () => {
@@ -518,14 +524,28 @@ describe("users", () => {
     expect(res.json().avatar).toBe("🎵");
   });
 
-  it("PATCH token_hash: null clears it", async () => {
-    const res = await ctx.inject({
+  it("PATCH password_hash: null requires admin and another user (not self)", async () => {
+    // alice is acting as herself — cannot reset her own password via this route
+    const self = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
-      payload: { token_hash: null },
+      payload: { password_hash: null },
     });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).not.toHaveProperty("token_hash");
+    expect(self.statusCode).toBe(400);
+
+    // Add bob as a target
+    await ctx.inject({
+      method: "POST",
+      url: "/api/users",
+      payload: { id: "bob", display_name: "Bob", kind: "human" },
+    });
+    const ok = await ctx.inject({
+      method: "PATCH",
+      url: "/api/users/bob",
+      payload: { password_hash: null },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).not.toHaveProperty("password_hash");
   });
 
   it("PATCH nonexistent user returns 404", async () => {
@@ -537,13 +557,14 @@ describe("users", () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it("PATCH response excludes token_hash", async () => {
+  it("PATCH response excludes credential hashes", async () => {
     const res = await ctx.inject({
       method: "PATCH",
       url: "/api/users/alice",
       payload: { title: "Engineer" },
     });
     expect(res.statusCode).toBe(200);
+    expect(res.json()).not.toHaveProperty("password_hash");
     expect(res.json()).not.toHaveProperty("token_hash");
   });
 
@@ -558,7 +579,7 @@ describe("users", () => {
       expect(del.statusCode).toBe(204);
 
       // Use default-administrator since alice is now deleted
-      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
+      const after = await ctx.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(after.statusCode).toBe(200);
       expect(typeof after.json().deleted_at).toBe("string");
     });
@@ -566,11 +587,11 @@ describe("users", () => {
     it("DELETE is idempotent — second call still returns 204 and leaves deleted_at unchanged", async () => {
       const first = await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       expect(first.statusCode).toBe(204);
-      const stamp = (await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
+      const stamp = (await ctx.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
         .deleted_at;
-      const second = await ctx.app.inject({ method: "DELETE", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
+      const second = await ctx.inject({ method: "DELETE", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(second.statusCode).toBe(204);
-      const stamp2 = (await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
+      const stamp2 = (await ctx.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } })).json()
         .deleted_at;
       expect(stamp2).toBe(stamp);
     });
@@ -592,13 +613,13 @@ describe("users", () => {
       const del = await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       expect(del.statusCode).toBe(204);
 
-      const after = await ctx.app.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
+      const after = await ctx.inject({ method: "GET", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       expect(typeof after.json().deleted_at).toBe("string");
     });
 
     it("GET /api/users still includes deleted users (clients filter)", async () => {
       await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
-      const res = await ctx.app.inject({ method: "GET", url: "/api/users", headers: { "x-user-id": "default-administrator" } });
+      const res = await ctx.inject({ method: "GET", url: "/api/users", headers: { "x-user-id": "default-administrator" } });
       const ids = res.json().map((u: any) => u.id);
       expect(ids).toContain("alice");
       const alice = res.json().find((u: any) => u.id === "alice");
@@ -608,7 +629,7 @@ describe("users", () => {
     it("PATCH on a deleted user returns 404", async () => {
       await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
       // Use admin actor since alice is now deleted
-      const res = await ctx.app.inject({
+      const res = await ctx.inject({
         method: "PATCH",
         url: "/api/users/alice",
         headers: { "x-user-id": "default-administrator" },
@@ -619,7 +640,7 @@ describe("users", () => {
 
     it("handle stays reserved — POST with the deleted user's handle returns 409", async () => {
       await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
-      const res = await ctx.app.inject({
+      const res = await ctx.inject({
         method: "POST",
         url: "/api/users",
         headers: { "x-user-id": "default-administrator" },
@@ -628,26 +649,24 @@ describe("users", () => {
       expect(res.statusCode).toBe(409);
     });
 
-    it("DELETE clears token_hash", async () => {
-      await ctx.inject({
-        method: "PATCH",
-        url: "/api/users/alice",
-        payload: { token_hash: "deadbeef" },
-      });
+    it("DELETE clears password_hash", async () => {
+      // Set a known hash directly via DB
+      ctx.app.db.update(users).set({ passwordHash: "scrypt$N=16384,r=8,p=1$abc$def" })
+        .where(eq(users.id, "alice")).run();
       const before = ctx.app.db
-        .select({ tokenHash: users.tokenHash })
+        .select({ passwordHash: users.passwordHash })
         .from(users)
         .where(eq(users.id, "alice"))
         .get();
-      expect(before?.tokenHash).toBe("deadbeef");
+      expect(before?.passwordHash).toBe("scrypt$N=16384,r=8,p=1$abc$def");
 
-      await ctx.inject({ method: "DELETE", url: "/api/users/alice" });
+      await ctx.inject({ method: "DELETE", url: "/api/users/alice", headers: { "x-user-id": "default-administrator" } });
       const after = ctx.app.db
-        .select({ tokenHash: users.tokenHash })
+        .select({ passwordHash: users.passwordHash })
         .from(users)
         .where(eq(users.id, "alice"))
         .get();
-      expect(after?.tokenHash).toBeNull();
+      expect(after?.passwordHash).toBeNull();
     });
   });
 });

@@ -1,58 +1,48 @@
-import { useEffect, useRef, useState } from "react";
-import { getStoredToken, setStoredToken } from "../lib/auth.js";
-
-type AuthStatus = "checking" | "open" | "needs-login" | "authenticated";
-
-async function validateToken(token: string | null): Promise<AuthStatus> {
-  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-  try {
-    const res = await fetch("/api/auth/validate", { headers });
-    const body = await res.json() as { required: boolean; valid?: boolean };
-    if (!body.required) return "open";
-    if (res.ok) return "authenticated";
-    return "needs-login";
-  } catch {
-    return "needs-login";
-  }
-}
+import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api.js";
+import { login, useCurrentUser, useInvalidateMe } from "../lib/auth.js";
+import { LoginPage } from "../pages/LoginPage.js";
+import { SetPasswordPage } from "../pages/SetPasswordPage.js";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>("checking");
-  const [input, setInput] = useState("");
-  const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  const invalidateMe = useInvalidateMe();
+  const { data: serverConfig } = useQuery({
+    queryKey: ["config"],
+    queryFn: api.getConfig,
+    staleTime: Infinity,
+  });
+  const { data: me, isLoading, isFetched } = useCurrentUser();
+  const demoLoginAttempted = useRef(false);
 
+  // In demo mode, auto-log-in as default-administrator on first load.
   useEffect(() => {
-    void validateToken(getStoredToken()).then(setStatus);
+    if (!serverConfig?.demo) return;
+    if (demoLoginAttempted.current) return;
+    if (me) return;
+    if (!isFetched) return;
+    demoLoginAttempted.current = true;
+    void (async () => {
+      try {
+        await login({});
+        await invalidateMe();
+      } catch {
+        // surface as login page below
+      }
+    })();
+  }, [serverConfig?.demo, me, isFetched, invalidateMe]);
 
+  // Listen for 401s from anywhere in the app and bounce to the login screen.
+  useEffect(() => {
     function onLogout() {
-      setStatus("needs-login");
-      setInput("");
-      setError("");
+      qc.setQueryData(["auth", "me"], null);
     }
     window.addEventListener("auth:logout", onLogout);
     return () => window.removeEventListener("auth:logout", onLogout);
-  }, []);
+  }, [qc]);
 
-  useEffect(() => {
-    if (status === "needs-login") inputRef.current?.focus();
-  }, [status]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    const token = input.trim();
-    if (!token) return;
-    const next = await validateToken(token);
-    if (next === "authenticated") {
-      setStoredToken(token);
-      setStatus("authenticated");
-    } else {
-      setError("Invalid token");
-    }
-  }
-
-  if (status === "checking") {
+  if (isLoading || !serverConfig) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg">
         <div className="text-sm text-ink-subtle">Loading…</div>
@@ -60,32 +50,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (status === "needs-login") {
-    return (
-      <div className="flex h-screen items-center justify-center bg-bg">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 shadow-sm">
-          <h1 className="mb-1 text-xl font-bold tracking-tight text-ink">Agentic Kanban</h1>
-          <p className="mb-6 text-sm text-ink-subtle">Enter your access token to continue.</p>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <input
-              ref={inputRef}
-              type="password"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Access token"
-              className="rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder-ink-muted focus:border-border-focus focus:outline-none transition-colors"
-            />
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            <button
-              type="submit"
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-            >
-              Sign in
-            </button>
-          </form>
+  if (!me) {
+    if (serverConfig.demo) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-bg">
+          <div className="text-sm text-ink-subtle">Starting demo session…</div>
         </div>
-      </div>
-    );
+      );
+    }
+    return <LoginPage />;
+  }
+
+  if (me.requires_password_set) {
+    return <SetPasswordPage />;
   }
 
   return <>{children}</>;

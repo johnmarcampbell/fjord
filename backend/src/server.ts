@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
+import fastifyCookie from "@fastify/cookie";
 import { eq } from "drizzle-orm";
 import type { Config } from "./config.js";
 import { openDatabase, runMigrations, type DB, type DBHandle } from "./db/index.js";
@@ -15,20 +16,34 @@ import { tasksRoutes } from "./routes/tasks.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { streamRoutes } from "./routes/stream.js";
+import { authRoutes } from "./routes/auth.js";
+import { tokensRoutes } from "./routes/tokens.js";
 import { nowIso } from "./services/tasks.js";
-import { pickAvatar, slugify, resolveHandleCollision, backfillUserProfiles, seedDefaultAdministrator } from "./services/users.js";
-import { ACTOR_HEADER, resolveActor, type Actor } from "./auth/actor.js";
+import {
+  pickAvatar,
+  slugify,
+  resolveHandleCollision,
+  backfillUserProfiles,
+  seedDefaultAdministrator,
+  DEFAULT_ADMINISTRATOR_ID,
+} from "./services/users.js";
+import { hashPassword } from "./services/passwords.js";
+import { actorRequiresPasswordSet, resolveActor, type Actor } from "./auth/actor.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     db: DB;
     events: EventBus;
     demo: boolean;
+    config: Config;
   }
   interface FastifyRequest {
     actor?: Actor;
   }
 }
+
+const CSRF_HEADER = "x-requested-with";
+const CSRF_VALUE = "agentic-kanban";
 
 export interface BuildAppOptions {
   config: Config;
@@ -53,22 +68,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     },
   });
 
-  // Auth middleware — runs before routing on all requests
-  if (config.authToken) {
-    const token = config.authToken;
-    app.addHook("onRequest", async (req, reply) => {
-      if (!req.url.startsWith("/api/") || req.url === "/api/auth/validate" || req.url.startsWith("/api/docs")) return;
-      if (req.headers.authorization !== `Bearer ${token}`) {
-        return reply.code(401).send({ error: "Unauthorized" });
-      }
-    });
-  }
+  await app.register(fastifyCookie);
 
   app.decorate("db", dbHandle.db);
   app.decorate("events", new EventBus());
   app.decorate("demo", config.demo);
+  app.decorate("config", config);
 
   seedDefaultAdministrator(dbHandle);
+  await applyBootstrapPassword(dbHandle, config, app);
 
   if (config.demo) {
     const resetter = new DemoResetter(config.demoResetMinutes * 60 * 1000);
@@ -86,21 +94,49 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
 
   backfillUserProfiles(dbHandle);
 
-  // Actor resolution — runs on all API routes except the allow-list
-  const ACTOR_SKIP = new Set(["/api/health", "/api/auth/validate", "/api/config"]);
+  // Allow-list: routes that do not require an authenticated actor.
+  // /api/auth/login is intentionally listed so unauthenticated callers can sign in.
+  const ACTOR_SKIP = new Set(["/api/health", "/api/config", "/api/auth/login"]);
+
   app.addHook("preHandler", async (req, reply) => {
     const url = req.url.split("?")[0];
     if (!url.startsWith("/api/")) return;
     if (ACTOR_SKIP.has(url) || url.startsWith("/api/docs")) return;
-    const result = await resolveActor(app.db, req.headers[ACTOR_HEADER], app.demo);
+
+    const result = await resolveActor(app.db, {
+      cookies: req.cookies ?? {},
+      authorization: req.headers.authorization,
+      idleDays: config.sessionIdleDays,
+    });
     if ("error" in result) {
       return reply.code(result.status).send({ error: result.error });
     }
     req.actor = result.actor;
+
+    const isWrite =
+      req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE";
+
+    // CSRF: cookie-authenticated writes require the X-Requested-With header.
+    // Bearer-authenticated callers are exempt — no ambient credential, no CSRF risk.
+    if (result.actor.authMethod === "session" && isWrite) {
+      const provided = req.headers[CSRF_HEADER];
+      const value = Array.isArray(provided) ? provided[0] : provided;
+      if (value !== CSRF_VALUE) {
+        return reply.code(403).send({ error: "Missing or invalid X-Requested-With header" });
+      }
+    }
+
+    // Force-change-on-write gate: humans with no password set can read but cannot write.
+    // /api/auth/change-password and /api/auth/logout are exempt so they can complete the flow.
+    if (isWrite && url !== "/api/auth/change-password" && url !== "/api/auth/logout" && url !== "/api/auth/logout-all") {
+      if (actorRequiresPasswordSet(app.db, result.actor, app.demo)) {
+        return reply.code(403).send({ error: "set_password_required" });
+      }
+    }
   });
 
   if (config.corsOrigins && config.corsOrigins.length > 0) {
-    await app.register(fastifyCors, { origin: config.corsOrigins });
+    await app.register(fastifyCors, { origin: config.corsOrigins, credentials: true });
   }
 
   await app.register(fastifySwagger, {
@@ -108,10 +144,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
       info: {
         title: "Agentic Kanban API",
         description:
-          "REST API for the agentic kanban board. All write endpoints require an X-User-Id header identifying the caller.",
-        version: "0.2.1",
+          "REST API for the agentic kanban board. Authenticated endpoints accept either an `ak_session` cookie (humans) or `Authorization: Bearer ak_...` (agents).",
+        version: "0.3.0",
       },
       tags: [
+        { name: "auth", description: "Authentication: sessions, change password, API tokens" },
         { name: "tasks", description: "Task CRUD and timeline" },
         { name: "projects", description: "Project management" },
         { name: "spaces", description: "Space management (top-level grouping for projects and tasks)" },
@@ -136,22 +173,24 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     async () => ({ status: "ok", time: nowIso() }),
   );
 
-  app.get("/api/auth/validate", { schema: { summary: "Validate auth token", description: "Returns whether a token is required and, if Authorization header is provided, whether it is valid. Always accessible without a valid token.", tags: ["auth"] } }, async (req, reply) => {
-    if (!config.authToken) {
-      return { required: false };
-    }
-    if (req.headers.authorization === `Bearer ${config.authToken}`) {
-      return reply.send({ required: true, valid: true });
-    }
-    return reply.code(401).send({ required: true, valid: false });
-  });
+  app.get(
+    "/api/config",
+    {
+      schema: {
+        summary: "Server configuration",
+        description: "Returns public server configuration (demo mode settings).",
+        tags: ["config"],
+      },
+    },
+    async () => ({
+      demo: config.demo,
+      demo_reset_minutes: config.demo ? config.demoResetMinutes : null,
+    }),
+  );
 
-  app.get("/api/config", { schema: { summary: "Server configuration", description: "Returns public server configuration (demo mode settings).", tags: ["config"] } }, async () => ({
-    demo: config.demo,
-    demo_reset_minutes: config.demo ? config.demoResetMinutes : null,
-  }));
-
+  await app.register(authRoutes);
   await app.register(usersRoutes);
+  await app.register(tokensRoutes);
   await app.register(tasksRoutes);
   await app.register(projectsRoutes);
   await app.register(spacesRoutes);
@@ -173,6 +212,34 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   }
 
   return { app, dbHandle };
+}
+
+async function applyBootstrapPassword(
+  handle: DBHandle,
+  config: Config,
+  app: FastifyInstance,
+): Promise<void> {
+  if (config.demo) return;
+  const row = handle.db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, DEFAULT_ADMINISTRATOR_ID))
+    .get();
+  if (!row) return;
+  if (row.passwordHash !== null) return;
+  if (config.bootstrapPassword) {
+    const hash = await hashPassword(config.bootstrapPassword);
+    handle.db
+      .update(users)
+      .set({ passwordHash: hash })
+      .where(eq(users.id, DEFAULT_ADMINISTRATOR_ID))
+      .run();
+    app.log.info("default-administrator password set from KANBAN_BOOTSTRAP_PASSWORD");
+  } else {
+    app.log.warn(
+      "default-administrator has no password set. The server is accepting unauthenticated logins as administrator. Set KANBAN_BOOTSTRAP_PASSWORD on a fresh install, or log in and set a password through the UI.",
+    );
+  }
 }
 
 function seedUsers(
@@ -200,7 +267,7 @@ function seedUsers(
         title: "",
         bio: "",
         avatar: pickAvatar(seed.id),
-        tokenHash: null,
+        passwordHash: null,
         createdAt: nowIso(),
       })
       .run();

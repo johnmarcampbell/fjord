@@ -8,7 +8,7 @@ import { TaskDrawer } from "../components/TaskDrawer.js";
 import { useTasks, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useBoardView } from "../lib/BoardViewContext.js";
-import { getCurrentUserId } from "../lib/user.js";
+import { useCurrentUser } from "../lib/auth.js";
 
 export function BoardPage({
   creating,
@@ -22,7 +22,8 @@ export function BoardPage({
   const { data: tasks = [] } = useTasks(activeSpaceId);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const { data: users = [] } = useUsers();
-  const currentUser = users.find((u) => u.id === getCurrentUserId());
+  const { data: me } = useCurrentUser();
+  const currentUser = me ? users.find((u) => u.id === me.id) : undefined;
 
   if (spaces.length === 0 && users.length > 0) {
     return (

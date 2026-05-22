@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api.js";
 import { useProjects, useSpaceAccess, useTasks, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
-import { getCurrentUserId } from "../lib/user.js";
+import { useCurrentUser } from "../lib/auth.js";
 import { canManageSpace } from "../lib/policy.js";
 import { SpaceDetailHeader } from "../components/SpaceDetailHeader.js";
 import { SpaceAccessList } from "../components/SpaceAccessList.js";
@@ -54,6 +54,7 @@ export function SpaceDetailPage() {
   const { data: grants = [] } = useSpaceAccess(spaceQuery.data ? id : null);
   const { data: projects = [] } = useProjects(spaceQuery.data ? id : undefined);
   const { data: tasks = [] } = useTasks(spaceQuery.data ? id : undefined);
+  const { data: me } = useCurrentUser();
 
   if (spaceQuery.isLoading) return <Skeleton />;
 
@@ -88,7 +89,7 @@ export function SpaceDetailPage() {
   const space = spaceQuery.data;
   if (!space) return <Skeleton />;
 
-  const currentUser = users.find((u) => u.id === getCurrentUserId());
+  const currentUser = me ? users.find((u) => u.id === me.id) : undefined;
   const canEdit = currentUser ? canManageSpace(currentUser, space) : false;
   const owner = users.find((u) => u.id === space.created_by);
 
