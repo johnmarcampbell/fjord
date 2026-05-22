@@ -89,6 +89,7 @@ describe("tasks", () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().current_version).toBe(1);
+    expect(res.json().code).toBe("version_conflict");
   });
 
   it("records column_changed event on column move", async () => {

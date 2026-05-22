@@ -1,7 +1,5 @@
 import type { Space, User } from "@agentic-kanban/shared";
 
-export const DEFAULT_ADMINISTRATOR_ID = "default-administrator";
-
 export function isAdmin(user: User): boolean {
   return user.role === "Admin";
 }

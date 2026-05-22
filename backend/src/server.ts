@@ -20,12 +20,14 @@ import { authRoutes } from "./routes/auth.js";
 import { tokensRoutes } from "./routes/tokens.js";
 import { nowIso } from "./services/tasks.js";
 import {
+  DEFAULT_ADMINISTRATOR_ID,
   pickAvatar,
   slugify,
+} from "@agentic-kanban/shared";
+import {
   resolveHandleCollision,
   backfillUserProfiles,
   seedDefaultAdministrator,
-  DEFAULT_ADMINISTRATOR_ID,
 } from "./services/users.js";
 import { hashPassword } from "./services/passwords.js";
 import { actorRequiresPasswordSet, resolveActor, type Actor } from "./auth/actor.js";
@@ -130,7 +132,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     // /api/auth/change-password and /api/auth/logout are exempt so they can complete the flow.
     if (isWrite && url !== "/api/auth/change-password" && url !== "/api/auth/logout" && url !== "/api/auth/logout-all") {
       if (actorRequiresPasswordSet(app.db, result.actor, app.demo)) {
-        return reply.code(403).send({ error: "set_password_required" });
+        return reply
+          .code(403)
+          .send({ error: "Set a password before making changes", code: "set_password_required" });
       }
     }
   });

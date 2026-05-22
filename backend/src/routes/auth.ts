@@ -1,6 +1,12 @@
 import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { eq, sql } from "drizzle-orm";
-import type { AuthMe, ChangePasswordRequest, LoginRequest, Role } from "@agentic-kanban/shared";
+import {
+  DEFAULT_ADMINISTRATOR_ID,
+  type AuthMe,
+  type ChangePasswordRequest,
+  type LoginRequest,
+  type Role,
+} from "@agentic-kanban/shared";
 import { users } from "../db/schema.js";
 import { hashPassword, verifyPassword } from "../services/passwords.js";
 import {
@@ -9,7 +15,6 @@ import {
   deleteSession,
   deleteSessionsForUser,
 } from "../services/sessions.js";
-import { DEFAULT_ADMINISTRATOR_ID } from "../services/users.js";
 
 function setSessionCookie(reply: FastifyReply, sessionId: string, maxAgeSeconds: number, secure: boolean): void {
   reply.setCookie(SESSION_COOKIE, sessionId, {
