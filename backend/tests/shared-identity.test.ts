@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   AVATAR_EMOJI_LIST,
+  COLUMNS,
   DEFAULT_ADMINISTRATOR_ID,
+  canArchive,
+  isBlockerSatisfied,
+  isTaskBlocked,
   pickAvatar,
   slugify,
   validateAvatar,
   validateHandle,
+  type Column,
+  type Task,
 } from "@agentic-kanban/shared";
 
 describe("DEFAULT_ADMINISTRATOR_ID", () => {
@@ -78,6 +84,59 @@ describe("validateHandle", () => {
     const r = validateHandle("has spaces");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toMatch(/handle/i);
+  });
+});
+
+describe("canArchive", () => {
+  it("is true only when column is Done and task is not archived", () => {
+    for (const column of COLUMNS) {
+      for (const archived of [false, true]) {
+        const expected = column === "Done" && !archived;
+        expect(canArchive({ column, archived })).toBe(expected);
+      }
+    }
+  });
+});
+
+describe("isBlockerSatisfied", () => {
+  it("is true when the blocker is in Done or archived", () => {
+    for (const column of COLUMNS) {
+      for (const archived of [false, true]) {
+        const expected = column === "Done" || archived;
+        expect(isBlockerSatisfied({ column, archived })).toBe(expected);
+      }
+    }
+  });
+});
+
+describe("isTaskBlocked", () => {
+  function blocker(column: Column, archived: boolean): Pick<Task, "column" | "archived"> {
+    return { column, archived };
+  }
+
+  it("returns false when no blockers", () => {
+    expect(isTaskBlocked({ blocked_by: [] }, new Map())).toBe(false);
+  });
+
+  it("returns true when any blocker is unsatisfied", () => {
+    const map = new Map<string, Pick<Task, "column" | "archived">>([
+      ["b1", blocker("In Progress", false)],
+    ]);
+    expect(isTaskBlocked({ blocked_by: ["b1"] }, map)).toBe(true);
+  });
+
+  it("returns false when all blockers are Done", () => {
+    const map = new Map<string, Pick<Task, "column" | "archived">>([
+      ["b1", blocker("Done", false)],
+    ]);
+    expect(isTaskBlocked({ blocked_by: ["b1"] }, map)).toBe(false);
+  });
+
+  it("returns false when all blockers are archived", () => {
+    const map = new Map<string, Pick<Task, "column" | "archived">>([
+      ["b1", blocker("To Do", true)],
+    ]);
+    expect(isTaskBlocked({ blocked_by: ["b1"] }, map)).toBe(false);
   });
 });
 

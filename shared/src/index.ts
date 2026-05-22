@@ -375,13 +375,21 @@ export interface ServerConfig {
   demo_reset_minutes: number | null;
 }
 
+export function canArchive(task: Pick<Task, "column" | "archived">): boolean {
+  return task.column === "Done" && !task.archived;
+}
+
+export function isBlockerSatisfied(blocker: Pick<Task, "column" | "archived">): boolean {
+  return blocker.column === "Done" || blocker.archived;
+}
+
 export function isTaskBlocked(
   task: Pick<Task, "blocked_by">,
   taskById: Map<string, Pick<Task, "column" | "archived">>,
 ): boolean {
   for (const blockerId of task.blocked_by) {
     const blocker = taskById.get(blockerId);
-    if (blocker && blocker.column !== "Done" && !blocker.archived) return true;
+    if (blocker && !isBlockerSatisfied(blocker)) return true;
   }
   return false;
 }
