@@ -1,5 +1,5 @@
 import type { Actor } from "./actor.js";
-import { DEFAULT_ADMINISTRATOR_ID } from "../services/users.js";
+import { DEFAULT_ADMINISTRATOR_ID } from "@agentic-kanban/shared";
 
 export function canAccessSpace(actor: Actor, spaceId: string): boolean {
   if (actor.accessibleSpaceIds === "all") return true;

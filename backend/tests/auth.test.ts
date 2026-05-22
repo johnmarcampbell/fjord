@@ -122,7 +122,7 @@ describe("POST /api/auth/login (prod mode)", () => {
       payload: { title: "blocked" },
     });
     expect(write.statusCode).toBe(403);
-    expect(write.json().error).toBe("set_password_required");
+    expect(write.json().code).toBe("set_password_required");
 
     // Setting a password unblocks writes
     const change = await ctx.app.inject({

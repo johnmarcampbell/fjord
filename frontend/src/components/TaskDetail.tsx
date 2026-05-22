@@ -3,6 +3,8 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import {
   COLUMNS,
+  canArchive,
+  isBlockerSatisfied,
   type Column,
   type Project,
   type Task,
@@ -166,7 +168,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
                     <button
                       onClick={() => onOpenBlockerInDrawer(id)}
                       className={
-                        blocker?.column === "Done" || blocker?.archived
+                        blocker && isBlockerSatisfied(blocker)
                           ? "text-ink-subtle line-through hover:underline"
                           : "text-ink-muted hover:underline"
                       }
@@ -320,7 +322,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
                 Unarchive task
               </button>
             ) : (
-              task.column === "Done" && (
+              canArchive(task) && (
                 <button
                   onClick={() =>
                     editor.archive({

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { openDatabase, runMigrations } from "../db/index.js";
 import { sessions, users } from "../db/schema.js";
-import { DEFAULT_ADMINISTRATOR_ID } from "../services/users.js";
+import { DEFAULT_ADMINISTRATOR_ID } from "@agentic-kanban/shared";
 
 const dbPath = process.env.KANBAN_DB_PATH ?? "./data/kanban.db";
 const handle = openDatabase(dbPath);

@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AVATAR_EMOJI_LIST,
-  HANDLE_REGEX,
-  RESERVED_HANDLES,
+  DEFAULT_ADMINISTRATOR_ID,
+  slugify,
+  validateAvatar,
+  validateHandle,
   type Role,
   type UserKind,
 } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
 import { useCurrentUser, useInvalidateMe } from "../lib/auth.js";
-import { DEFAULT_ADMINISTRATOR_ID, isAdmin } from "../lib/policy.js";
+import { isAdmin } from "../lib/policy.js";
 import { TokenList } from "./TokenList.js";
 
 type FormState = {
@@ -28,59 +30,6 @@ type FieldErrors = {
   handle?: string | null;
   avatar?: string | null;
 };
-
-const RESERVED_SET = new Set(RESERVED_HANDLES.map((h) => h.toLowerCase()));
-
-function validateHandle(input: string): string | null {
-  const lower = input.toLowerCase();
-  if (!HANDLE_REGEX.test(lower)) {
-    return "Handle must be 1-32 chars: lowercase letters, digits, _, or -";
-  }
-  if (RESERVED_SET.has(lower)) {
-    return `"${lower}" is a reserved handle`;
-  }
-  return null;
-}
-
-function countGraphemes(input: string): number {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-    let n = 0;
-    for (const _ of seg.segment(input)) n++;
-    return n;
-  }
-  let n = 0;
-  for (const _ of input) n++;
-  return n;
-}
-
-function validateAvatar(input: string): string | null {
-  if (!input) return "Avatar is required";
-  if (input.startsWith("http://") || input.startsWith("https://")) {
-    if (input.length > 2048) return "Avatar URL too long (max 2048 chars)";
-    return null;
-  }
-  let hasNonAscii = false;
-  for (const ch of input) {
-    if (ch.codePointAt(0)! > 127) {
-      hasNonAscii = true;
-      break;
-    }
-  }
-  if (!hasNonAscii) return "Avatar must be an emoji or http(s) URL";
-  if (countGraphemes(input) !== 1) return "Avatar must be a single emoji";
-  return null;
-}
-
-function slugifyForHandle(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9_-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32);
-}
 
 export function UserFormDialog({
   mode,
@@ -133,7 +82,7 @@ export function UserFormDialog({
   useEffect(() => {
     if (mode !== "create") return;
     if (handleTouched) return;
-    setForm((prev) => ({ ...prev, handle: slugifyForHandle(prev.display_name) }));
+    setForm((prev) => ({ ...prev, handle: slugify(prev.display_name) }));
   }, [form.display_name, handleTouched, mode]);
 
   const createMutation = useMutation({
@@ -183,7 +132,8 @@ export function UserFormDialog({
       return;
     }
     if (err instanceof ApiError) {
-      if (err.status === 409 && err.message.toLowerCase().includes("handle")) {
+      const code = (err.body as { code?: string } | undefined)?.code;
+      if (code === "handle_taken") {
         setFieldErrors((prev) => ({ ...prev, handle: err.message }));
         setServerError(null);
         return;
@@ -207,9 +157,11 @@ export function UserFormDialog({
     e.preventDefault();
     setServerError(null);
     const displayNameTrimmed = form.display_name.trim();
-    const handleErr = validateHandle(form.handle);
-    const avatarErr = validateAvatar(form.avatar);
+    const handleResult = validateHandle(form.handle);
+    const avatarResult = validateAvatar(form.avatar);
     const nameErr = displayNameTrimmed.length === 0 ? "Required" : null;
+    const handleErr = handleResult.ok ? null : handleResult.message;
+    const avatarErr = avatarResult.ok ? null : avatarResult.message;
     setFieldErrors({ display_name: nameErr, handle: handleErr, avatar: avatarErr });
     if (nameErr || handleErr || avatarErr) return;
 

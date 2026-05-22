@@ -1,18 +1,19 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, eq, ne, sql } from "drizzle-orm";
-import type { CreateUserRequest, Role, UpdateUserRequest, User } from "@agentic-kanban/shared";
-import { users } from "../db/schema.js";
-import { nowIso } from "../services/tasks.js";
 import {
-  HandleError,
-  AvatarError,
-  normalizeHandle,
-  validateAvatar,
+  DEFAULT_ADMINISTRATOR_ID,
   pickAvatar,
   slugify,
-  resolveHandleCollision,
-  DEFAULT_ADMINISTRATOR_ID,
-} from "../services/users.js";
+  validateAvatar,
+  validateHandle,
+  type CreateUserRequest,
+  type Role,
+  type UpdateUserRequest,
+  type User,
+} from "@agentic-kanban/shared";
+import { users } from "../db/schema.js";
+import { nowIso } from "../services/tasks.js";
+import { resolveHandleCollision } from "../services/users.js";
 import { canDeleteUser, canEditUser, canManageUsers } from "../auth/policy.js";
 import { deleteSessionsForUser } from "../services/sessions.js";
 
@@ -102,36 +103,38 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       if (existing) return reply.code(409).send({ error: "User already exists" });
 
       let handle: string;
-      try {
-        if (body.handle !== undefined) {
-          const normalized = normalizeHandle(body.handle);
-          const collision = app.db
-            .select()
-            .from(users)
-            .where(eq(sql`lower(${users.handle})`, normalized))
-            .get();
-          if (collision) return reply.code(409).send({ error: `Handle "${normalized}" is already taken` });
-          handle = normalized;
-        } else {
-          const slug = slugify(body.display_name);
-          const takenLower = new Set(
-            app.db.select({ h: users.handle }).from(users).all()
-              .map((r) => r.h?.toLowerCase())
-              .filter((h): h is string => !!h),
-          );
-          handle = resolveHandleCollision(slug, (h) => takenLower.has(h));
+      if (body.handle !== undefined) {
+        const result = validateHandle(body.handle);
+        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        const normalized = result.value;
+        const collision = app.db
+          .select()
+          .from(users)
+          .where(eq(sql`lower(${users.handle})`, normalized))
+          .get();
+        if (collision) {
+          return reply
+            .code(409)
+            .send({ error: `Handle "${normalized}" is already taken`, code: "handle_taken" });
         }
-      } catch (e) {
-        if (e instanceof HandleError) return reply.code(400).send({ error: e.message });
-        throw e;
+        handle = normalized;
+      } else {
+        const slug = slugify(body.display_name);
+        const takenLower = new Set(
+          app.db.select({ h: users.handle }).from(users).all()
+            .map((r) => r.h?.toLowerCase())
+            .filter((h): h is string => !!h),
+        );
+        handle = resolveHandleCollision(slug, (h) => takenLower.has(h));
       }
 
       let avatar: string;
-      try {
-        avatar = body.avatar !== undefined ? validateAvatar(body.avatar) : pickAvatar(body.id);
-      } catch (e) {
-        if (e instanceof AvatarError) return reply.code(400).send({ error: e.message });
-        throw e;
+      if (body.avatar !== undefined) {
+        const result = validateAvatar(body.avatar);
+        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        avatar = result.value;
+      } else {
+        avatar = pickAvatar(body.id);
       }
 
       const row = {
@@ -228,30 +231,28 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (body.handle !== undefined) {
-        try {
-          const normalized = normalizeHandle(body.handle);
-          if (normalized !== (existing.handle ?? "").toLowerCase()) {
-            const collision = app.db
-              .select()
-              .from(users)
-              .where(and(ne(users.id, id), eq(sql`lower(${users.handle})`, normalized)))
-              .get();
-            if (collision) return reply.code(409).send({ error: `Handle "${normalized}" is already taken` });
+        const result = validateHandle(body.handle);
+        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        const normalized = result.value;
+        if (normalized !== (existing.handle ?? "").toLowerCase()) {
+          const collision = app.db
+            .select()
+            .from(users)
+            .where(and(ne(users.id, id), eq(sql`lower(${users.handle})`, normalized)))
+            .get();
+          if (collision) {
+            return reply
+              .code(409)
+              .send({ error: `Handle "${normalized}" is already taken`, code: "handle_taken" });
           }
-          updates.handle = normalized;
-        } catch (e) {
-          if (e instanceof HandleError) return reply.code(400).send({ error: e.message });
-          throw e;
         }
+        updates.handle = normalized;
       }
 
       if (body.avatar !== undefined) {
-        try {
-          updates.avatar = validateAvatar(body.avatar);
-        } catch (e) {
-          if (e instanceof AvatarError) return reply.code(400).send({ error: e.message });
-          throw e;
-        }
+        const result = validateAvatar(body.avatar);
+        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        updates.avatar = result.value;
       }
 
       if (Object.keys(updates).length === 0) return toUser(existing);

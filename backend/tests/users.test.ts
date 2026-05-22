@@ -2,18 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
+import { slugify, pickAvatar, validateHandle, validateAvatar } from "@agentic-kanban/shared";
 import { users } from "../src/db/schema.js";
-import {
-  slugify,
-  hashCode,
-  pickAvatar,
-  normalizeHandle,
-  resolveHandleCollision,
-  validateAvatar,
-  backfillUserProfiles,
-  HandleError,
-  AvatarError,
-} from "../src/services/users.js";
+import { resolveHandleCollision, backfillUserProfiles } from "../src/services/users.js";
 import { makeTestApp } from "./helpers.js";
 
 // ── unit tests (no HTTP) ────────────────────────────────────────────────────
@@ -39,18 +30,26 @@ describe("slugify", () => {
   });
 });
 
-describe("normalizeHandle", () => {
+describe("validateHandle", () => {
   it("lowercases valid handles", () => {
-    expect(normalizeHandle("Jane")).toBe("jane");
+    const r = validateHandle("Jane");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBe("jane");
   });
-  it("throws invalid_format for spaces", () => {
-    expect(() => normalizeHandle("has spaces")).toThrow(HandleError);
+  it("returns handle_invalid for spaces", () => {
+    const r = validateHandle("has spaces");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("handle_invalid");
   });
-  it("throws reserved for reserved words", () => {
-    expect(() => normalizeHandle("admin")).toThrow(HandleError);
+  it("returns handle_reserved for reserved words", () => {
+    const r = validateHandle("admin");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("handle_reserved");
   });
   it("accepts underscores and hyphens", () => {
-    expect(normalizeHandle("jane_wong-2")).toBe("jane_wong-2");
+    const r = validateHandle("jane_wong-2");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBe("jane_wong-2");
   });
 });
 
@@ -75,23 +74,37 @@ describe("resolveHandleCollision", () => {
 });
 
 describe("validateAvatar", () => {
-  it("accepts emoji", () => {
-    expect(validateAvatar("🦊")).toBe("🦊");
+  it("accepts a single emoji", () => {
+    const r = validateAvatar("🦊");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBe("🦊");
   });
   it("accepts https URLs", () => {
-    expect(validateAvatar("https://example.com/a.png")).toBe("https://example.com/a.png");
+    const r = validateAvatar("https://example.com/a.png");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBe("https://example.com/a.png");
   });
   it("rejects plain ASCII", () => {
-    expect(() => validateAvatar("abc")).toThrow(AvatarError);
+    const r = validateAvatar("abc");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("avatar_invalid");
   });
   it("rejects non-http URLs", () => {
-    expect(() => validateAvatar("javascript:alert(1)")).toThrow(AvatarError);
+    const r = validateAvatar("javascript:alert(1)");
+    expect(r.ok).toBe(false);
   });
   it("rejects URL over 2048 chars", () => {
-    expect(() => validateAvatar("https://x.com/" + "a".repeat(2040))).toThrow(AvatarError);
+    const r = validateAvatar("https://x.com/" + "a".repeat(2040));
+    expect(r.ok).toBe(false);
   });
-  it("rejects emoji over 8 chars", () => {
-    expect(() => validateAvatar("🦊🦊🦊🦊🦊")).toThrow(AvatarError);
+  it("rejects multi-emoji strings", () => {
+    const r = validateAvatar("🦊🦁");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("avatar_invalid");
+  });
+  it("rejects empty string", () => {
+    const r = validateAvatar("");
+    expect(r.ok).toBe(false);
   });
 });
 
@@ -323,6 +336,7 @@ describe("users", () => {
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "admin" },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("handle_reserved");
   });
 
   it("POST rejects handle with spaces", async () => {
@@ -332,6 +346,7 @@ describe("users", () => {
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "has spaces" },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("handle_invalid");
   });
 
   it("POST rejects duplicate handle (case-insensitive)", async () => {
@@ -342,6 +357,17 @@ describe("users", () => {
       payload: { id: "bob", display_name: "Bob", kind: "human", handle: "ALICE" },
     });
     expect(res.statusCode).toBe(409);
+    expect(res.json().code).toBe("handle_taken");
+  });
+
+  it("POST rejects multi-emoji avatar with avatar_invalid", async () => {
+    const res = await ctx.inject({
+      method: "POST",
+      url: "/api/users",
+      payload: { id: "bob", display_name: "Bob", kind: "human", avatar: "🦊🦁" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("avatar_invalid");
   });
 
   it("POST rejects avatar with javascript: scheme", async () => {

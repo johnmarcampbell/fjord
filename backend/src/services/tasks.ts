@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import {
   DEFAULT_SPACE_ID,
+  canArchive,
   type Column,
   type CreateTaskRequest,
   type Task,
@@ -580,7 +581,9 @@ export function removeBlocker(
 export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
   const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
   if (!task) throw new TaskNotFoundError();
-  if (task.column !== "Done") throw new TaskStateError("Can only archive tasks in Done column");
+  if (!canArchive({ column: task.column as Column, archived: task.archived })) {
+    throw new TaskStateError("Can only archive tasks in Done column");
+  }
 
   const now = nowIso();
   const nextVersion = task.version + 1;

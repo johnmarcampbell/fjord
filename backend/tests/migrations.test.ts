@@ -4,7 +4,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { backfillUserProfiles, slugify } from "../src/services/users.js";
+import { slugify } from "@agentic-kanban/shared";
+import { backfillUserProfiles } from "../src/services/users.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");

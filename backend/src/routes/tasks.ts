@@ -83,7 +83,9 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
   if (err instanceof TaskNotFoundError) {
     reply.code(404).send({ error: "Task not found" });
   } else if (err instanceof VersionConflictError) {
-    reply.code(409).send({ error: "Version conflict", current_version: err.currentVersion });
+    reply
+      .code(409)
+      .send({ error: "Version conflict", code: "version_conflict", current_version: err.currentVersion });
   } else if (err instanceof UnknownUserError) {
     reply.code(400).send({ error: "Unknown assigned_to user" });
   } else if (err instanceof UnknownProjectError) {
