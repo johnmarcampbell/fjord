@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { COLUMNS, type Column, type Task } from "@agentic-kanban/shared";
+import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@agentic-kanban/shared";
 import { useUsers, useProjects } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { DateTimePicker } from "./DateTimePicker.js";
@@ -222,7 +222,7 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
                       onClick={() => onOpenTask(id)}
                       className={
                         "rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-xs font-medium transition-colors hover:bg-surface-hover " +
-                        (blocker?.column === "Done" || blocker?.archived
+                        (blocker && isBlockerSatisfied(blocker)
                           ? "text-ink-subtle line-through"
                           : "text-ink-muted")
                       }
