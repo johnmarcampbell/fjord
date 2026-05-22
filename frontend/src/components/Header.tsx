@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { UserPicker } from "./UserPicker.js";
+import { UserMenu } from "./UserMenu.js";
 import { useTasks, useArchivedTasks } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useBoardView, type BoardView } from "../lib/BoardViewContext.js";
@@ -134,7 +134,7 @@ export function Header({
             <span className="sm:hidden">+&nbsp;New</span>
             <span className="hidden sm:inline">+ New task</span>
           </button>
-          <UserPicker />
+          <UserMenu />
           <Link to="/spaces" className={`hidden sm:inline-block ${spacesLinkClass()}`}>
             Spaces
           </Link>

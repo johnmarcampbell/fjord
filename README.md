@@ -1,7 +1,8 @@
 # agentic-kanban
 
 A tiny Kanban board built for collaboration between one or two humans and a small
-fleet of agents. Designed to run inside a trusted gateway — no built-in auth.
+fleet of agents. Humans authenticate with handle + password and get a session
+cookie; agents and CLI callers use API tokens.
 
 ## Stack
 
@@ -22,8 +23,11 @@ This runs:
 - Backend on `http://localhost:3000` (Fastify, with `pino-pretty` logs)
 - Frontend on `http://localhost:5173` (Vite dev server, proxies `/api` → 3000)
 
-Open `http://localhost:5173`. The UI prompts you to pick or create a user; that
-identity is stored in `localStorage` and sent as `X-User-Id` on every request.
+Open `http://localhost:5173`. On a fresh install the `default-administrator`
+exists with no password; the first sign-in goes through immediately and forces
+you to set a password before any write request will succeed. To seed a known
+password ahead of time, set `KANBAN_BOOTSTRAP_PASSWORD` on the first boot (see
+**Configuration** below).
 
 ## Tests
 
@@ -66,16 +70,43 @@ All config is read at startup from environment variables (Zod-validated).
 | `KANBAN_CORS_ORIGINS`   | _(off)_                  | Comma-separated origins to allow            |
 | `KANBAN_SEED_USERS`     | _(none)_                 | e.g. `alice:human,agent-coder:agent`        |
 | `KANBAN_STATIC_DIR`     | _(none)_                 | Path to built frontend assets to serve      |
+| `KANBAN_BOOTSTRAP_PASSWORD` | _(none)_             | Set the `default-administrator` password on first boot if it is still unset. Ignored on subsequent boots and in demo mode. |
+| `KANBAN_SESSION_IDLE_DAYS`  | `30`                 | Idle expiry for session cookies             |
 | `NODE_ENV`              | `development`            |                                             |
 
 `KANBAN_SEED_USERS` only inserts users that don't already exist; it's safe to
 keep set across restarts.
 
+## Recovery
+
+If you lose access to the admin account (forgotten password, no one with Admin
+role left who can reset it), run the recovery script against the on-disk
+database:
+
+```bash
+KANBAN_DB_PATH=./data/kanban.db npm run reset-admin-password
+```
+
+This clears `default-administrator`'s `password_hash` and deletes its sessions.
+The next login as `admin` will succeed without a password and the UI will
+force-set a new one. To seed a known password instead, restart the server with
+`KANBAN_BOOTSTRAP_PASSWORD=<value>` set and the same `KANBAN_DB_PATH`.
+
+Docker:
+
+```bash
+docker run --rm -v $(pwd)/data:/data \
+  -e KANBAN_DB_PATH=/data/kanban.db \
+  agentic-kanban npm run reset-admin-password
+```
+
 ## API
 
 Interactive docs: `http://<host>/api/docs` (Scalar API Reference from
 auto-generated OpenAPI). Machine-readable spec at `/api/docs/openapi.json`.
-Every write endpoint requires `X-User-Id: <known user id>`.
+Cookie-authenticated writes additionally require `X-Requested-With:
+agentic-kanban`; bearer-authenticated writes do not. See `POST /api/auth/login`
+to obtain a session, and `POST /api/users/:id/tokens` to mint an API token.
 
 Key endpoints:
 
@@ -112,9 +143,10 @@ of `Backlog`.
 
 ## What's intentionally not in v1
 
-Authentication, file attachments, search, configurable columns/labels,
-soft-delete/archive, per-user views, MCP server, backups, and frontend
-component/E2E tests.
+File attachments, search, configurable columns/labels, per-user views, MCP
+server, backups, and frontend component/E2E tests. Federated identity (OIDC /
+SAML), 2FA, and email-based password reset are also out of scope — recovery is
+admin-mediated (see **Recovery**).
 
 ## Container note
 

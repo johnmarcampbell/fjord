@@ -9,7 +9,7 @@ import {
 } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
-import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
+import { useCurrentUser, useInvalidateMe } from "../lib/auth.js";
 import { DEFAULT_ADMINISTRATOR_ID, isAdmin } from "../lib/policy.js";
 
 type FormState = {
@@ -96,7 +96,9 @@ export function UserFormDialog({
     () => (mode === "edit" && userId ? users.find((u) => u.id === userId) : undefined),
     [mode, userId, users],
   );
-  const currentUser = users.find((u) => u.id === getCurrentUserId());
+  const { data: me } = useCurrentUser();
+  const invalidateMe = useInvalidateMe();
+  const currentUser = me ? users.find((u) => u.id === me.id) : undefined;
   const currentIsAdmin = currentUser ? isAdmin(currentUser) : false;
   const isDefaultAdmin = userId === DEFAULT_ADMINISTRATOR_ID;
 
@@ -135,8 +137,7 @@ export function UserFormDialog({
 
   const createMutation = useMutation({
     mutationFn: (body: { id: string } & FormState) => api.createUser(body),
-    onSuccess: (u) => {
-      setCurrentUserId(u.id);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onClose();
     },
@@ -154,7 +155,7 @@ export function UserFormDialog({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteUser(id),
     onSuccess: (_, id) => {
-      if (getCurrentUserId() === id) setCurrentUserId(null);
+      if (me?.id === id) void invalidateMe();
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onClose();
     },

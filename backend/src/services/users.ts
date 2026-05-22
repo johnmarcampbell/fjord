@@ -118,7 +118,7 @@ export function seedDefaultAdministrator(handle: DBHandle): void {
       title: "Administrator",
       bio: "Built-in administrator. Cannot be deleted.",
       avatar: "🛡️",
-      tokenHash: null,
+      passwordHash: null,
       createdAt: nowIso(),
       deletedAt: null,
     })

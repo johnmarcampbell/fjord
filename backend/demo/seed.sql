@@ -4,6 +4,8 @@
 DELETE FROM task_dependencies;
 DELETE FROM task_events;
 DELETE FROM user_space_access;
+DELETE FROM api_tokens;
+DELETE FROM sessions;
 DELETE FROM tasks;
 DELETE FROM projects;
 DELETE FROM spaces;
@@ -563,3 +565,42 @@ INSERT INTO task_events (id, task_id, actor_id, kind, created_at, body, from_val
   ('jnl-ex-pt-1', 'task-ex-prefix-tuning', 'agent-explorer', 'journal_entry', '2025-02-25T14:00:00Z',
    'Trained on 2k pairs from our task corpus. Best checkpoint: nDCG@10 0.638 vs. 0.652 baseline. Probably under-trained on too little data — but the gap isn''t big enough to justify scaling up data + compute right now. Reranker path looks more promising. Closing this out.',
    NULL, NULL, NULL, 1);
+
+-- ── API tokens (demo only) ─────────────────────────────────────────────────
+-- These rows populate the "API tokens" management UI for demo visitors. The
+-- plaintext tokens behind these hashes are NOT recoverable — demo visitors
+-- always sign in as the default-administrator (not as the agent users below),
+-- and the demo DB resets periodically, so unrecoverable token rows are fine.
+-- The lookup_hash + token_hash values are realistic shapes but point at
+-- random secrets that nobody holds.
+INSERT INTO api_tokens (id, user_id, name, lookup_hash, token_hash, preview, created_at, last_used_at, expires_at, revoked_at) VALUES
+  ('token-demo-backend',
+   'agent-backend',
+   'openclaw-backend',
+   '11111111111111111111111111111111111111111111111111111111aaaaaaaa',
+   'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
+   'ak_demo...0001',
+   '2025-02-01T00:00:00Z',
+   '2025-02-25T11:00:00Z',
+   NULL,
+   NULL),
+  ('token-demo-explorer',
+   'agent-explorer',
+   'retrieval-eval-laptop',
+   '22222222222222222222222222222222222222222222222222222222bbbbbbbb',
+   'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
+   'ak_demo...0002',
+   '2025-02-18T09:30:00Z',
+   '2025-03-01T14:00:00Z',
+   '2026-02-18T00:00:00Z',
+   NULL),
+  ('token-demo-revoked',
+   'agent-backend',
+   'old-ci-runner (rotated)',
+   '33333333333333333333333333333333333333333333333333333333cccccccc',
+   'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
+   'ak_demo...0003',
+   '2025-01-12T09:00:00Z',
+   '2025-01-31T15:00:00Z',
+   NULL,
+   '2025-02-01T10:00:00Z');

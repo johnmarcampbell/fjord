@@ -128,7 +128,6 @@ export interface CreateUserRequest {
   title?: string;
   bio?: string;
   avatar?: string;
-  token_hash?: string | null;
 }
 
 export interface UpdateUserRequest {
@@ -139,7 +138,49 @@ export interface UpdateUserRequest {
   title?: string;
   bio?: string;
   avatar?: string;
-  token_hash?: string | null;
+  /** Admins may pass `null` to clear a user's password (force passwordless-once on next login). */
+  password_hash?: null;
+}
+
+export interface ApiTokenSummary {
+  id: string;
+  user_id: string;
+  name: string;
+  preview: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface CreateApiTokenRequest {
+  name: string;
+  expires_at?: string | null;
+}
+
+export interface CreateApiTokenResponse extends ApiTokenSummary {
+  /** Plaintext token. Returned exactly once; never readable again. */
+  token: string;
+}
+
+export interface LoginRequest {
+  handle?: string;
+  password?: string;
+}
+
+export interface AuthMe {
+  id: string;
+  display_name: string;
+  handle: string;
+  kind: UserKind;
+  role: Role;
+  avatar: string;
+  requires_password_set: boolean;
+}
+
+export interface ChangePasswordRequest {
+  current_password?: string;
+  new_password: string;
 }
 
 export const AVATAR_EMOJI_LIST = [

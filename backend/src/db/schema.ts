@@ -9,10 +9,47 @@ export const users = sqliteTable("users", {
   title: text("title").notNull().default(""),
   bio: text("bio").notNull().default(""),
   avatar: text("avatar").notNull(),
-  tokenHash: text("token_hash"),
+  passwordHash: text("password_hash"),
   createdAt: text("created_at").notNull(),
   deletedAt: text("deleted_at"),
 });
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+    lastSeenAt: text("last_seen_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("sessions_user_idx").on(table.userId),
+  }),
+);
+
+export const apiTokens = sqliteTable(
+  "api_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    lookupHash: text("lookup_hash").notNull().unique(),
+    tokenHash: text("token_hash").notNull(),
+    preview: text("preview").notNull(),
+    createdAt: text("created_at").notNull(),
+    lastUsedAt: text("last_used_at"),
+    expiresAt: text("expires_at"),
+    revokedAt: text("revoked_at"),
+  },
+  (table) => ({
+    userIdx: index("api_tokens_user_idx").on(table.userId),
+  }),
+);
 
 export const spaces = sqliteTable("spaces", {
   id: text("id").primaryKey(),

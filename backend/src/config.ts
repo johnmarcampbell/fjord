@@ -11,7 +11,8 @@ const EnvSchema = z.object({
   KANBAN_CORS_ORIGINS: z.string().optional(),
   KANBAN_SEED_USERS: z.string().optional(),
   KANBAN_STATIC_DIR: z.string().optional(),
-  KANBAN_AUTH_TOKEN: z.string().optional(),
+  KANBAN_BOOTSTRAP_PASSWORD: z.string().optional(),
+  KANBAN_SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(30),
   KANBAN_DEMO_MODE: z
     .enum(["true", "false"])
     .transform((v) => v === "true")
@@ -28,7 +29,8 @@ export type Config = {
   corsOrigins: string[] | null;
   seedUsers: Array<{ id: string; kind: "human" | "agent" }>;
   staticDir: string | null;
-  authToken: string | null;
+  bootstrapPassword: string | null;
+  sessionIdleDays: number;
   demo: boolean;
   demoResetMinutes: number;
 };
@@ -77,7 +79,8 @@ export function loadConfig(
           })
       : [],
     staticDir: parsed.KANBAN_STATIC_DIR ?? null,
-    authToken: parsed.KANBAN_AUTH_TOKEN ?? null,
+    bootstrapPassword: parsed.KANBAN_BOOTSTRAP_PASSWORD ?? null,
+    sessionIdleDays: parsed.KANBAN_SESSION_IDLE_DAYS,
     demo,
     demoResetMinutes: overrides.demoResetMinutes ?? parsed.KANBAN_DEMO_RESET_MINUTES,
   };

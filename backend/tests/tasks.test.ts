@@ -6,7 +6,7 @@ async function createTask(
   actor: string,
   payload: Record<string, unknown>,
 ) {
-  const res = await ctx.app.inject({
+  const res = await ctx.inject({
     method: "POST",
     url: "/api/tasks",
     headers: { "x-user-id": actor },
@@ -44,24 +44,29 @@ describe("tasks", () => {
     expect(list[0].actor_id).toBe("alice");
   });
 
-  it("rejects create without X-User-Id", async () => {
+  it("rejects create with no authentication", async () => {
     const res = await ctx.app.inject({
       method: "POST",
       url: "/api/tasks",
       payload: { title: "x" },
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(401);
   });
 
-  it("rejects create with unknown user", async () => {
-    const res = await createTask(ctx, "ghost", { title: "x" });
-    expect(res.statusCode).toBe(400);
+  it("rejects create with an invalid bearer token", async () => {
+    const res = await ctx.app.inject({
+      method: "POST",
+      url: "/api/tasks",
+      headers: { authorization: "Bearer ak_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      payload: { title: "x" },
+    });
+    expect(res.statusCode).toBe(401);
   });
 
   it("updates a task with correct version", async () => {
     const create = await createTask(ctx, "alice", { title: "T" });
     const task = create.json();
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: `/api/tasks/${task.id}`,
       headers: { "x-user-id": "alice" },
@@ -76,7 +81,7 @@ describe("tasks", () => {
   it("returns 409 on version conflict", async () => {
     const create = await createTask(ctx, "alice", { title: "T" });
     const task = create.json();
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "PATCH",
       url: `/api/tasks/${task.id}`,
       headers: { "x-user-id": "alice" },
@@ -88,7 +93,7 @@ describe("tasks", () => {
 
   it("records column_changed event on column move", async () => {
     const t = (await createTask(ctx, "alice", { title: "T" })).json();
-    await ctx.app.inject({
+    await ctx.inject({
       method: "PATCH",
       url: `/api/tasks/${t.id}`,
       headers: { "x-user-id": "agent-coder" },
@@ -105,7 +110,7 @@ describe("tasks", () => {
 
   it("appends a comment", async () => {
     const t = (await createTask(ctx, "alice", { title: "T" })).json();
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/comments`,
       headers: { "x-user-id": "alice" },
@@ -119,7 +124,7 @@ describe("tasks", () => {
   it("adds and removes a blocker", async () => {
     const a = (await createTask(ctx, "alice", { title: "A" })).json();
     const b = (await createTask(ctx, "alice", { title: "B" })).json();
-    const add = await ctx.app.inject({
+    const add = await ctx.inject({
       method: "POST",
       url: `/api/tasks/${b.id}/blockers`,
       headers: { "x-user-id": "alice" },
@@ -131,7 +136,7 @@ describe("tasks", () => {
     ).json();
     expect(refetched.blocked_by).toEqual([a.id]);
 
-    const del = await ctx.app.inject({
+    const del = await ctx.inject({
       method: "DELETE",
       url: `/api/tasks/${b.id}/blockers/${a.id}`,
       headers: { "x-user-id": "alice" },
@@ -142,13 +147,13 @@ describe("tasks", () => {
   it("rejects a blocker cycle", async () => {
     const a = (await createTask(ctx, "alice", { title: "A" })).json();
     const b = (await createTask(ctx, "alice", { title: "B" })).json();
-    await ctx.app.inject({
+    await ctx.inject({
       method: "POST",
       url: `/api/tasks/${b.id}/blockers`,
       headers: { "x-user-id": "alice" },
       payload: { blocker_id: a.id },
     });
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: `/api/tasks/${a.id}/blockers`,
       headers: { "x-user-id": "alice" },
@@ -160,7 +165,7 @@ describe("tasks", () => {
 
   it("rejects self-blocker", async () => {
     const a = (await createTask(ctx, "alice", { title: "A" })).json();
-    const res = await ctx.app.inject({
+    const res = await ctx.inject({
       method: "POST",
       url: `/api/tasks/${a.id}/blockers`,
       headers: { "x-user-id": "alice" },
@@ -171,7 +176,7 @@ describe("tasks", () => {
 
   it("deletes a task and cascades events + deps", async () => {
     const t = (await createTask(ctx, "alice", { title: "T" })).json();
-    const del = await ctx.app.inject({
+    const del = await ctx.inject({
       method: "DELETE",
       url: `/api/tasks/${t.id}`,
       headers: { "x-user-id": "alice" },

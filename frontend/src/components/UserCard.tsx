@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User, UserKind } from "@agentic-kanban/shared";
+import { api } from "../lib/api.js";
 import { DEFAULT_ADMINISTRATOR_ID } from "../lib/policy.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
@@ -34,14 +37,26 @@ export function UserCard({
   user,
   isCurrent,
   canEdit,
+  canResetPassword,
   onEdit,
 }: {
   user: User;
   isCurrent: boolean;
   canEdit: boolean;
+  /** Admin viewing another user's card. */
+  canResetPassword?: boolean;
   onEdit: () => void;
 }) {
+  const qc = useQueryClient();
   const isDefaultAdmin = user.id === DEFAULT_ADMINISTRATOR_ID;
+  const [confirming, setConfirming] = useState(false);
+  const reset = useMutation({
+    mutationFn: () => api.resetUserPassword(user.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      setConfirming(false);
+    },
+  });
   return (
     <div
       className={`relative flex h-44 flex-col rounded-xl border bg-surface p-4 shadow-sm transition-colors ${
@@ -77,14 +92,43 @@ export function UserCard({
       </div>
       <div className="mt-2 flex items-center justify-between">
         <KindIndicator kind={user.kind} />
-        {canEdit && (
-          <button
-            onClick={onEdit}
-            className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-surface-hover"
-          >
-            Edit
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {canResetPassword && user.kind === "human" && (
+            confirming ? (
+              <>
+                <button
+                  onClick={() => reset.mutate()}
+                  disabled={reset.isPending}
+                  className="rounded-lg border border-danger-border bg-danger-bg px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-danger-text transition-colors hover:bg-danger-bg/80 disabled:opacity-40"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirming(false)}
+                  className="text-[10px] text-ink-subtle hover:text-ink"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirming(true)}
+                title="Clear this user's password so they can set a new one"
+                className="rounded-lg border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              >
+                Reset password
+              </button>
+            )
+          )}
+          {canEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-surface-hover"
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

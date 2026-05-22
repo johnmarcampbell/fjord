@@ -14,6 +14,7 @@ import {
   DEFAULT_ADMINISTRATOR_ID,
 } from "../services/users.js";
 import { canDeleteUser, canEditUser, canManageUsers } from "../auth/policy.js";
+import { deleteSessionsForUser } from "../services/sessions.js";
 
 function toUser(row: typeof users.$inferSelect): User {
   return {
@@ -84,7 +85,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
             title: { type: "string", maxLength: 80 },
             bio: { type: "string", maxLength: 280 },
             avatar: { type: "string", minLength: 1, maxLength: 2048 },
-            token_hash: { type: ["string", "null"], maxLength: 512 },
           },
         },
       },
@@ -143,7 +143,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         title: body.title ?? "",
         bio: body.bio ?? "",
         avatar,
-        tokenHash: body.token_hash ?? null,
+        passwordHash: null,
         createdAt: nowIso(),
         deletedAt: null,
       };
@@ -175,7 +175,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
             title: { type: "string", maxLength: 80 },
             bio: { type: "string", maxLength: 280 },
             avatar: { type: "string", minLength: 1, maxLength: 2048 },
-            token_hash: { type: ["string", "null"], maxLength: 512 },
+            password_hash: { type: "null", description: "Admin-only: set to null to clear the user's password (forces passwordless-once on next login)." },
           },
           additionalProperties: false,
         },
@@ -211,7 +211,21 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       if (body.role !== undefined) updates.role = body.role;
       if (body.title !== undefined) updates.title = body.title;
       if (body.bio !== undefined) updates.bio = body.bio;
-      if (body.token_hash !== undefined) updates.tokenHash = body.token_hash;
+
+      let clearPassword = false;
+      if (body.password_hash !== undefined) {
+        if (body.password_hash !== null) {
+          return reply.code(400).send({ error: "password_hash may only be set to null" });
+        }
+        if (!canManageUsers(actor)) {
+          return reply.code(403).send({ error: "Only Admins may reset passwords" });
+        }
+        if (id === actor.id) {
+          return reply.code(400).send({ error: "Use /api/auth/change-password to change your own password" });
+        }
+        updates.passwordHash = null;
+        clearPassword = true;
+      }
 
       if (body.handle !== undefined) {
         try {
@@ -243,6 +257,9 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       if (Object.keys(updates).length === 0) return toUser(existing);
 
       app.db.update(users).set(updates).where(eq(users.id, id)).run();
+      if (clearPassword) {
+        deleteSessionsForUser(app.db, id);
+      }
       const updated = app.db.select().from(users).where(eq(users.id, id)).get()!;
       return toUser(updated);
     },
@@ -278,9 +295,10 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       if (!row.deletedAt) {
         app.db
           .update(users)
-          .set({ deletedAt: nowIso(), tokenHash: null })
+          .set({ deletedAt: nowIso(), passwordHash: null })
           .where(eq(users.id, id))
           .run();
+        deleteSessionsForUser(app.db, id);
       }
       reply.code(204);
     },

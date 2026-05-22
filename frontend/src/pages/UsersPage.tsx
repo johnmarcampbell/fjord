@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useUsers } from "../lib/queries.js";
-import { getCurrentUserId } from "../lib/user.js";
+import { useCurrentUser } from "../lib/auth.js";
 import { UserCard } from "../components/UserCard.js";
 import { UserFormDialog } from "../components/UserFormDialog.js";
+import { TokenList } from "../components/TokenList.js";
 import { isAdmin } from "../lib/policy.js";
 
 type DialogState =
@@ -38,8 +39,9 @@ export function UsersPage() {
   const { data: allUsers = [], isLoading } = useUsers();
   const users = allUsers.filter((u) => !u.deleted_at);
   const [dialog, setDialog] = useState<DialogState>(null);
-  const currentUserId = getCurrentUserId();
-  const currentUser = allUsers.find((u) => u.id === currentUserId);
+  const { data: me } = useCurrentUser();
+  const currentUserId = me?.id ?? null;
+  const currentUser = currentUserId ? allUsers.find((u) => u.id === currentUserId) : undefined;
   const admin = currentUser ? isAdmin(currentUser) : false;
 
   return (
@@ -61,12 +63,15 @@ export function UsersPage() {
               user={u}
               isCurrent={u.id === currentUserId}
               canEdit={admin || u.id === currentUserId}
+              canResetPassword={admin && u.id !== currentUserId}
               onEdit={() => setDialog({ mode: "edit", userId: u.id })}
             />
           ))}
           {admin && <NewUserTile onClick={() => setDialog({ mode: "create" })} />}
         </div>
       )}
+
+      {currentUserId && <TokenList userId={currentUserId} />}
 
       {dialog && (
         <UserFormDialog

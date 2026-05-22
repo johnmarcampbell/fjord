@@ -1,12 +1,8 @@
-import { DEFAULT_ADMINISTRATOR_ID } from "./policy.js";
-
-const KEY = "kanban.current_user_id";
-
-export function getCurrentUserId(): string {
-  return localStorage.getItem(KEY) ?? DEFAULT_ADMINISTRATOR_ID;
-}
-
-export function setCurrentUserId(id: string | null): void {
-  if (id) localStorage.setItem(KEY, id);
-  else localStorage.removeItem(KEY);
-}
+/**
+ * Identity is established by /api/auth/me — there is no longer a
+ * localStorage-backed user. This file is kept as a tombstone so any
+ * straggling import surfaces as a type error rather than a runtime crash.
+ *
+ * Use `useCurrentUser()` from `./auth.js` instead.
+ */
+export const DEPRECATED_USER_MODULE = true;

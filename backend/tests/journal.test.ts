@@ -49,14 +49,14 @@ describe("task journal", () => {
     expect(event.by_assignee).toBe(true);
   });
 
-  it("requires X-User-Id", async () => {
+  it("requires authentication", async () => {
     const t = await createTask(ctx, "alice", { title: "T" });
     const res = await ctx.app.inject({
       method: "POST",
       url: `/api/tasks/${t.id}/journal`,
       payload: { body: "x" },
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(401);
   });
 
   it("404s for unknown task", async () => {

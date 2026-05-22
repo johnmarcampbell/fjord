@@ -13,7 +13,8 @@
     "demo": "npm run build -w shared && concurrently -n backend,frontend -c blue,magenta \"tsx watch backend/src/index.ts --demo\" \"npm run dev -w frontend\"",
     "build": "npm run build -w shared && npm run build -w frontend && npm run build -w backend",
     "test": "npm run build -w shared && npm run test -w backend",
-    "start": "node backend/dist/index.js"
+    "start": "node backend/dist/index.js",
+    "reset-admin-password": "npm run reset-admin-password -w @agentic-kanban/backend"
   },
   "devDependencies": {
     "concurrently": "9.2.1",
