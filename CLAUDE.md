@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Three npm workspaces under a single `package.json`:
 
 - **`shared/`** — TypeScript types and constants shared between frontend and backend (`Column`, `Task`, `User`, `TaskEvent`, request/response interfaces)
-- **`backend/`** — Node 22, Fastify, Drizzle ORM, better-sqlite3
+- **`backend/`** — Node 24, Fastify, Drizzle ORM, node:sqlite
 - **`frontend/`** — React 18, Vite, React Query, dnd-kit, Tailwind CSS
 
 ## Common development commands
@@ -73,7 +73,7 @@ Exports:
 - Static file serving (frontend build, if `KANBAN_STATIC_DIR` is set)
 
 ### Database
-- **ORM**: Drizzle ORM with better-sqlite3
+- **ORM**: Drizzle ORM with node:sqlite
 - **Schema**: [backend/src/db/schema.ts](backend/src/db/schema.ts) — `users` (with `password_hash`), `sessions`, `api_tokens`, `projects`, `tasks`, `taskEvents`, `taskDependencies`
 - **Migrations**: `backend/migrations/` (auto-applied at startup)
 - **Connection**: Single `DBHandle` (Drizzle database instance) shared across the app

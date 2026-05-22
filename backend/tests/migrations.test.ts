@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
+import { drizzle } from "drizzle-orm/node-sqlite";
 import { slugify } from "@agentic-kanban/shared";
 import { backfillUserProfiles } from "../src/services/users.js";
 import { repairSchemaDrift } from "../src/db/index.js";
@@ -11,7 +11,7 @@ import { repairSchemaDrift } from "../src/db/index.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");
 
-function applyMigration(sqlite: Database.Database, tag: string): void {
+function applyMigration(sqlite: DatabaseSync, tag: string): void {
   const sql = readFileSync(join(migrationsDir, `${tag}.sql`), "utf-8");
   const statements = sql
     .split("--> statement-breakpoint")
@@ -22,8 +22,7 @@ function applyMigration(sqlite: Database.Database, tag: string): void {
 
 describe("migration 0004_spaces", () => {
   it("creates the default space and backfills existing rows", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");
@@ -89,8 +88,7 @@ describe("migration 0004_spaces", () => {
 
 describe("migration 0005_user_profile", () => {
   it("adds profile columns and backfill populates handle and avatar for pre-existing users", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");
@@ -113,7 +111,7 @@ describe("migration 0005_user_profile", () => {
     expect(before.avatar).toBeNull();
 
     // Run backfill
-    const db = drizzle(sqlite);
+    const db = drizzle({ client: sqlite });
     const dbHandle = { db, sqlite, close: () => sqlite.close() } as any;
     backfillUserProfiles(dbHandle);
 
@@ -140,8 +138,7 @@ describe("migration 0005_user_profile", () => {
 
 describe("migration 0007_dizzy_komodo", () => {
   it("backfills existing users to Admin role", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");
@@ -169,8 +166,7 @@ describe("migration 0007_dizzy_komodo", () => {
   });
 
   it("backfills existing spaces with created_by = default-administrator", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");
@@ -190,8 +186,7 @@ describe("migration 0007_dizzy_komodo", () => {
   });
 
   it("new users default to Member role", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");
@@ -216,8 +211,7 @@ describe("migration 0007_dizzy_komodo", () => {
 
 describe("schema drift repair", () => {
   it("restores role/auth objects when migration metadata got ahead of schema", () => {
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
 
     applyMigration(sqlite, "0000_initial");
     applyMigration(sqlite, "0001_projects_and_tags");

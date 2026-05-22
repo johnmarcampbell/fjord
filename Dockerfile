@@ -3,13 +3,8 @@
 ############################
 # Stage 1: build
 ############################
-FROM node:22-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app
-
-# better-sqlite3 needs a toolchain to build its native module.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY shared/package.json ./shared/
@@ -29,7 +24,7 @@ RUN npm run build -w shared \
 ############################
 # Stage 2: runtime
 ############################
-FROM node:22-slim AS runtime
+FROM node:24-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     KANBAN_HOST=0.0.0.0 \

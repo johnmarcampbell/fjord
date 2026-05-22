@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
+import { drizzle } from "drizzle-orm/node-sqlite";
 import { eq } from "drizzle-orm";
 import { slugify, pickAvatar, validateHandle, validateAvatar } from "@agentic-kanban/shared";
 import { users } from "../src/db/schema.js";
@@ -109,13 +109,13 @@ describe("validateAvatar", () => {
 });
 
 describe("backfillUserProfiles", () => {
-  function makeHandle(sqlite: Database.Database) {
-    const db = drizzle(sqlite);
+  function makeHandle(sqlite: DatabaseSync) {
+    const db = drizzle({ client: sqlite });
     return { db, sqlite, close: () => sqlite.close() } as any;
   }
 
   it("fills handle and avatar for a user with display_name 'Jane Wong'", () => {
-    const sqlite = new Database(":memory:");
+    const sqlite = new DatabaseSync(":memory:");
     sqlite.exec(`CREATE TABLE users (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
@@ -141,7 +141,7 @@ describe("backfillUserProfiles", () => {
   });
 
   it("resolves collision: second 'Jane Wong' gets 'jane-wong-2'", () => {
-    const sqlite = new Database(":memory:");
+    const sqlite = new DatabaseSync(":memory:");
     sqlite.exec(`CREATE TABLE users (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
@@ -169,7 +169,7 @@ describe("backfillUserProfiles", () => {
   });
 
   it("falls back for all-emoji display_name", () => {
-    const sqlite = new Database(":memory:");
+    const sqlite = new DatabaseSync(":memory:");
     sqlite.exec(`CREATE TABLE users (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
@@ -194,7 +194,7 @@ describe("backfillUserProfiles", () => {
   });
 
   it("does not produce reserved handle 'admin' for display_name 'Admin'", () => {
-    const sqlite = new Database(":memory:");
+    const sqlite = new DatabaseSync(":memory:");
     sqlite.exec(`CREATE TABLE users (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
@@ -219,7 +219,7 @@ describe("backfillUserProfiles", () => {
   });
 
   it("is idempotent — calling twice does not change handles", () => {
-    const sqlite = new Database(":memory:");
+    const sqlite = new DatabaseSync(":memory:");
     sqlite.exec(`CREATE TABLE users (
       id TEXT PRIMARY KEY,
       display_name TEXT NOT NULL,
