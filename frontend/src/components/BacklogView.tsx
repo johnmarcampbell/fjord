@@ -13,13 +13,14 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { isTaskBlocked, type Column, type Project, type Task } from "@agentic-kanban/shared";
-import { useTasks, useProjects } from "../lib/queries.js";
+import { isTaskBlocked, type Column, type Project, type Task, type User } from "@agentic-kanban/shared";
+import { useTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 function DragGripIcon() {
   return (
@@ -39,13 +40,21 @@ type PromoteHandler = (task: Task, target: Column) => void;
 interface RowProps {
   task: Task;
   project: Project | undefined;
+  assigneeLabel: string;
   showProject: boolean;
   isBlocked: boolean;
   onOpen: () => void;
   onPromote: PromoteHandler;
 }
 
-function RowBody({ task, project, showProject, isBlocked, onPromote }: Omit<RowProps, "onOpen">) {
+function RowBody({
+  task,
+  project,
+  assigneeLabel,
+  showProject,
+  isBlocked,
+  onPromote,
+}: Omit<RowProps, "onOpen">) {
   return (
     <>
       {showProject && project && (
@@ -63,7 +72,7 @@ function RowBody({ task, project, showProject, isBlocked, onPromote }: Omit<RowP
       </span>
 
       <span className="hidden flex-shrink-0 truncate text-xs text-ink-muted sm:inline">
-        {task.assigned_to ? `@${task.assigned_to}` : "unassigned"}
+        {assigneeLabel}
       </span>
 
       {task.tags.length > 0 && (
@@ -106,7 +115,15 @@ function RowBody({ task, project, showProject, isBlocked, onPromote }: Omit<RowP
   );
 }
 
-function BacklogRow({ task, project, showProject, isBlocked, onOpen, onPromote }: RowProps) {
+function BacklogRow({
+  task,
+  project,
+  assigneeLabel,
+  showProject,
+  isBlocked,
+  onOpen,
+  onPromote,
+}: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
   const isMobile = useIsMobile();
@@ -145,6 +162,7 @@ function BacklogRow({ task, project, showProject, isBlocked, onOpen, onPromote }
         <RowBody
           task={task}
           project={project}
+          assigneeLabel={assigneeLabel}
           showProject={showProject}
           isBlocked={isBlocked}
           onPromote={onPromote}
@@ -154,7 +172,14 @@ function BacklogRow({ task, project, showProject, isBlocked, onOpen, onPromote }
   );
 }
 
-function BacklogRowOverlay({ task, project, showProject, isBlocked, onPromote }: Omit<RowProps, "onOpen">) {
+function BacklogRowOverlay({
+  task,
+  project,
+  assigneeLabel,
+  showProject,
+  isBlocked,
+  onPromote,
+}: Omit<RowProps, "onOpen">) {
   return (
     <div
       className={clsx(
@@ -169,6 +194,7 @@ function BacklogRowOverlay({ task, project, showProject, isBlocked, onPromote }:
         <RowBody
           task={task}
           project={project}
+          assigneeLabel={assigneeLabel}
           showProject={showProject}
           isBlocked={isBlocked}
           onPromote={onPromote}
@@ -181,6 +207,7 @@ function BacklogRowOverlay({ task, project, showProject, isBlocked, onPromote }:
 function BacklogList({
   tasks,
   projectById,
+  usersById,
   showProject,
   blockedIds,
   onOpenTask,
@@ -188,6 +215,7 @@ function BacklogList({
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
+  usersById: Map<string, User>;
   showProject: boolean;
   blockedIds: Set<string>;
   onOpenTask: (id: string) => void;
@@ -215,6 +243,7 @@ function BacklogList({
               key={task.id}
               task={task}
               project={task.project_id ? projectById.get(task.project_id) : undefined}
+              assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
               showProject={showProject}
               isBlocked={blockedIds.has(task.id)}
               onOpen={() => onOpenTask(task.id)}
@@ -235,6 +264,7 @@ export function BacklogView({
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
+  const { data: users = [] } = useUsers();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 
@@ -248,6 +278,7 @@ export function BacklogView({
     () => new Map(projects.map((p) => [p.id, p])),
     [projects],
   );
+  const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -383,6 +414,7 @@ export function BacklogView({
             <BacklogList
               tasks={filteredTasks}
               projectById={projectById}
+              usersById={usersById}
               showProject={!selectedProject}
               blockedIds={blockedIds}
               onOpenTask={setOpenTaskId}
@@ -395,6 +427,7 @@ export function BacklogView({
             <BacklogRowOverlay
               task={activeTask}
               project={activeTask.project_id ? projectById.get(activeTask.project_id) : undefined}
+              assigneeLabel={formatAssigneeLabel(usersById, activeTask.assigned_to)}
               showProject={!selectedProject}
               isBlocked={blockedIds.has(activeTask.id)}
               onPromote={handlePromote}

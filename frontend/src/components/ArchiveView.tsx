@@ -1,21 +1,23 @@
 import { useMemo } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import type { Project, Task } from "@agentic-kanban/shared";
-import { useArchivedTasks, useProjects } from "../lib/queries.js";
+import type { Project, Task, User } from "@agentic-kanban/shared";
+import { useArchivedTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 interface RowProps {
   task: Task;
   project: Project | undefined;
+  assigneeLabel: string;
   onOpen: () => void;
   onUnarchive: (id: string) => void;
 }
 
-function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
+function ArchiveRow({ task, project, assigneeLabel, onOpen, onUnarchive }: RowProps) {
   return (
     <div
       onClick={onOpen}
@@ -39,7 +41,7 @@ function ArchiveRow({ task, project, onOpen, onUnarchive }: RowProps) {
       </span>
 
       <span className="hidden flex-shrink-0 truncate text-xs text-ink-muted sm:inline">
-        {task.assigned_to ? `@${task.assigned_to}` : "unassigned"}
+        {assigneeLabel}
       </span>
 
       {task.tags.length > 0 && (
@@ -83,6 +85,7 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks, isLoading } = useArchivedTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
+  const { data: users = [] } = useUsers();
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
   const unarchiveMutation = useUnarchiveTask({
     onSuccess: () => toast.success("Task unarchived"),
@@ -93,6 +96,7 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
     () => new Map(projects.map((p) => [p.id, p])),
     [projects],
   );
+  const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -152,6 +156,7 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
                   key={task.id}
                   task={task}
                   project={!selectedProject && task.project_id ? projectById.get(task.project_id) : undefined}
+                  assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
                   onOpen={() => onOpenTask(task.id)}
                   onUnarchive={handleUnarchive}
                 />

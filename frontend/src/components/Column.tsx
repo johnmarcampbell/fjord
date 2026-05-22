@@ -1,18 +1,28 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Column as ColumnKey, Project, Task } from "@agentic-kanban/shared";
+import type { Column as ColumnKey, Project, Task, User } from "@agentic-kanban/shared";
 import { TaskCard } from "./TaskCard.js";
+import { formatAssigneeLabel } from "../lib/userLabels.js";
 
 interface Props {
   column: ColumnKey;
   tasks: Task[];
   blockedIds: Set<string>;
   projectById: Map<string, Project>;
+  usersById: Map<string, User>;
   showProject: boolean;
   onOpenTask: (id: string) => void;
 }
 
-export function ColumnView({ column, tasks, blockedIds, projectById, showProject, onOpenTask }: Props) {
+export function ColumnView({
+  column,
+  tasks,
+  blockedIds,
+  projectById,
+  usersById,
+  showProject,
+  onOpenTask,
+}: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${column}`,
     data: { type: "column", column },
@@ -47,6 +57,7 @@ export function ColumnView({ column, tasks, blockedIds, projectById, showProject
                 isBlocked={blockedIds.has(task.id)}
                 project={task.project_id ? projectById.get(task.project_id) : undefined}
                 showProject={showProject}
+                assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
                 onOpen={() => onOpenTask(task.id)}
               />
             ))}

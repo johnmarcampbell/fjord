@@ -22,6 +22,7 @@ interface Props {
   isBlocked: boolean;
   project: Project | undefined;
   showProject: boolean;
+  assigneeLabel: string;
   onOpen: () => void;
 }
 
@@ -30,11 +31,13 @@ function CardContent({
   isBlocked,
   project,
   showProject,
+  assigneeLabel,
 }: {
   task: Task;
   isBlocked: boolean;
   project: Project | undefined;
   showProject: boolean;
+  assigneeLabel: string;
 }) {
   const hasActivityBadges = task.comment_count > 0 || task.journal_count > 0;
   return (
@@ -56,9 +59,7 @@ function CardContent({
       </div>
 
       <div className="mt-1.5 flex items-center justify-between gap-1 text-xs text-ink-muted">
-        <span className="truncate">
-          {task.assigned_to ? `@${task.assigned_to}` : "unassigned"}
-        </span>
+        <span className="truncate">{assigneeLabel}</span>
         {isBlocked && (
           <span className="flex-shrink-0 rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-semibold text-danger-text">
             blocked
@@ -107,7 +108,14 @@ function CardContent({
   );
 }
 
-export function TaskCard({ task, isBlocked, project, showProject, onOpen }: Props) {
+export function TaskCard({
+  task,
+  isBlocked,
+  project,
+  showProject,
+  assigneeLabel,
+  onOpen,
+}: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
   const isMobile = useIsMobile();
@@ -148,6 +156,7 @@ export function TaskCard({ task, isBlocked, project, showProject, onOpen }: Prop
           isBlocked={isBlocked}
           project={project}
           showProject={showProject}
+          assigneeLabel={assigneeLabel}
         />
       </div>
     </div>
@@ -159,11 +168,13 @@ export function TaskCardOverlay({
   isBlocked,
   project,
   showProject,
+  assigneeLabel,
 }: {
   task: Task;
   isBlocked: boolean;
   project: Project | undefined;
   showProject: boolean;
+  assigneeLabel: string;
 }) {
   return (
     <div
@@ -181,6 +192,7 @@ export function TaskCardOverlay({
           isBlocked={isBlocked}
           project={project}
           showProject={showProject}
+          assigneeLabel={assigneeLabel}
         />
       </div>
     </div>
