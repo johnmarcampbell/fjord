@@ -11,16 +11,18 @@ import {
 import {
   COLUMNS,
   isTaskBlocked,
+  type User,
   type Column,
   type Task,
 } from "@agentic-kanban/shared";
-import { useTasks, useProjects } from "../lib/queries.js";
+import { useTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
 
@@ -32,6 +34,7 @@ export function Board({
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
+  const { data: users = [] } = useUsers();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 
@@ -45,6 +48,7 @@ export function Board({
     () => new Map(projects.map((p) => [p.id, p])),
     [projects],
   );
+  const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -181,6 +185,7 @@ export function Board({
               tasks={byColumn.get(c) ?? []}
               blockedIds={blockedIds}
               projectById={projectById}
+              usersById={usersById}
               showProject={!selectedProject}
               onOpenTask={setOpenTaskId}
             />
@@ -193,6 +198,7 @@ export function Board({
               isBlocked={blockedIds.has(activeTask.id)}
               project={activeTask.project_id ? projectById.get(activeTask.project_id) : undefined}
               showProject={!selectedProject}
+              assigneeLabel={formatAssigneeLabel(usersById, activeTask.assigned_to)}
             />
           ) : null}
         </DragOverlay>

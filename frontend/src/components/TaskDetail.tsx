@@ -14,6 +14,13 @@ import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects } from "../lib/queries.js";
 import { Combobox } from "./Combobox.js";
 import { DateTimePicker } from "./DateTimePicker.js";
+import {
+  createUserLookup,
+  formatActorLabel,
+  formatMaybeUserLabel,
+  formatReporterLabel,
+  type UserLookup,
+} from "../lib/userLabels.js";
 
 type TimelineFilter = "all" | "comments" | "journal" | "system";
 
@@ -48,6 +55,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
 
   const { data: users = [] } = useUsers();
   const activeUsers = users.filter((u) => !u.deleted_at);
+  const usersById = useMemo(() => createUserLookup(users), [users]);
   // Resolve blocker titles against tasks in the same space. Matches the
   // board's keying so the cache is shared.
   const { data: allTasks = [] } = useTasks(task?.space_id);
@@ -76,6 +84,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
 
   const taskById = new Map(allTasks.map((t) => [t.id, t]));
   const allTags = Array.from(new Set(allTasks.flatMap((t) => t.tags))).sort();
+  const reporterLabel = formatReporterLabel(usersById, task.reported_by);
 
   return (
     <div className="space-y-5">
@@ -207,6 +216,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             events={events}
             allTasks={allTasks}
             projects={projects}
+            usersById={usersById}
             filter={timelineFilter}
             onFilterChange={setTimelineFilter}
             comment={comment}
@@ -271,7 +281,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
           </Field>
 
           <Field label="Reporter">
-            <div className="px-1 py-1.5 text-sm text-ink-muted">{task.reported_by}</div>
+            <div className="px-1 py-1.5 text-sm text-ink-muted">{reporterLabel}</div>
           </Field>
 
           <Field label="Due">
@@ -506,6 +516,7 @@ function TimelineSection({
   events,
   allTasks,
   projects,
+  usersById,
   filter,
   onFilterChange,
   comment,
@@ -520,6 +531,7 @@ function TimelineSection({
   events: TaskEvent[];
   allTasks: Task[];
   projects: Project[];
+  usersById: UserLookup;
   filter: TimelineFilter;
   onFilterChange: (f: TimelineFilter) => void;
   comment: string;
@@ -592,7 +604,13 @@ function TimelineSection({
           </div>
         )}
         {visible.map((e) => (
-          <EventItem key={e.id} event={e} allTasks={allTasks} projects={projects} />
+          <EventItem
+            key={e.id}
+            event={e}
+            allTasks={allTasks}
+            projects={projects}
+            usersById={usersById}
+          />
         ))}
       </div>
       <form
@@ -692,15 +710,18 @@ function EventItem({
   event,
   allTasks,
   projects,
+  usersById,
 }: {
   event: TaskEvent;
   allTasks: Task[];
   projects: Project[];
+  usersById: UserLookup;
 }) {
   const title = (id: string | null) =>
     allTasks.find((t) => t.id === id)?.title ?? id?.slice(0, 8) ?? "?";
   const projectName = (id: string | null) =>
     projects.find((p) => p.id === id)?.name ?? id ?? "(none)";
+  const actorLabel = formatActorLabel(usersById, event.actor_id);
   const time = new Date(event.created_at).toLocaleString();
 
   if (event.kind === "comment") {
@@ -720,7 +741,7 @@ function EventItem({
           >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="font-semibold text-ink">{event.actor_id}</span>
+          <span className="font-semibold text-ink">{actorLabel}</span>
           <span className="text-ink-subtle">{time}</span>
         </div>
         <div className="markdown">
@@ -754,7 +775,7 @@ function EventItem({
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
-          <span className="font-semibold text-ink">{event.actor_id}</span>
+          <span className="font-semibold text-ink">{actorLabel}</span>
           <span className="text-ink-subtle">{time}</span>
         </div>
         <div className="markdown">
@@ -773,10 +794,13 @@ function EventItem({
       summary = `moved ${event.from_value} → ${event.to_value}`;
       break;
     case "assigned_to_changed":
-      summary = `assigned to ${event.to_value ?? "(unassigned)"}`;
+      summary = `assigned to ${formatMaybeUserLabel(usersById, event.to_value, {
+        nullLabel: "(unassigned)",
+        includeDeletedSuffix: false,
+      })}`;
       break;
     case "reported_by_changed":
-      summary = `reporter set to ${event.to_value}`;
+      summary = `reporter set to ${formatMaybeUserLabel(usersById, event.to_value)}`;
       break;
     case "due_date_changed":
       summary = `due ${event.to_value ?? "(cleared)"}`;
@@ -805,7 +829,7 @@ function EventItem({
 
   return (
     <div className="text-xs text-ink-muted">
-      <span className="font-semibold text-ink">{event.actor_id}</span> {summary}
+      <span className="font-semibold text-ink">{actorLabel}</span> {summary}
       <span className="ml-1.5 text-ink-subtle">· {time}</span>
     </div>
   );
