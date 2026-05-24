@@ -1,17 +1,15 @@
-import { mkdirSync, existsSync } from "node:fs";
-import { dirname } from "node:path";
-import Database from "better-sqlite3";
-import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { mkdirSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { drizzle, type NodeSQLiteDatabase } from "drizzle-orm/node-sqlite";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
 import * as schema from "./schema.js";
 
-export type DB = BetterSQLite3Database<typeof schema>;
+export type DB = NodeSQLiteDatabase<typeof schema>;
 
 export interface DBHandle {
   db: DB;
-  sqlite: Database.Database;
+  sqlite: DatabaseSync;
   close: () => void;
 }
 
@@ -20,10 +18,9 @@ export function openDatabase(dbPath: string): DBHandle {
     const dir = dirname(dbPath);
     if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
   }
-  const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  const db = drizzle(sqlite, { schema });
+  const sqlite = new DatabaseSync(dbPath, { enableForeignKeyConstraints: true });
+  sqlite.exec("PRAGMA journal_mode = WAL");
+  const db = drizzle({ client: sqlite, schema });
   return {
     db,
     sqlite,
@@ -35,7 +32,7 @@ export function runMigrations(handle: DBHandle): void {
   const here = dirname(fileURLToPath(import.meta.url));
   // In dev (tsx): src/db -> ../../migrations. In build (dist/db): dist/db -> ../../migrations.
   const migrationsFolder = join(here, "..", "..", "migrations");
-  migrate(handle.db, { migrationsFolder });
+  applyMigrations(handle.sqlite, migrationsFolder);
   repairSchemaDrift(handle.sqlite);
 }
 
@@ -43,24 +40,121 @@ export * as schema from "./schema.js";
 
 type TableInfoRow = { name: string };
 
-function hasTable(sqlite: Database.Database, tableName: string): boolean {
+function hasTable(sqlite: DatabaseSync, tableName: string): boolean {
   const row = sqlite
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1")
     .get(tableName);
   return !!row;
 }
 
-function hasColumn(sqlite: Database.Database, tableName: string, columnName: string): boolean {
+function hasColumn(sqlite: DatabaseSync, tableName: string, columnName: string): boolean {
   const rows = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as TableInfoRow[];
   return rows.some((r) => r.name === columnName);
+}
+
+/**
+ * Apply SQL migrations from `migrationsFolder`, tracking applied migrations in
+ * a small bookkeeping table.
+ *
+ * Drizzle 1.0 RC changed both the on-disk migration layout (now one
+ * `<timestamp>_<name>/migration.sql` per migration) and the runtime tracking
+ * table (`__drizzle_migrations`). To avoid reformatting existing migrations and
+ * to keep upgrade paths from older deployments simple, we read the legacy flat
+ * `.sql` layout directly and track applied tags in our own table.
+ *
+ * On first run against a database that was previously migrated by Drizzle 0.45,
+ * we backfill our tracking table from the existing `__drizzle_migrations` entries
+ * by matching `created_at` against the legacy `meta/_journal.json`.
+ */
+export function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS __ak_migrations (
+      tag TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    )
+  `);
+
+  const applied = new Set(
+    (sqlite.prepare("SELECT tag FROM __ak_migrations").all() as { tag: string }[]).map((r) => r.tag),
+  );
+
+  const hasLegacy = hasTable(sqlite, "__drizzle_migrations");
+  if (applied.size === 0 && hasLegacy) {
+    backfillFromDrizzleMigrations(sqlite, migrationsFolder, applied);
+  } else if (hasLegacy) {
+    console.log("[migrations] legacy __drizzle_migrations table present; already backfilled");
+  }
+
+  const files = readdirSync(migrationsFolder)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  console.log(`[migrations] ${files.length} SQL files found, ${applied.size} already applied`);
+
+  for (const file of files) {
+    const tag = file.replace(/\.sql$/, "");
+    if (applied.has(tag)) continue;
+
+    const sql = readFileSync(join(migrationsFolder, file), "utf-8");
+    const statements = sql
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    withTransaction(sqlite, () => {
+      for (const stmt of statements) sqlite.exec(stmt);
+      sqlite
+        .prepare("INSERT INTO __ak_migrations (tag, applied_at) VALUES (?, ?)")
+        .run(tag, new Date().toISOString());
+    });
+    console.log(`[migrations] applied ${tag}`);
+  }
+}
+
+function backfillFromDrizzleMigrations(
+  sqlite: DatabaseSync,
+  migrationsFolder: string,
+  applied: Set<string>,
+): void {
+  const journalPath = join(migrationsFolder, "meta", "_journal.json");
+  if (!existsSync(journalPath)) {
+    throw new Error(
+      "Cannot backfill legacy migrations: __drizzle_migrations table exists but " +
+        `${journalPath} is missing. This likely means the migrations folder is incomplete. ` +
+        "Ensure the full migrations/ directory (including meta/_journal.json) is present.",
+    );
+  }
+  const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
+    entries: { idx: number; when: number; tag: string }[];
+  };
+  const byWhen = new Map(journal.entries.map((e) => [e.when, e.tag]));
+
+  const rows = sqlite
+    .prepare("SELECT created_at FROM __drizzle_migrations")
+    .all() as { created_at: number | string }[];
+  const insert = sqlite.prepare(
+    "INSERT OR IGNORE INTO __ak_migrations (tag, applied_at) VALUES (?, ?)",
+  );
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    const tag = byWhen.get(Number(row.created_at));
+    if (tag) {
+      insert.run(tag, now);
+      applied.add(tag);
+    }
+  }
+
+  console.log(
+    `[migrations] backfilled ${applied.size} of ${rows.length} legacy __drizzle_migrations entries`,
+  );
 }
 
 /**
  * Defensive repair for deployments whose migration metadata drifted from the
  * actual schema. This keeps startup resilient for older upgraded volumes.
  */
-export function repairSchemaDrift(sqlite: Database.Database): void {
-  const repair = sqlite.transaction(() => {
+export function repairSchemaDrift(sqlite: DatabaseSync): void {
+  withTransaction(sqlite, () => {
     if (hasTable(sqlite, "users") && !hasColumn(sqlite, "users", "role")) {
       sqlite.exec("ALTER TABLE `users` ADD `role` text DEFAULT 'Member' NOT NULL");
       sqlite.exec("UPDATE `users` SET `role` = 'Admin'");
@@ -124,6 +218,15 @@ export function repairSchemaDrift(sqlite: Database.Database): void {
       sqlite.exec("CREATE INDEX api_tokens_user_idx ON api_tokens (user_id)");
     }
   });
+}
 
-  repair();
+function withTransaction(db: DatabaseSync, fn: () => void): void {
+  db.exec("BEGIN");
+  try {
+    fn();
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }

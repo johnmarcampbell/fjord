@@ -6,7 +6,7 @@ cookie; agents and CLI callers use API tokens.
 
 ## Stack
 
-- **Backend**: Node 22, TypeScript, Fastify, Drizzle ORM, better-sqlite3
+- **Backend**: Node 24, TypeScript, Fastify, Drizzle ORM, node:sqlite
 - **Frontend**: React, Vite, TypeScript, Tailwind, dnd-kit, React Query
 - **DB**: SQLite (single file)
 - **Layout**: npm workspaces (`shared`, `backend`, `frontend`)

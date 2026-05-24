@@ -18,11 +18,11 @@
   },
   "devDependencies": {
     "concurrently": "9.2.1",
-    "drizzle-orm": "0.45.2",
+    "drizzle-orm": "1.0.0-rc.4-5d5b77c",
     "typescript": "5.9.3"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "sonner": "2.0.7"
