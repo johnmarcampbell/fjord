@@ -63,6 +63,10 @@ Node version moves from `>=22` to `>=24` in three places: root `package.json`, b
 
 The Drizzle migrator import path moves from `drizzle-orm/better-sqlite3/migrator` to `drizzle-orm/node-sqlite/migrator`. The migrator signature is identical (`migrate(db, { migrationsFolder })`) and reads the existing `backend/migrations` layout unchanged.
 
+### Decision update: custom migrator instead of Drizzle's built-in
+
+During execution, the Drizzle 1.0 RC migrator turned out to expect a new on-disk layout (`<timestamp>_<name>/migration.sql` directories) rather than the flat `<tag>.sql` files in `backend/migrations/`. Rather than reformatting all existing migrations and breaking the upgrade path from older deployments, the implementation uses a custom migrator (`applyMigrations` in `backend/src/db/index.ts`) that reads the existing flat layout and tracks applied migrations in `__ak_migrations`. On first run against a database previously migrated by Drizzle 0.45, it backfills from `__drizzle_migrations` by matching `created_at` timestamps against `meta/_journal.json`. See the doc comment on `applyMigrations` in `backend/src/db/index.ts` for details.
+
 ## Step-by-step plan
 
 1. **Verify the chosen Drizzle 1.0 RC build.** Run `npm view drizzle-orm@1.0.0-rc.4-5d5b77c exports | grep node-sqlite` and confirm `./node-sqlite`, `./node-sqlite/driver`, `./node-sqlite/migrator` are exported. If a newer RC has shipped, prefer it; pin to an exact version, no range. Note the chosen version for use in step 6.

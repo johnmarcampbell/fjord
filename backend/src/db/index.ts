@@ -66,7 +66,7 @@ function hasColumn(sqlite: DatabaseSync, tableName: string, columnName: string):
  * we backfill our tracking table from the existing `__drizzle_migrations` entries
  * by matching `created_at` against the legacy `meta/_journal.json`.
  */
-function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
+export function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS __ak_migrations (
       tag TEXT PRIMARY KEY,
@@ -78,13 +78,18 @@ function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
     (sqlite.prepare("SELECT tag FROM __ak_migrations").all() as { tag: string }[]).map((r) => r.tag),
   );
 
-  if (applied.size === 0 && hasTable(sqlite, "__drizzle_migrations")) {
+  const hasLegacy = hasTable(sqlite, "__drizzle_migrations");
+  if (applied.size === 0 && hasLegacy) {
     backfillFromDrizzleMigrations(sqlite, migrationsFolder, applied);
+  } else if (hasLegacy) {
+    console.log("[migrations] legacy __drizzle_migrations table present; already backfilled");
   }
 
   const files = readdirSync(migrationsFolder)
     .filter((f) => f.endsWith(".sql"))
     .sort();
+
+  console.log(`[migrations] ${files.length} SQL files found, ${applied.size} already applied`);
 
   for (const file of files) {
     const tag = file.replace(/\.sql$/, "");
@@ -102,6 +107,7 @@ function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
         .prepare("INSERT INTO __ak_migrations (tag, applied_at) VALUES (?, ?)")
         .run(tag, new Date().toISOString());
     });
+    console.log(`[migrations] applied ${tag}`);
   }
 }
 
@@ -111,7 +117,13 @@ function backfillFromDrizzleMigrations(
   applied: Set<string>,
 ): void {
   const journalPath = join(migrationsFolder, "meta", "_journal.json");
-  if (!existsSync(journalPath)) return;
+  if (!existsSync(journalPath)) {
+    throw new Error(
+      "Cannot backfill legacy migrations: __drizzle_migrations table exists but " +
+        `${journalPath} is missing. This likely means the migrations folder is incomplete. ` +
+        "Ensure the full migrations/ directory (including meta/_journal.json) is present.",
+    );
+  }
   const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
     entries: { idx: number; when: number; tag: string }[];
   };
@@ -131,6 +143,10 @@ function backfillFromDrizzleMigrations(
       applied.add(tag);
     }
   }
+
+  console.log(
+    `[migrations] backfilled ${applied.size} of ${rows.length} legacy __drizzle_migrations entries`,
+  );
 }
 
 /**

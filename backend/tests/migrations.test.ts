@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, mkdirSync, writeFileSync, cpSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/node-sqlite";
 import { slugify } from "@agentic-kanban/shared";
 import { backfillUserProfiles } from "../src/services/users.js";
-import { repairSchemaDrift } from "../src/db/index.js";
+import { openDatabase, runMigrations, applyMigrations, repairSchemaDrift } from "../src/db/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");
@@ -206,6 +206,103 @@ describe("migration 0007_dizzy_komodo", () => {
     expect(row.role).toBe("Member");
 
     sqlite.close();
+  });
+});
+
+describe("runMigrations integration", () => {
+  const journalEntries = JSON.parse(
+    readFileSync(join(migrationsDir, "meta", "_journal.json"), "utf-8"),
+  ).entries as { when: number; tag: string }[];
+
+  const allTags = readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => f.replace(/\.sql$/, ""))
+    .sort();
+
+  it("fresh database: applies all migrations and populates __ak_migrations", () => {
+    const handle = openDatabase(":memory:");
+    runMigrations(handle);
+
+    const rows = handle.sqlite
+      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .all() as { tag: string }[];
+    expect(rows.map((r) => r.tag)).toEqual(allTags);
+
+    const usersTable = handle.sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")
+      .get();
+    expect(usersTable).toBeTruthy();
+
+    handle.close();
+  });
+
+  it("fresh database: running twice is idempotent", () => {
+    const handle = openDatabase(":memory:");
+    runMigrations(handle);
+    runMigrations(handle);
+
+    const rows = handle.sqlite
+      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .all() as { tag: string }[];
+    expect(rows.map((r) => r.tag)).toEqual(allTags);
+
+    handle.close();
+  });
+
+  it("upgraded database: backfills from __drizzle_migrations and does not replay", () => {
+    const handle = openDatabase(":memory:");
+
+    for (const tag of allTags) applyMigration(handle.sqlite, tag);
+
+    handle.sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        hash TEXT NOT NULL,
+        created_at NUMERIC
+      )
+    `);
+    for (const entry of journalEntries) {
+      handle.sqlite
+        .prepare("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)")
+        .run(entry.tag, entry.when);
+    }
+
+    runMigrations(handle);
+
+    const rows = handle.sqlite
+      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .all() as { tag: string }[];
+    expect(rows.map((r) => r.tag)).toEqual(allTags);
+
+    handle.close();
+  });
+
+  it("upgraded database with missing journal: throws instead of silently replaying", () => {
+    const tmpDir = join(migrationsDir, "..", ".tmp-test-no-journal");
+    try {
+      mkdirSync(tmpDir, { recursive: true });
+      writeFileSync(join(tmpDir, "0000_test.sql"), "CREATE TABLE test_table (id TEXT PRIMARY KEY)");
+
+      const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
+      sqlite.exec("PRAGMA journal_mode = WAL");
+      sqlite.exec("CREATE TABLE test_table (id TEXT PRIMARY KEY)");
+      sqlite.exec(`
+        CREATE TABLE __drizzle_migrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          hash TEXT NOT NULL,
+          created_at NUMERIC
+        )
+      `);
+      sqlite.exec("INSERT INTO __drizzle_migrations (hash, created_at) VALUES ('test', 9999)");
+
+      expect(() => applyMigrations(sqlite, tmpDir)).toThrow(
+        /Cannot backfill legacy migrations.*_journal\.json.*missing/,
+      );
+
+      sqlite.close();
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
