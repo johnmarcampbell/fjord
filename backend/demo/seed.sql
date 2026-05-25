@@ -355,11 +355,14 @@ INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-pt-api-fuzz
 INSERT INTO task_dependencies (blocker_id, blocked_id) VALUES ('task-ex-reranker',      'task-ex-golden-set');
 
 -- Space access grants
--- Admins (alice, john, default-administrator) have global access — no grants needed.
+-- Admins join spaces explicitly (affiliation, not permission — they already have admin powers).
+-- alice owns 'default' (implicit affiliation via created_by) and has an explicit grant for 'sandbox'.
+-- john owns 'sandbox' (implicit affiliation via created_by) and created 'default' ... wait, alice owns default.
 -- Members need explicit grants for each space where they have tasks.
 -- Default space: agent-backend, agent-frontend, agent-designer are assigned tasks there.
 -- Sandbox space: agent-backend, agent-frontend, morgan-pentest, and agent-explorer have tasks there.
 INSERT INTO user_space_access (user_id, space_id, granted_at, granted_by) VALUES
+  ('alice',          'sandbox', '2025-02-15T09:05:00Z', 'john'),
   ('agent-backend',  'default', '2025-01-10T09:10:00Z', 'alice'),
   ('agent-frontend', 'default', '2025-01-10T09:10:00Z', 'alice'),
   ('agent-designer', 'default', '2025-01-10T09:10:00Z', 'alice'),

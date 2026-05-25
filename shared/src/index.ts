@@ -51,6 +51,8 @@ export interface Space {
   created_at: string;
   updated_at: string;
   created_by: string;
+  /** True when the requesting actor explicitly owns or has been granted access to this space. */
+  affiliated: boolean;
 }
 
 export interface Grant {

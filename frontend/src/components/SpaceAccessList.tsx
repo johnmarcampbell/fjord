@@ -66,7 +66,6 @@ export function SpaceAccessList({
   const candidates = users.filter(
     (u) =>
       !u.deleted_at &&
-      u.role !== "Admin" &&
       u.id !== space.created_by &&
       !grantedIds.has(u.id),
   );
@@ -75,13 +74,13 @@ export function SpaceAccessList({
     <section className="border-b border-border py-5">
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">
-          People with access
+          People in this Space
         </h2>
         <span className="text-xs text-ink-subtle">{rows.length}</span>
       </div>
       {rows.length === 0 ? (
         <p className="mb-3 text-xs italic text-ink-subtle">
-          No one else has been granted access.
+          No one else is in this Space yet.
         </p>
       ) : (
         <ul className="mb-3 flex flex-wrap gap-1.5">
@@ -124,12 +123,9 @@ export function SpaceAccessList({
             items={candidates}
             getLabel={(u) => `${u.display_name} (@${u.handle})`}
             onSelect={(u) => grantMutation.mutate(u.id)}
-            placeholder="Grant access to a Member…"
+            placeholder="Bring someone into this Space…"
             disabled={grantMutation.isPending}
           />
-          <p className="mt-1 text-[11px] text-ink-subtle">
-            Admins already have access to all spaces and are excluded.
-          </p>
         </div>
       )}
     </section>

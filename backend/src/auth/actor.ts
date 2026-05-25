@@ -10,6 +10,8 @@ export interface Actor {
   role: Role;
   /** Admins get "all"; Members get the set of space IDs they can access (owned + granted). */
   accessibleSpaceIds: Set<string> | "all";
+  /** Explicit owned+granted set — never "all". Used for affiliation surfaces (member list, SSE filter, assignee picker). */
+  affiliatedSpaceIds: Set<string>;
   /** How the actor authenticated. Bearer-authed callers are CSRF-exempt. */
   authMethod: "session" | "bearer";
   /** Present only when authMethod === "session". */
@@ -70,9 +72,6 @@ async function loadActor(
   if (userRow.deletedAt) return null;
 
   const role = userRow.role as Role;
-  if (role === "Admin") {
-    return { id: userId, role, accessibleSpaceIds: "all", authMethod, sessionId };
-  }
 
   const ownedRows = db
     .select({ id: spaces.id })
@@ -86,12 +85,16 @@ async function loadActor(
     .where(eq(userSpaceAccess.userId, userId))
     .all();
 
-  const accessibleSpaceIds = new Set<string>([
+  const affiliatedSpaceIds = new Set<string>([
     ...ownedRows.map((r) => r.id),
     ...grantedRows.map((r) => r.spaceId),
   ]);
 
-  return { id: userId, role, accessibleSpaceIds, authMethod, sessionId };
+  if (role === "Admin") {
+    return { id: userId, role, accessibleSpaceIds: "all", affiliatedSpaceIds, authMethod, sessionId };
+  }
+
+  return { id: userId, role, accessibleSpaceIds: affiliatedSpaceIds, affiliatedSpaceIds, authMethod, sessionId };
 }
 
 /** True when the user is currently blocked from making write requests until they set a password. */

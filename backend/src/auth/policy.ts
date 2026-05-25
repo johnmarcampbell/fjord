@@ -16,16 +16,16 @@ export function canGrantAccessForSpace(actor: Actor, space: { created_by: string
 }
 
 export function canManageUsers(actor: Actor): boolean {
-  return actor.accessibleSpaceIds === "all";
+  return actor.role === "Admin";
 }
 
 export function canEditUser(actor: Actor, targetUserId: string): boolean {
-  if (actor.accessibleSpaceIds === "all") return true;
+  if (actor.role === "Admin") return true;
   return actor.id === targetUserId;
 }
 
 export function canDeleteUser(actor: Actor, targetUserId: string): boolean {
   if (targetUserId === DEFAULT_ADMINISTRATOR_ID) return false;
-  if (actor.accessibleSpaceIds === "all") return true;
+  if (actor.role === "Admin") return true;
   return actor.id === targetUserId;
 }

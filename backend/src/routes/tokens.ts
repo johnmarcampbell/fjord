@@ -48,7 +48,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const actor = req.actor!;
-      const isAdmin = actor.accessibleSpaceIds === "all";
+      const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
         return reply.code(403).send({ error: "Forbidden" });
       }
@@ -107,7 +107,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const actor = req.actor!;
-      const isAdmin = actor.accessibleSpaceIds === "all";
+      const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
         return reply.code(403).send({ error: "Forbidden" });
       }
@@ -138,7 +138,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const { id, token_id } = req.params as { id: string; token_id: string };
       const actor = req.actor!;
-      const isAdmin = actor.accessibleSpaceIds === "all";
+      const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
         return reply.code(403).send({ error: "Forbidden" });
       }
