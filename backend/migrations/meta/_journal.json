@@ -64,6 +64,13 @@
       "when": 1780000000000,
       "tag": "0008_password_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1748181600000,
+      "tag": "0009_event_edit",
+      "breakpoints": true
     }
   ]
 }

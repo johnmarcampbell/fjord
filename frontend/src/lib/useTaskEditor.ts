@@ -7,9 +7,11 @@ import {
   useAddComment,
   useAddJournalEntry,
   useArchiveTask,
+  useDeleteEvent,
   useDeleteTask,
   useRemoveBlocker,
   useUnarchiveTask,
+  useUpdateEvent,
   useUpdateTask,
 } from "./mutations.js";
 
@@ -27,6 +29,8 @@ export interface UseTaskEditor {
   ) => void;
   addComment: (body: string, opts?: { onSuccess?: () => void }) => void;
   addJournal: (body: string, opts?: { onSuccess?: () => void }) => void;
+  editEvent: (eventId: string, body: string, opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => void;
+  deleteEvent: (eventId: string, opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => void;
   addBlocker: (blockerId: string) => void;
   removeBlocker: (blockerId: string) => void;
   // Pending state on event composers so callers can disable the submit
@@ -94,6 +98,8 @@ export function useTaskEditor(taskId: string | null): UseTaskEditor {
   const removeBlockerMutation = useRemoveBlocker(id);
   const archiveMutation = useArchiveTask(id);
   const unarchiveMutation = useUnarchiveTask();
+  const updateEventMutation = useUpdateEvent(id);
+  const deleteEventMutation = useDeleteEvent(id);
 
   const clearConflict = useCallback(() => setConflict(null), []);
 
@@ -130,6 +136,31 @@ export function useTaskEditor(taskId: string | null): UseTaskEditor {
       });
     },
     [taskId, journalMutation],
+  );
+
+  const editEvent = useCallback(
+    (eventId: string, body: string, opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => {
+      if (!taskId) return;
+      updateEventMutation.mutate(
+        { eventId, body },
+        {
+          onSuccess: () => opts?.onSuccess?.(),
+          onError: (err) => opts?.onError?.(err instanceof Error ? err : new Error(String(err))),
+        },
+      );
+    },
+    [taskId, updateEventMutation],
+  );
+
+  const deleteEventFn = useCallback(
+    (eventId: string, opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => {
+      if (!taskId) return;
+      deleteEventMutation.mutate(eventId, {
+        onSuccess: () => opts?.onSuccess?.(),
+        onError: (err) => opts?.onError?.(err instanceof Error ? err : new Error(String(err))),
+      });
+    },
+    [taskId, deleteEventMutation],
   );
 
   const addBlocker = useCallback(
@@ -192,6 +223,8 @@ export function useTaskEditor(taskId: string | null): UseTaskEditor {
     update,
     addComment,
     addJournal,
+    editEvent,
+    deleteEvent: deleteEventFn,
     addBlocker,
     removeBlocker,
     archive,

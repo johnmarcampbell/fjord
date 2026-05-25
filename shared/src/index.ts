@@ -112,6 +112,7 @@ export interface TaskEvent {
   actor_id: string;
   kind: EventKind;
   created_at: string;
+  updated_at: string | null;
   body: string | null;
   from_value: string | null;
   to_value: string | null;
@@ -209,6 +210,8 @@ export const DOMAIN_ERROR_CODES = [
   "avatar_invalid",
   "set_password_required",
   "version_conflict",
+  "subsequent_activity",
+  "edit_window_expired",
 ] as const;
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
 
@@ -363,11 +366,17 @@ export interface AddBlockerRequest {
   blocker_id: string;
 }
 
+export interface UpdateEventRequest {
+  body: string;
+}
+
 export type StreamEvent =
   | { type: "task.created"; task_id: string; space_id: string }
   | { type: "task.updated"; task_id: string; version: number; space_id: string }
   | { type: "task.deleted"; task_id: string; space_id: string }
   | { type: "task.event_added"; task_id: string; event_id: string; kind: EventKind; space_id: string }
+  | { type: "task.event_updated"; task_id: string; event_id: string; space_id: string }
+  | { type: "task.event_deleted"; task_id: string; event_id: string; space_id: string }
   | { type: "demo.reset" };
 
 export interface ServerConfig {

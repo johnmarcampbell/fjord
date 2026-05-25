@@ -17,6 +17,7 @@ import type {
   Space,
   Task,
   TaskEvent,
+  UpdateEventRequest,
   UpdateProjectRequest,
   UpdateSpaceRequest,
   UpdateTaskRequest,
@@ -155,6 +156,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  updateEvent: (taskId: string, eventId: string, body: UpdateEventRequest) =>
+    request<TaskEvent>(`/api/tasks/${taskId}/events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteEvent: (taskId: string, eventId: string) =>
+    request<void>(`/api/tasks/${taskId}/events/${eventId}`, { method: "DELETE" }),
 
   addBlocker: (taskId: string, body: AddBlockerRequest) =>
     request<Task>(`/api/tasks/${taskId}/blockers`, {

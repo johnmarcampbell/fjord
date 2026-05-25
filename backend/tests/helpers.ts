@@ -13,7 +13,7 @@ export const DEFAULT_ACTOR = "alice";
  */
 const TEST_PASSWORD_HASH = "scrypt$N=16384,r=8,p=1$dGVzdA==$dGVzdA==";
 
-export async function makeTestApp() {
+export async function makeTestApp(overrides: Partial<Config> = {}) {
   const config: Config = {
     nodeEnv: "test",
     port: 0,
@@ -28,8 +28,10 @@ export async function makeTestApp() {
     staticDir: null,
     bootstrapPassword: null,
     sessionIdleDays: 30,
+    editWindowMinutes: 5,
     demo: false,
     demoResetMinutes: 10,
+    ...overrides,
   };
   const dbHandle = openDatabase(":memory:");
   const { app } = await buildApp({ config, dbHandle });

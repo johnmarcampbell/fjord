@@ -106,6 +106,7 @@ Read at startup from environment variables (Zod-validated in [backend/src/config
 - `KANBAN_STATIC_DIR` (path to frontend build for production serving)
 - `KANBAN_BOOTSTRAP_PASSWORD` (optional; seeds the `default-administrator` password on first boot if its `password_hash` is still null. Ignored thereafter and in demo mode.)
 - `KANBAN_SESSION_IDLE_DAYS` (default 30; idle expiry for session cookies)
+- `KANBAN_EDIT_WINDOW_MINUTES` (default 5; minutes after creation during which the author may edit or delete a comment or journal entry)
 - `NODE_ENV` (default `development`)
 
 ## Frontend architecture
@@ -172,6 +173,8 @@ Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `defa
 - `GET /api/tasks/:id/events` — timeline (comments + system events); filter by `?kind=<event_type>`
 - `POST /api/tasks/:id/comments` — add markdown comment (visible to all actors)
 - `POST /api/tasks/:id/journal` — append a durable working note (agent's working memory; use for notes to your future self, not cross-actor communication)
+- `PATCH /api/tasks/:id/events/:event_id` — edit a comment or journal entry (author-only, within `KANBAN_EDIT_WINDOW_MINUTES`); body: `{ "body": "<text>" }`
+- `DELETE /api/tasks/:id/events/:event_id` — delete a comment or journal entry (author-only, within window, and only if no subsequent activity exists); returns 403 with `code: subsequent_activity` or `code: edit_window_expired`
 - `POST /api/tasks/:id/blockers` — add blocking dependency (cycle-checked); body: `{ "blocker_id": "<task-id>" }`
 - `DELETE /api/tasks/:id/blockers/:blocker_id` — remove blocking dependency; `:blocker_id` is the blocking task's ID
 - `POST /api/tasks/:id/archive` — archive a task (must be in `Done` column)

@@ -10,8 +10,9 @@ import {
   type Task,
   type TaskEvent,
 } from "@agentic-kanban/shared";
-import { useTaskEditor } from "../lib/useTaskEditor.js";
+import { useTaskEditor, type UseTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects } from "../lib/queries.js";
+import { useCurrentUser } from "../lib/auth.js";
 import { Combobox } from "./Combobox.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import {
@@ -61,6 +62,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const { data: allTasks = [] } = useTasks(task?.space_id);
   const { data: projects = [] } = useProjects(task?.space_id);
 
+  const { data: me } = useCurrentUser();
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
@@ -231,6 +233,8 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             onSubmitJournal={() =>
               editor.addJournal(journal, { onSuccess: () => setJournal("") })
             }
+            currentUserId={me?.id ?? null}
+            editor={editor}
           />
         </div>
 
@@ -527,6 +531,8 @@ function TimelineSection({
   journalPending,
   onSubmitComment,
   onSubmitJournal,
+  currentUserId,
+  editor,
 }: {
   events: TaskEvent[];
   allTasks: Task[];
@@ -542,6 +548,8 @@ function TimelineSection({
   journalPending: boolean;
   onSubmitComment: () => void;
   onSubmitJournal: () => void;
+  currentUserId: string | null;
+  editor: UseTaskEditor;
 }) {
   const visible = useMemo(
     () => events.filter((e) => matchesFilter(e.kind, filter)),
@@ -610,6 +618,9 @@ function TimelineSection({
             allTasks={allTasks}
             projects={projects}
             usersById={usersById}
+            currentUserId={currentUserId}
+            onEdit={(body, opts) => editor.editEvent(e.id, body, opts)}
+            onDelete={(opts) => editor.deleteEvent(e.id, opts)}
           />
         ))}
       </div>
@@ -711,18 +722,62 @@ function EventItem({
   allTasks,
   projects,
   usersById,
+  currentUserId,
+  onEdit,
+  onDelete,
 }: {
   event: TaskEvent;
   allTasks: Task[];
   projects: Project[];
   usersById: UserLookup;
+  currentUserId: string | null;
+  onEdit: (body: string, opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => void;
+  onDelete: (opts?: { onSuccess?: () => void; onError?: (err: Error) => void }) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [confirmingDel, setConfirmingDel] = useState(false);
+
   const title = (id: string | null) =>
     allTasks.find((t) => t.id === id)?.title ?? id?.slice(0, 8) ?? "?";
   const projectName = (id: string | null) =>
     projects.find((p) => p.id === id)?.name ?? id ?? "(none)";
   const actorLabel = formatActorLabel(usersById, event.actor_id);
   const time = new Date(event.created_at).toLocaleString();
+  const isAuthor = currentUserId !== null && event.actor_id === currentUserId;
+  const isEditable = event.kind === "comment" || event.kind === "journal_entry";
+
+  const editedLabel = event.updated_at ? (
+    <span
+      className="text-ink-subtle cursor-default"
+      title={`Edited ${new Date(event.updated_at).toLocaleString()}`}
+    >
+      (edited)
+    </span>
+  ) : null;
+
+  function startEdit() {
+    setDraft(event.body ?? "");
+    setEditing(true);
+  }
+
+  function submitEdit() {
+    if (!draft.trim()) return;
+    onEdit(draft.trim(), {
+      onSuccess: () => setEditing(false),
+      onError: (err) => toast.error(err.message || "Failed to save edit"),
+    });
+  }
+
+  function handleDelete() {
+    onDelete({
+      onSuccess: () => setConfirmingDel(false),
+      onError: (err) => {
+        setConfirmingDel(false);
+        toast.error(err.message || "Failed to delete entry");
+      },
+    });
+  }
 
   if (event.kind === "comment") {
     return (
@@ -743,10 +798,73 @@ function EventItem({
           </svg>
           <span className="font-semibold text-ink">{actorLabel}</span>
           <span className="text-ink-subtle">{time}</span>
+          {editedLabel}
+          {isAuthor && isEditable && !editing && (
+            <span className="ml-auto flex items-center gap-2">
+              <button
+                onClick={startEdit}
+                className="text-ink-subtle transition-colors hover:text-ink-muted"
+                title="Edit"
+              >
+                edit
+              </button>
+              {!confirmingDel ? (
+                <button
+                  onClick={() => setConfirmingDel(true)}
+                  className="text-ink-subtle transition-colors hover:text-danger"
+                  title="Delete"
+                >
+                  delete
+                </button>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <button
+                    onClick={handleDelete}
+                    className="text-danger transition-colors hover:underline"
+                  >
+                    confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDel(false)}
+                    className="text-ink-subtle transition-colors hover:text-ink-muted"
+                  >
+                    cancel
+                  </button>
+                </span>
+              )}
+            </span>
+          )}
         </div>
-        <div className="markdown">
-          <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
-        </div>
+        {editing ? (
+          <div>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={4}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono text-ink focus:border-border-focus focus:outline-none transition-colors resize-y"
+              autoFocus
+            />
+            <div className="mt-1.5 flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(false)}
+                className="text-xs text-ink-subtle transition-colors hover:text-ink-muted"
+              >
+                cancel
+              </button>
+              <button
+                onClick={submitEdit}
+                disabled={!draft.trim()}
+                className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+              >
+                save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="markdown">
+            <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
+          </div>
+        )}
       </div>
     );
   }
@@ -777,10 +895,73 @@ function EventItem({
           </svg>
           <span className="font-semibold text-ink">{actorLabel}</span>
           <span className="text-ink-subtle">{time}</span>
+          {editedLabel}
+          {isAuthor && isEditable && !editing && (
+            <span className="ml-auto flex items-center gap-2">
+              <button
+                onClick={startEdit}
+                className="text-ink-subtle transition-colors hover:text-ink-muted"
+                title="Edit"
+              >
+                edit
+              </button>
+              {!confirmingDel ? (
+                <button
+                  onClick={() => setConfirmingDel(true)}
+                  className="text-ink-subtle transition-colors hover:text-danger"
+                  title="Delete"
+                >
+                  delete
+                </button>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <button
+                    onClick={handleDelete}
+                    className="text-danger transition-colors hover:underline"
+                  >
+                    confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDel(false)}
+                    className="text-ink-subtle transition-colors hover:text-ink-muted"
+                  >
+                    cancel
+                  </button>
+                </span>
+              )}
+            </span>
+          )}
         </div>
-        <div className="markdown">
-          <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
-        </div>
+        {editing ? (
+          <div>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={6}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono text-ink focus:border-border-focus focus:outline-none transition-colors resize-y"
+              autoFocus
+            />
+            <div className="mt-1.5 flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(false)}
+                className="text-xs text-ink-subtle transition-colors hover:text-ink-muted"
+              >
+                cancel
+              </button>
+              <button
+                onClick={submitEdit}
+                disabled={!draft.trim()}
+                className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+              >
+                save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="markdown">
+            <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
+          </div>
+        )}
       </div>
     );
   }

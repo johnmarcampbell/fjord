@@ -134,6 +134,30 @@ export function useMoveTask() {
   });
 }
 
+export function useUpdateEvent(taskId: string, options?: { onSuccess?: () => void }) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, body }: { eventId: string; body: string }) =>
+      api.updateEvent(taskId, eventId, { body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
+      options?.onSuccess?.();
+    },
+  });
+}
+
+export function useDeleteEvent(taskId: string, options?: { onSuccess?: () => void }) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (eventId: string) => api.deleteEvent(taskId, eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-events", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      options?.onSuccess?.();
+    },
+  });
+}
+
 // taskId is passed at mutate() time since ArchiveView iterates over many tasks
 export function useUnarchiveTask(options?: {
   onSuccess?: () => void;

@@ -195,4 +195,182 @@ describe("tasks", () => {
     const b = (await createTask(ctx, "alice", { title: "B" })).json();
     expect(b.position).toBeLessThan(a.position);
   });
+
+  describe("event edit/delete", () => {
+    it("author can edit their own comment", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const ev = (
+        await ctx.inject({
+          method: "POST",
+          url: `/api/tasks/${t.id}/comments`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "original" },
+        })
+      ).json();
+
+      const res = await ctx.inject({
+        method: "PATCH",
+        url: `/api/tasks/${t.id}/events/${ev.id}`,
+        headers: { "x-user-id": "alice" },
+        payload: { body: "updated" },
+      });
+      expect(res.statusCode).toBe(200);
+      const updated = res.json();
+      expect(updated.body).toBe("updated");
+      expect(updated.updated_at).toBeTruthy();
+    });
+
+    it("author can edit their own journal entry", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const ev = (
+        await ctx.inject({
+          method: "POST",
+          url: `/api/tasks/${t.id}/journal`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "old notes" },
+        })
+      ).json();
+
+      const res = await ctx.inject({
+        method: "PATCH",
+        url: `/api/tasks/${t.id}/events/${ev.id}`,
+        headers: { "x-user-id": "alice" },
+        payload: { body: "new notes" },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().body).toBe("new notes");
+    });
+
+    it("non-author cannot edit another actor's comment", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const ev = (
+        await ctx.inject({
+          method: "POST",
+          url: `/api/tasks/${t.id}/comments`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "alice's comment" },
+        })
+      ).json();
+
+      const res = await ctx.inject({
+        method: "PATCH",
+        url: `/api/tasks/${t.id}/events/${ev.id}`,
+        headers: { "x-user-id": "agent-coder" },
+        payload: { body: "hacked" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("system events cannot be edited", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const events = (
+        await ctx.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
+      ).json();
+      const systemEvent = events.find((e: any) => e.kind === "task_created");
+      expect(systemEvent).toBeTruthy();
+
+      const res = await ctx.inject({
+        method: "PATCH",
+        url: `/api/tasks/${t.id}/events/${systemEvent.id}`,
+        headers: { "x-user-id": "alice" },
+        payload: { body: "oops" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("author can delete their own comment when it is the last event", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const ev = (
+        await ctx.inject({
+          method: "POST",
+          url: `/api/tasks/${t.id}/comments`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "last comment" },
+        })
+      ).json();
+
+      const res = await ctx.inject({
+        method: "DELETE",
+        url: `/api/tasks/${t.id}/events/${ev.id}`,
+        headers: { "x-user-id": "alice" },
+      });
+      expect(res.statusCode).toBe(204);
+
+      const events = (
+        await ctx.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
+      ).json();
+      expect(events.find((e: any) => e.id === ev.id)).toBeUndefined();
+    });
+
+    it("returns 404 when event does not exist", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const res = await ctx.inject({
+        method: "DELETE",
+        url: `/api/tasks/${t.id}/events/nonexistent-id`,
+        headers: { "x-user-id": "alice" },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("non-author cannot delete another actor's comment", async () => {
+      const t = (await createTask(ctx, "alice", { title: "T" })).json();
+      const ev = (
+        await ctx.inject({
+          method: "POST",
+          url: `/api/tasks/${t.id}/comments`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "alice's comment" },
+        })
+      ).json();
+
+      const res = await ctx.inject({
+        method: "DELETE",
+        url: `/api/tasks/${t.id}/events/${ev.id}`,
+        headers: { "x-user-id": "agent-coder" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("edit window expiry blocks edit and delete (zero-minute window)", async () => {
+      // Create a custom app with editWindowMinutes = 0 so every event is immediately expired
+      const tinyCtx = await makeTestApp({ editWindowMinutes: 0 });
+      try {
+        const t = (
+          await tinyCtx.inject({
+            method: "POST",
+            url: "/api/tasks",
+            headers: { "x-user-id": "alice" },
+            payload: { title: "T" },
+          })
+        ).json();
+        const ev = (
+          await tinyCtx.inject({
+            method: "POST",
+            url: `/api/tasks/${t.id}/comments`,
+            headers: { "x-user-id": "alice" },
+            payload: { body: "hi" },
+          })
+        ).json();
+
+        const editRes = await tinyCtx.inject({
+          method: "PATCH",
+          url: `/api/tasks/${t.id}/events/${ev.id}`,
+          headers: { "x-user-id": "alice" },
+          payload: { body: "edited" },
+        });
+        expect(editRes.statusCode).toBe(403);
+        expect(editRes.json().code).toBe("edit_window_expired");
+
+        const delRes = await tinyCtx.inject({
+          method: "DELETE",
+          url: `/api/tasks/${t.id}/events/${ev.id}`,
+          headers: { "x-user-id": "alice" },
+        });
+        expect(delRes.statusCode).toBe(403);
+        expect(delRes.json().code).toBe("edit_window_expired");
+      } finally {
+        await tinyCtx.close();
+      }
+    });
+  });
 });

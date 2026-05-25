@@ -13,6 +13,7 @@ const EnvSchema = z.object({
   KANBAN_STATIC_DIR: z.string().optional(),
   KANBAN_BOOTSTRAP_PASSWORD: z.string().optional(),
   KANBAN_SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(30),
+  KANBAN_EDIT_WINDOW_MINUTES: z.coerce.number().int().nonnegative().default(5),
   KANBAN_DEMO_MODE: z
     .enum(["true", "false"])
     .transform((v) => v === "true")
@@ -31,6 +32,7 @@ export type Config = {
   staticDir: string | null;
   bootstrapPassword: string | null;
   sessionIdleDays: number;
+  editWindowMinutes: number;
   demo: boolean;
   demoResetMinutes: number;
 };
@@ -81,6 +83,7 @@ export function loadConfig(
     staticDir: parsed.KANBAN_STATIC_DIR ?? null,
     bootstrapPassword: parsed.KANBAN_BOOTSTRAP_PASSWORD ?? null,
     sessionIdleDays: parsed.KANBAN_SESSION_IDLE_DAYS,
+    editWindowMinutes: parsed.KANBAN_EDIT_WINDOW_MINUTES,
     demo,
     demoResetMinutes: overrides.demoResetMinutes ?? parsed.KANBAN_DEMO_RESET_MINUTES,
   };
