@@ -1,8 +1,12 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
+import { toast } from "sonner";
 import type { Project, Task } from "@agentic-kanban/shared";
 import { useIsMobile } from "../lib/useIsMobile.js";
+import { useTimelineFilter } from "../lib/useTimelineFilter.js";
+import { FilterPill } from "./FilterPill.js";
+import { useArchiveTask } from "../lib/mutations.js";
 
 function DragGripIcon() {
   return (
@@ -13,6 +17,16 @@ function DragGripIcon() {
       <circle cx="8" cy="8" r="1.25" />
       <circle cx="2" cy="13" r="1.25" />
       <circle cx="8" cy="13" r="1.25" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="21 8 21 21 3 21 3 8" />
+      <rect x="1" y="3" width="22" height="5" />
+      <line x1="10" y1="12" x2="14" y2="12" />
     </svg>
   );
 }
@@ -39,7 +53,7 @@ function CardContent({
   showProject: boolean;
   assigneeLabel: string;
 }) {
-  const hasActivityBadges = task.comment_count > 0 || task.journal_count > 0;
+  const { filter, toggle, solo } = useTimelineFilter();
   return (
     <>
       {showProject && project && (
@@ -83,27 +97,33 @@ function CardContent({
         </div>
       )}
 
-      {hasActivityBadges && (
-        <div className="mt-2 flex items-center gap-2.5 text-[11px] font-semibold text-ink-muted">
-          {task.comment_count > 0 && (
-            <span className="flex items-center gap-1" title={`${task.comment_count} comment${task.comment_count === 1 ? "" : "s"}`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              {task.comment_count}
-            </span>
-          )}
-          {task.journal_count > 0 && (
-            <span className="flex items-center gap-1" title={`${task.journal_count} journal entr${task.journal_count === 1 ? "y" : "ies"}`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-              </svg>
-              {task.journal_count}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Filter pills — stopPropagation so clicks don't open the drawer */}
+      <div
+        className="mt-2 flex items-center gap-1"
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        <FilterPill
+          label="Comments"
+          count={task.comment_count > 0 ? task.comment_count : undefined}
+          active={filter.comments}
+          onToggle={() => toggle("comments")}
+          onSolo={() => solo("comments")}
+        />
+        <FilterPill
+          label="Journal"
+          count={task.journal_count > 0 ? task.journal_count : undefined}
+          active={filter.journal}
+          onToggle={() => toggle("journal")}
+          onSolo={() => solo("journal")}
+        />
+        <FilterPill
+          label="System"
+          active={filter.system}
+          onToggle={() => toggle("system")}
+          onSolo={() => solo("system")}
+        />
+      </div>
     </>
   );
 }
@@ -119,6 +139,9 @@ export function TaskCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
   const isMobile = useIsMobile();
+  const archiveMutation = useArchiveTask(task.id, {
+    onError: () => toast.error("Failed to archive task"),
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -134,7 +157,7 @@ export function TaskCard({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "flex overflow-hidden rounded-card bg-surface shadow-card",
+        "group relative flex overflow-hidden rounded-card bg-surface shadow-card",
         "transition-all duration-150 hover:-translate-y-px hover:shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
@@ -159,6 +182,18 @@ export function TaskCard({
           assigneeLabel={assigneeLabel}
         />
       </div>
+      {task.column === "Done" && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            archiveMutation.mutate();
+          }}
+          title="Archive task"
+          className="absolute right-1.5 top-1.5 rounded p-0.5 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-subtle hover:text-ink"
+        >
+          <ArchiveIcon />
+        </button>
+      )}
     </div>
   );
 }

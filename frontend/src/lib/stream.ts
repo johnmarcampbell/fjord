@@ -81,6 +81,8 @@ function handleEvent(event: StreamEvent, queryClient: QueryClient): void {
       queryClient.invalidateQueries({ queryKey: ["task", event.task_id] });
       break;
     case "task.event_added":
+    case "task.event_updated":
+    case "task.event_deleted":
       queryClient.invalidateQueries({ queryKey: ["task-events", event.task_id] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       break;

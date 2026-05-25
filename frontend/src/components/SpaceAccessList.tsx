@@ -6,11 +6,11 @@ import { Combobox } from "./Combobox.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-    return <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />;
+    return <img src={avatar} alt="" className="h-5 w-5 rounded-full object-cover" />;
   }
   return (
     <span
-      className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-subtle text-base"
+      className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-subtle text-xs"
       aria-hidden
     >
       {avatar}
@@ -84,11 +84,11 @@ export function SpaceAccessList({
           No one else has been granted access.
         </p>
       ) : (
-        <ul className="mb-3 flex flex-wrap gap-2">
+        <ul className="mb-3 flex flex-wrap gap-1.5">
           {rows.map((user) => (
             <li
               key={user.id}
-              className="group flex items-center gap-2 rounded-full border border-border bg-surface-subtle px-3 py-1.5"
+              className="group flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2 py-1"
             >
               <AvatarGlyph avatar={user.avatar} />
               <span className="text-xs font-medium text-ink">@{user.handle}</span>
