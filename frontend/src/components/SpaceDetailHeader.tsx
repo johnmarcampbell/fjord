@@ -7,11 +7,11 @@ import { api, ApiError } from "../lib/api.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-    return <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />;
+    return <img src={avatar} alt="" className="h-5 w-5 rounded-full object-cover" />;
   }
   return (
     <span
-      className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-subtle text-base"
+      className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-subtle text-xs"
       aria-hidden
     >
       {avatar}
@@ -294,7 +294,7 @@ export function SpaceDetailHeader({
           Owner
         </span>
         {owner ? (
-          <div className="flex items-center gap-2 rounded-full border border-border bg-surface-subtle px-3 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2 py-1">
             <AvatarGlyph avatar={owner.avatar} />
             <span className="text-xs font-medium text-ink">@{owner.handle}</span>
           </div>
