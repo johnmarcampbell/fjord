@@ -152,20 +152,32 @@ function backfillFromDrizzleMigrations(
 /**
  * Defensive repair for deployments whose migration metadata drifted from the
  * actual schema. This keeps startup resilient for older upgraded volumes.
+ *
+ * When repair is needed for schema objects that belong to a specific migration,
+ * we also mark that migration as applied in __ak_migrations (if the table
+ * exists). This prevents applyMigrations from re-running it on the next startup,
+ * which would fail because SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS
+ * guard and the column was already created here.
  */
 export function repairSchemaDrift(sqlite: DatabaseSync): void {
   withTransaction(sqlite, () => {
+    let repaired0007 = false;
+    let repaired0008 = false;
+
     if (hasTable(sqlite, "users") && !hasColumn(sqlite, "users", "role")) {
       sqlite.exec("ALTER TABLE `users` ADD `role` text DEFAULT 'Member' NOT NULL");
       sqlite.exec("UPDATE `users` SET `role` = 'Admin'");
+      repaired0007 = true;
     }
 
     if (hasTable(sqlite, "users") && !hasColumn(sqlite, "users", "password_hash")) {
       sqlite.exec("ALTER TABLE `users` ADD `password_hash` text");
+      repaired0008 = true;
     }
 
     if (hasTable(sqlite, "spaces") && !hasColumn(sqlite, "spaces", "created_by")) {
       sqlite.exec("ALTER TABLE `spaces` ADD `created_by` text DEFAULT 'default-administrator' NOT NULL");
+      repaired0007 = true;
     }
 
     if (!hasTable(sqlite, "user_space_access")) {
@@ -182,6 +194,7 @@ export function repairSchemaDrift(sqlite: DatabaseSync): void {
         )
       `);
       sqlite.exec("CREATE INDEX user_space_access_user_idx ON user_space_access (user_id)");
+      repaired0007 = true;
     }
 
     if (!hasTable(sqlite, "sessions")) {
@@ -196,6 +209,7 @@ export function repairSchemaDrift(sqlite: DatabaseSync): void {
         )
       `);
       sqlite.exec("CREATE INDEX sessions_user_idx ON sessions (user_id)");
+      repaired0008 = true;
     }
 
     if (!hasTable(sqlite, "api_tokens")) {
@@ -216,6 +230,18 @@ export function repairSchemaDrift(sqlite: DatabaseSync): void {
       `);
       sqlite.exec("CREATE UNIQUE INDEX api_tokens_lookup_hash_unique ON api_tokens (lookup_hash)");
       sqlite.exec("CREATE INDEX api_tokens_user_idx ON api_tokens (user_id)");
+      repaired0008 = true;
+    }
+
+    // If we repaired schema objects that belong to a specific migration, mark
+    // that migration as applied so the migration runner skips it on the next
+    // startup. (ALTER TABLE ADD COLUMN has no IF NOT EXISTS in SQLite, so
+    // re-running it would crash.)
+    if ((repaired0007 || repaired0008) && hasTable(sqlite, "__ak_migrations")) {
+      const now = new Date().toISOString();
+      const insert = sqlite.prepare("INSERT OR IGNORE INTO __ak_migrations (tag, applied_at) VALUES (?, ?)");
+      if (repaired0007) insert.run("0007_dizzy_komodo", now);
+      if (repaired0008) insert.run("0008_password_auth", now);
     }
   });
 }
