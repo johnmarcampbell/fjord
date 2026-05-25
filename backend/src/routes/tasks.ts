@@ -115,6 +115,14 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
   }
 }
 
+// Converts literal \n / \r\n escape sequences to real newlines; skips triple-backtick fences.
+function normalizeBodyNewlines(text: string): string {
+  const segments = text.split(/(```[\s\S]*?```)/);
+  return segments
+    .map((seg, i) => (i % 2 === 1 ? seg : seg.replace(/\\r\\n|\\n/g, "\n")))
+    .join("");
+}
+
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     "/api/tasks",
@@ -363,7 +371,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { body } = req.body as AddCommentRequest;
       try {
         reply.code(201);
-        return addComment(app.db, app.events, actor, id, body);
+        return addComment(app.db, app.events, actor, id, normalizeBodyNewlines(body));
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -406,7 +414,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { body } = req.body as AddJournalEntryRequest;
       try {
         reply.code(201);
-        return addJournalEntry(app.db, app.events, actor, id, body);
+        return addJournalEntry(app.db, app.events, actor, id, normalizeBodyNewlines(body));
       } catch (err) {
         mapServiceError(err, reply);
       }

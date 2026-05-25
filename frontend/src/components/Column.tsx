@@ -1,6 +1,9 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Column as ColumnKey, Project, Task, User } from "@agentic-kanban/shared";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "../lib/api.js";
 import { TaskCard } from "./TaskCard.js";
 import { formatAssigneeLabel } from "../lib/userLabels.js";
 
@@ -27,6 +30,21 @@ export function ColumnView({
     id: `col:${column}`,
     data: { type: "column", column },
   });
+  const queryClient = useQueryClient();
+
+  async function handleArchiveAll() {
+    if (!window.confirm(`Archive all ${tasks.length} task${tasks.length === 1 ? "" : "s"} in Done?`)) return;
+    const results = await Promise.allSettled(tasks.map((t) => api.archiveTask(t.id)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["archived-tasks"] });
+    if (failed === 0) {
+      toast.success(`Archived ${succeeded} task${succeeded === 1 ? "" : "s"}`);
+    } else {
+      toast.error(`Archived ${succeeded}, failed ${failed}`);
+    }
+  }
 
   return (
     <div className="flex w-full flex-shrink-0 flex-col gap-3 sm:h-full sm:w-auto sm:min-h-0 sm:flex-1 sm:flex-shrink sm:min-w-[272px]">
@@ -37,6 +55,15 @@ export function ColumnView({
         <span className="text-[11px] font-semibold text-ink-subtle">
           {tasks.length}
         </span>
+        {column === "Done" && tasks.length > 0 && (
+          <button
+            onClick={handleArchiveAll}
+            className="ml-auto text-[11px] font-semibold text-ink-subtle transition-colors hover:text-ink"
+            title="Archive all Done tasks"
+          >
+            Archive all
+          </button>
+        )}
       </div>
 
       <div

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { Markdown } from "./Markdown.js";
 import { toast } from "sonner";
 import {
   COLUMNS,
@@ -146,7 +146,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             ) : (
               <div className="markdown min-h-[80px] rounded-lg border border-border bg-surface-subtle p-3">
                 {task.description ? (
-                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                  <Markdown>{task.description}</Markdown>
                 ) : (
                   <span className="text-sm text-ink-subtle">No description</span>
                 )}
@@ -704,7 +704,7 @@ function EventItem({
           <span className="text-ink-subtle">{time}</span>
         </div>
         <div className="markdown">
-          <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
+          <Markdown>{event.body ?? ""}</Markdown>
         </div>
       </div>
     );
@@ -738,7 +738,7 @@ function EventItem({
           <span className="text-ink-subtle">{time}</span>
         </div>
         <div className="markdown">
-          <ReactMarkdown>{event.body ?? ""}</ReactMarkdown>
+          <Markdown>{event.body ?? ""}</Markdown>
         </div>
       </div>
     );
