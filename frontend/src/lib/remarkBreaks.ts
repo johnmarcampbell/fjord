@@ -5,7 +5,7 @@ import type { Root, Text, Break } from "mdast";
 export function remarkBreaks() {
   return (tree: Root) => {
     visit(tree, "text", (node, index, parent) => {
-      if (parent === null || index === null) return;
+      if (parent == null || index == null) return;
 
       const parts: Array<Text | Break> = [];
       let start = 0;
