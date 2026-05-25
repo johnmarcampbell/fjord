@@ -52,11 +52,16 @@ A non-**Admin** **Role** — the default. Used only as a role name; do _not_ use
 _Avoid_: using for actors-in-general.
 
 **Space access**:
-A grant that lets a **Member** see and act within a specific **Space**.
-**Admin** **Users** have implicit access to every **Space** and do not need
-grants. **Space Owners** have implicit access to spaces they own. Modeled as
-a row in a grants table; not a property of the **User**.
-_Avoid_: membership, role-in-space.
+An explicit association between a **User** and a **Space**, recorded as a row
+in `user_space_access`. Carries two intertwined meanings:
+- For a **Member**, it grants the permission to see and act within the space.
+- For an **Admin**, it carries no new permission (their **Role** already grants
+  everything) — it is an affiliation signal: "I am in this space."
+**Space Owners** have implicit access to spaces they own (no grant row).
+UI surfaces refer to this as being "in" the space (e.g. "People in this Space"),
+not "having access", because "access" misleads for **Admins** who always have
+access regardless.
+_Avoid_: role-in-space.
 
 **Space Owner**:
 The **User** who created a **Space**. Recorded on the space row, not as a
@@ -137,7 +142,7 @@ a system-recorded change (column change, blocker added, etc.).
 ## Relationships
 
 - A **User** has exactly one **Kind**, one **Handle**, one **Display name**, one **Avatar**, and one **Role**.
-- A **Member** has zero or more **Space access** grants. **Admins** do not need grants.
+- A **User** (of any **Role**) has zero or more **Space access** rows. For a **Member** they are permission grants; for an **Admin** they are affiliation signals. **Admins** do not *need* a row to act in a space — their **Role** suffices — but they do need one to appear in that space's "People in this Space" list.
 - Every **Space** has exactly one **Space Owner** — the **User** who created it.
 - A **Task** is reported by one **User** and optionally assigned to one **User**.
 - A **Task** is blocked by zero or more other **Tasks** via **Blocker** edges.
