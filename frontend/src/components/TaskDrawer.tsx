@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
+import { Markdown } from "./Markdown.js";
 import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@agentic-kanban/shared";
 import { useUsers, useProjects } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
@@ -197,7 +197,7 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
             {task.description ? (
               <div className="relative max-h-32 overflow-hidden rounded-lg border border-border bg-surface-subtle p-3">
                 <div className="markdown">
-                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                  <Markdown>{task.description}</Markdown>
                 </div>
                 {/* Bottom fade-out hint when content overflows */}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-surface-subtle to-transparent" />
