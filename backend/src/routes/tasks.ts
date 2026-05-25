@@ -16,6 +16,8 @@ import {
   CycleError,
   DependencyNotFoundError,
   DuplicateDependencyError,
+  EventEditForbiddenError,
+  EventNotFoundError,
   SpaceProjectMismatchError,
   TaskNotFoundError,
   TaskStateError,
@@ -28,6 +30,8 @@ import {
   archiveTask,
   createTask,
   deleteTask,
+  deleteTaskEvent,
+  editTaskEvent,
   hydrateTask,
   removeBlocker,
   toEvent,
@@ -110,6 +114,16 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
     reply.code(400).send({ error: err.message });
   } else if (err instanceof AssigneeNoAccessError) {
     reply.code(400).send({ error: err.message });
+  } else if (err instanceof EventNotFoundError) {
+    reply.code(404).send({ error: "Event not found" });
+  } else if (err instanceof EventEditForbiddenError) {
+    if (err.code === "not_author") {
+      reply.code(403).send({ error: "Forbidden: you are not the author of this event" });
+    } else if (err.code === "not_editable_kind") {
+      reply.code(403).send({ error: "Forbidden: only comments and journal entries can be edited or deleted" });
+    } else {
+      reply.code(403).send({ error: err.code === "subsequent_activity" ? "Cannot delete: subsequent activity exists on this task" : "Cannot edit or delete: edit window has expired", code: err.code });
+    }
   } else {
     throw err;
   }
@@ -530,6 +544,77 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       try {
         reply.code(200);
         return unarchiveTask(app.db, app.events, actor, id);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
+    },
+  );
+
+  app.patch(
+    "/api/tasks/:id/events/:event_id",
+    {
+      schema: {
+        summary: "Edit a comment or journal entry",
+        description:
+          "Author-only. Updates the body of a comment or journal entry and sets `updated_at`. " +
+          "Only allowed within the configured edit window (`KANBAN_EDIT_WINDOW_MINUTES`).",
+        tags: ["tasks"],
+        params: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            event_id: { type: "string" },
+          },
+          required: ["id", "event_id"],
+        },
+        body: {
+          type: "object",
+          required: ["body"],
+          properties: { body: { type: "string", minLength: 1, maxLength: 100000 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = req.actor!.id;
+      const { id, event_id: eventId } = req.params as { id: string; event_id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
+      const { body } = req.body as { body: string };
+      try {
+        return editTaskEvent(app.db, app.events, actor, id, eventId, body, app.config.editWindowMinutes);
+      } catch (err) {
+        mapServiceError(err, reply);
+      }
+    },
+  );
+
+  app.delete(
+    "/api/tasks/:id/events/:event_id",
+    {
+      schema: {
+        summary: "Delete a comment or journal entry",
+        description:
+          "Author-only. Deletes a comment or journal entry if both conditions are met: " +
+          "(1) no subsequent activity exists on the task, and " +
+          "(2) the entry is within the configured edit window (`KANBAN_EDIT_WINDOW_MINUTES`). " +
+          "Returns 403 with `code: subsequent_activity` or `code: edit_window_expired` when the respective condition fails.",
+        tags: ["tasks"],
+        params: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            event_id: { type: "string" },
+          },
+          required: ["id", "event_id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const actor = req.actor!.id;
+      const { id, event_id: eventId } = req.params as { id: string; event_id: string };
+      if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
+      try {
+        deleteTaskEvent(app.db, app.events, actor, id, eventId, app.config.editWindowMinutes);
+        reply.code(204);
       } catch (err) {
         mapServiceError(err, reply);
       }

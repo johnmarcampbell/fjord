@@ -119,6 +119,7 @@ export const taskEvents = sqliteTable(
     actorId: text("actor_id").notNull().references(() => users.id),
     kind: text("kind").notNull(),
     createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at"),
     body: text("body"),
     fromValue: text("from_value"),
     toValue: text("to_value"),

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import {
   DEFAULT_SPACE_ID,
@@ -69,6 +69,17 @@ export class AssigneeNoAccessError extends Error {
   }
 }
 
+export class EventNotFoundError extends Error {
+  readonly name = "EventNotFoundError";
+}
+
+export class EventEditForbiddenError extends Error {
+  readonly name = "EventEditForbiddenError";
+  constructor(public readonly code: "subsequent_activity" | "edit_window_expired" | "not_author" | "not_editable_kind") {
+    super(code);
+  }
+}
+
 /**
  * True if the given user can access the given space (Admin, Owner, or has an
  * explicit grant). Used by cross-space-move guards to reject moves that would
@@ -122,6 +133,7 @@ export function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
     actor_id: row.actorId,
     kind: row.kind as TaskEvent["kind"],
     created_at: row.createdAt,
+    updated_at: row.updatedAt ?? null,
     body: row.body,
     from_value: row.fromValue,
     to_value: row.toValue,
@@ -652,4 +664,75 @@ export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: s
   });
   events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
   return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
+}
+
+const EDITABLE_KINDS = new Set(["comment", "journal_entry"]);
+
+function checkEventEditability(
+  db: DB,
+  event: typeof taskEvents.$inferSelect,
+  actor: string,
+  editWindowMinutes: number,
+): void {
+  if (!EDITABLE_KINDS.has(event.kind)) throw new EventEditForbiddenError("not_editable_kind");
+  if (event.actorId !== actor) throw new EventEditForbiddenError("not_author");
+
+  const windowMs = editWindowMinutes * 60 * 1000;
+  const createdMs = new Date(event.createdAt).getTime();
+  if (Date.now() - createdMs > windowMs) throw new EventEditForbiddenError("edit_window_expired");
+}
+
+function hasSubsequentActivity(db: DB, taskId: string, afterIso: string): boolean {
+  const row = db
+    .select({ id: taskEvents.id })
+    .from(taskEvents)
+    .where(and(eq(taskEvents.taskId, taskId), gt(taskEvents.createdAt, afterIso)))
+    .get();
+  return !!row;
+}
+
+export function editTaskEvent(
+  db: DB,
+  bus: EventBus,
+  actor: string,
+  taskId: string,
+  eventId: string,
+  body: string,
+  editWindowMinutes: number,
+): TaskEvent {
+  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+  if (!task) throw new TaskNotFoundError();
+  const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
+  if (!event || event.taskId !== taskId) throw new EventNotFoundError();
+
+  checkEventEditability(db, event, actor, editWindowMinutes);
+
+  const now = nowIso();
+  db.update(taskEvents).set({ body, updatedAt: now }).where(eq(taskEvents.id, eventId)).run();
+  bus.publish({ type: "task.event_updated", task_id: taskId, event_id: eventId, space_id: task.spaceId });
+
+  return toEvent({ ...event, body, updatedAt: now });
+}
+
+export function deleteTaskEvent(
+  db: DB,
+  bus: EventBus,
+  actor: string,
+  taskId: string,
+  eventId: string,
+  editWindowMinutes: number,
+): void {
+  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+  if (!task) throw new TaskNotFoundError();
+  const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
+  if (!event || event.taskId !== taskId) throw new EventNotFoundError();
+
+  checkEventEditability(db, event, actor, editWindowMinutes);
+
+  if (hasSubsequentActivity(db, taskId, event.createdAt)) {
+    throw new EventEditForbiddenError("subsequent_activity");
+  }
+
+  db.delete(taskEvents).where(eq(taskEvents.id, eventId)).run();
+  bus.publish({ type: "task.event_deleted", task_id: taskId, event_id: eventId, space_id: task.spaceId });
 }
