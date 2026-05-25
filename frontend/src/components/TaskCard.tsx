@@ -1,8 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
+import { toast } from "sonner";
 import type { Project, Task } from "@agentic-kanban/shared";
 import { useIsMobile } from "../lib/useIsMobile.js";
+import { useArchiveTask } from "../lib/mutations.js";
 
 function DragGripIcon() {
   return (
@@ -13,6 +15,16 @@ function DragGripIcon() {
       <circle cx="8" cy="8" r="1.25" />
       <circle cx="2" cy="13" r="1.25" />
       <circle cx="8" cy="13" r="1.25" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="21 8 21 21 3 21 3 8" />
+      <rect x="1" y="3" width="22" height="5" />
+      <line x1="10" y1="12" x2="14" y2="12" />
     </svg>
   );
 }
@@ -119,6 +131,9 @@ export function TaskCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
   const isMobile = useIsMobile();
+  const archiveMutation = useArchiveTask(task.id, {
+    onError: () => toast.error("Failed to archive task"),
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -134,7 +149,7 @@ export function TaskCard({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "flex overflow-hidden rounded-card bg-surface shadow-card",
+        "group relative flex overflow-hidden rounded-card bg-surface shadow-card",
         "transition-all duration-150 hover:-translate-y-px hover:shadow-card-hover",
         isBlocked && "border-l-[3px] border-danger",
       )}
@@ -159,6 +174,18 @@ export function TaskCard({
           assigneeLabel={assigneeLabel}
         />
       </div>
+      {task.column === "Done" && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            archiveMutation.mutate();
+          }}
+          title="Archive task"
+          className="absolute right-1.5 top-1.5 rounded p-0.5 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-subtle hover:text-ink"
+        >
+          <ArchiveIcon />
+        </button>
+      )}
     </div>
   );
 }
