@@ -4,6 +4,8 @@ import clsx from "clsx";
 import { toast } from "sonner";
 import type { Project, Task } from "@agentic-kanban/shared";
 import { useIsMobile } from "../lib/useIsMobile.js";
+import { useTimelineFilter } from "../lib/useTimelineFilter.js";
+import { FilterPill } from "./FilterPill.js";
 import { useArchiveTask } from "../lib/mutations.js";
 
 function DragGripIcon() {
@@ -51,7 +53,7 @@ function CardContent({
   showProject: boolean;
   assigneeLabel: string;
 }) {
-  const hasActivityBadges = task.comment_count > 0 || task.journal_count > 0;
+  const { filter, toggle, solo } = useTimelineFilter();
   return (
     <>
       {showProject && project && (
@@ -95,27 +97,33 @@ function CardContent({
         </div>
       )}
 
-      {hasActivityBadges && (
-        <div className="mt-2 flex items-center gap-2.5 text-[11px] font-semibold text-ink-muted">
-          {task.comment_count > 0 && (
-            <span className="flex items-center gap-1" title={`${task.comment_count} comment${task.comment_count === 1 ? "" : "s"}`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              {task.comment_count}
-            </span>
-          )}
-          {task.journal_count > 0 && (
-            <span className="flex items-center gap-1" title={`${task.journal_count} journal entr${task.journal_count === 1 ? "y" : "ies"}`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-              </svg>
-              {task.journal_count}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Filter pills — stopPropagation so clicks don't open the drawer */}
+      <div
+        className="mt-2 flex items-center gap-1"
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        <FilterPill
+          label="Comments"
+          count={task.comment_count > 0 ? task.comment_count : undefined}
+          active={filter.comments}
+          onToggle={() => toggle("comments")}
+          onSolo={() => solo("comments")}
+        />
+        <FilterPill
+          label="Journal"
+          count={task.journal_count > 0 ? task.journal_count : undefined}
+          active={filter.journal}
+          onToggle={() => toggle("journal")}
+          onSolo={() => solo("journal")}
+        />
+        <FilterPill
+          label="System"
+          active={filter.system}
+          onToggle={() => toggle("system")}
+          onSolo={() => solo("system")}
+        />
+      </div>
     </>
   );
 }
