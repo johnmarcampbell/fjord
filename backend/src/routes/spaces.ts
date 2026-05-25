@@ -46,7 +46,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const includeArchived =
         (req.query as { include_archived?: string }).include_archived === "true";
-      const all = listSpaces(app.db, { includeArchived });
+      const all = listSpaces(app.db, { includeArchived }, actor.affiliatedSpaceIds, actor.id);
       if (actor.accessibleSpaceIds === "all") return all;
       return all.filter((s) => actor.accessibleSpaceIds !== "all" && (actor.accessibleSpaceIds as Set<string>).has(s.id));
     },
@@ -68,7 +68,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const actor = req.actor!;
       try {
-        const space = getSpace(app.db, (req.params as { id: string }).id);
+        const space = getSpace(app.db, (req.params as { id: string }).id, actor.affiliatedSpaceIds, actor.id);
         if (!canAccessSpace(actor, space.id)) return reply.code(403).send({ error: "Forbidden" });
         return space;
       } catch (err) {
@@ -97,7 +97,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
-      const created = createSpace(app.db, req.body as CreateSpaceRequest, actor.id);
+      const created = createSpace(app.db, req.body as CreateSpaceRequest, actor.id, actor.affiliatedSpaceIds);
       reply.code(201);
       return created;
     },
@@ -128,7 +128,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       try {
         const space = getSpace(app.db, (req.params as { id: string }).id);
         if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
-        return updateSpace(app.db, space.id, req.body as UpdateSpaceRequest);
+        return updateSpace(app.db, space.id, req.body as UpdateSpaceRequest, actor.affiliatedSpaceIds, actor.id);
       } catch (err) {
         if (err instanceof SpaceNotFoundError)
           return reply.code(404).send({ error: "Space not found" });
@@ -190,7 +190,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       try {
         const space = getSpace(app.db, (req.params as { id: string }).id);
         if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
-        return archiveSpace(app.db, space.id);
+        return archiveSpace(app.db, space.id, actor.affiliatedSpaceIds, actor.id);
       } catch (err) {
         if (err instanceof SpaceArchiveBlockedError)
           return reply
@@ -221,7 +221,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       try {
         const space = getSpace(app.db, (req.params as { id: string }).id);
         if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
-        return unarchiveSpace(app.db, space.id);
+        return unarchiveSpace(app.db, space.id, actor.affiliatedSpaceIds, actor.id);
       } catch (err) {
         if (err instanceof SpaceNotFoundError)
           return reply.code(404).send({ error: "Space not found" });
@@ -299,7 +299,6 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       const targetUser = app.db.select().from(users).where(eq(users.id, targetUserId)).get();
       if (!targetUser) return reply.code(400).send({ error: "User not found" });
       if (targetUser.deletedAt) return reply.code(400).send({ error: "Cannot grant access to deleted user" });
-      if (targetUser.role === "Admin") return reply.code(400).send({ error: "Admin already has access to all spaces" });
 
       app.db
         .insert(userSpaceAccess)

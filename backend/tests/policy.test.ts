@@ -10,9 +10,9 @@ import {
 } from "../src/auth/policy.js";
 import { DEFAULT_ADMINISTRATOR_ID } from "@agentic-kanban/shared";
 
-const admin: Actor = { id: "admin-1", role: "Admin", accessibleSpaceIds: "all", authMethod: "session" };
-const member: Actor = { id: "member-1", role: "Member", accessibleSpaceIds: new Set(["s1", "s2"]), authMethod: "session" };
-const memberNoGrants: Actor = { id: "member-2", role: "Member", accessibleSpaceIds: new Set(), authMethod: "session" };
+const admin: Actor = { id: "admin-1", role: "Admin", accessibleSpaceIds: "all", affiliatedSpaceIds: new Set(["s1"]), authMethod: "session" };
+const member: Actor = { id: "member-1", role: "Member", accessibleSpaceIds: new Set(["s1", "s2"]), affiliatedSpaceIds: new Set(["s1", "s2"]), authMethod: "session" };
+const memberNoGrants: Actor = { id: "member-2", role: "Member", accessibleSpaceIds: new Set(), affiliatedSpaceIds: new Set(), authMethod: "session" };
 
 const ownedSpace = { created_by: "member-1" };
 const otherSpace = { created_by: "someone-else" };

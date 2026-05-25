@@ -35,7 +35,14 @@ export class SpaceArchivedError extends Error {
   readonly name = "SpaceArchivedError";
 }
 
-export function toSpace(row: typeof spaces.$inferSelect): Space {
+export function toSpace(
+  row: typeof spaces.$inferSelect,
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space {
+  const affiliated = affiliatedSpaceIds
+    ? affiliatedSpaceIds.has(row.id) || row.createdBy === actorId
+    : false;
   return {
     id: row.id,
     name: row.name,
@@ -44,6 +51,7 @@ export function toSpace(row: typeof spaces.$inferSelect): Space {
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     created_by: row.createdBy,
+    affiliated,
   };
 }
 
@@ -67,19 +75,29 @@ export function assertSpaceWriteable(db: DB, spaceId: string): void {
   if (row.archivedAt !== null) throw new SpaceArchivedError();
 }
 
-export function listSpaces(db: DB, opts: { includeArchived?: boolean } = {}): Space[] {
+export function listSpaces(
+  db: DB,
+  opts: { includeArchived?: boolean } = {},
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space[] {
   const query = db.select().from(spaces);
   const rows = opts.includeArchived ? query.all() : query.where(isNull(spaces.archivedAt)).all();
-  return rows.map(toSpace);
+  return rows.map((r) => toSpace(r, affiliatedSpaceIds, actorId));
 }
 
-export function getSpace(db: DB, id: string): Space {
+export function getSpace(db: DB, id: string, affiliatedSpaceIds?: Set<string>, actorId?: string): Space {
   const row = db.select().from(spaces).where(eq(spaces.id, id)).get();
   if (!row) throw new SpaceNotFoundError();
-  return toSpace(row);
+  return toSpace(row, affiliatedSpaceIds, actorId);
 }
 
-export function createSpace(db: DB, body: CreateSpaceRequest, actorId: string): Space {
+export function createSpace(
+  db: DB,
+  body: CreateSpaceRequest,
+  actorId: string,
+  affiliatedSpaceIds?: Set<string>,
+): Space {
   const now = nowIso();
   const row = {
     id: newId(),
@@ -91,10 +109,16 @@ export function createSpace(db: DB, body: CreateSpaceRequest, actorId: string): 
     createdBy: actorId,
   };
   db.insert(spaces).values(row).run();
-  return toSpace(row);
+  return toSpace(row, affiliatedSpaceIds, actorId);
 }
 
-export function updateSpace(db: DB, id: string, body: UpdateSpaceRequest): Space {
+export function updateSpace(
+  db: DB,
+  id: string,
+  body: UpdateSpaceRequest,
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space {
   const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
   if (!existing) throw new SpaceNotFoundError();
 
@@ -104,7 +128,7 @@ export function updateSpace(db: DB, id: string, body: UpdateSpaceRequest): Space
     updatedAt: nowIso(),
   };
   db.update(spaces).set(updates).where(eq(spaces.id, id)).run();
-  return toSpace({ ...existing, ...updates });
+  return toSpace({ ...existing, ...updates }, affiliatedSpaceIds, actorId);
 }
 
 export function deleteSpace(db: DB, id: string): void {
@@ -127,10 +151,15 @@ export function deleteSpace(db: DB, id: string): void {
   });
 }
 
-export function archiveSpace(db: DB, id: string): Space {
+export function archiveSpace(
+  db: DB,
+  id: string,
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space {
   const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
   if (!existing) throw new SpaceNotFoundError();
-  if (existing.archivedAt !== null) return toSpace(existing);
+  if (existing.archivedAt !== null) return toSpace(existing, affiliatedSpaceIds, actorId);
 
   const liveTasks = db
     .select({ n: sql<number>`count(*)` })
@@ -141,17 +170,22 @@ export function archiveSpace(db: DB, id: string): Space {
 
   const now = nowIso();
   db.update(spaces).set({ archivedAt: now, updatedAt: now }).where(eq(spaces.id, id)).run();
-  return toSpace({ ...existing, archivedAt: now, updatedAt: now });
+  return toSpace({ ...existing, archivedAt: now, updatedAt: now }, affiliatedSpaceIds, actorId);
 }
 
-export function unarchiveSpace(db: DB, id: string): Space {
+export function unarchiveSpace(
+  db: DB,
+  id: string,
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space {
   const existing = db.select().from(spaces).where(eq(spaces.id, id)).get();
   if (!existing) throw new SpaceNotFoundError();
-  if (existing.archivedAt === null) return toSpace(existing);
+  if (existing.archivedAt === null) return toSpace(existing, affiliatedSpaceIds, actorId);
 
   const now = nowIso();
   db.update(spaces).set({ archivedAt: null, updatedAt: now }).where(eq(spaces.id, id)).run();
-  return toSpace({ ...existing, archivedAt: null, updatedAt: now });
+  return toSpace({ ...existing, archivedAt: null, updatedAt: now }, affiliatedSpaceIds, actorId);
 }
 
 /**
