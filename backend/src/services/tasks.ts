@@ -450,6 +450,7 @@ export function addComment(
     actorId: actor,
     kind: "comment" as const,
     createdAt: nowIso(),
+    updatedAt: null,
     body,
     fromValue: null,
     toValue: null,
@@ -477,6 +478,7 @@ export function addJournalEntry(
     actorId: actor,
     kind: "journal_entry" as const,
     createdAt: nowIso(),
+    updatedAt: null,
     body,
     fromValue: null,
     toValue: null,
@@ -669,7 +671,7 @@ export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: s
 const EDITABLE_KINDS = new Set(["comment", "journal_entry"]);
 
 function checkEventEditability(
-  db: DB,
+  _db: DB,
   event: typeof taskEvents.$inferSelect,
   actor: string,
   editWindowMinutes: number,
