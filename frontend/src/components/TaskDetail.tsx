@@ -12,8 +12,14 @@ import {
 } from "@agentic-kanban/shared";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects } from "../lib/queries.js";
+import {
+  useTimelineFilter,
+  eventMatchesFilter,
+  type TimelineFilterState,
+} from "../lib/useTimelineFilter.js";
 import { Combobox } from "./Combobox.js";
 import { DateTimePicker } from "./DateTimePicker.js";
+import { FilterPill } from "./FilterPill.js";
 import {
   createUserLookup,
   formatActorLabel,
@@ -21,21 +27,6 @@ import {
   formatReporterLabel,
   type UserLookup,
 } from "../lib/userLabels.js";
-
-type TimelineFilter = "all" | "comments" | "journal" | "system";
-
-function matchesFilter(kind: TaskEvent["kind"], filter: TimelineFilter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "comments":
-      return kind === "comment";
-    case "journal":
-      return kind === "journal_entry";
-    case "system":
-      return kind !== "comment" && kind !== "journal_entry";
-  }
-}
 
 interface TaskDetailProps {
   taskId: string;
@@ -66,7 +57,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const [draftDesc, setDraftDesc] = useState("");
   const [comment, setComment] = useState("");
   const [journal, setJournal] = useState("");
-  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
+  const { filter: timelineFilter, toggle: toggleTimeline, solo: soloTimeline } = useTimelineFilter();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
@@ -218,7 +209,8 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             projects={projects}
             usersById={usersById}
             filter={timelineFilter}
-            onFilterChange={setTimelineFilter}
+            toggle={toggleTimeline}
+            solo={soloTimeline}
             comment={comment}
             setComment={setComment}
             journal={journal}
@@ -518,7 +510,8 @@ function TimelineSection({
   projects,
   usersById,
   filter,
-  onFilterChange,
+  toggle,
+  solo,
   comment,
   setComment,
   journal,
@@ -532,8 +525,9 @@ function TimelineSection({
   allTasks: Task[];
   projects: Project[];
   usersById: UserLookup;
-  filter: TimelineFilter;
-  onFilterChange: (f: TimelineFilter) => void;
+  filter: TimelineFilterState;
+  toggle: (kind: keyof TimelineFilterState) => void;
+  solo: (kind: keyof TimelineFilterState) => void;
   comment: string;
   setComment: (v: string) => void;
   journal: string;
@@ -544,63 +538,56 @@ function TimelineSection({
   onSubmitJournal: () => void;
 }) {
   const visible = useMemo(
-    () => events.filter((e) => matchesFilter(e.kind, filter)),
+    () => events.filter((e) => eventMatchesFilter(e.kind, filter)),
     [events, filter],
   );
 
   const counts = useMemo(() => {
     let comments = 0;
-    let journals = 0;
+    let journal = 0;
     let system = 0;
     for (const e of events) {
       if (e.kind === "comment") comments++;
-      else if (e.kind === "journal_entry") journals++;
+      else if (e.kind === "journal_entry") journal++;
       else system++;
     }
-    return { comments, journals, system, all: events.length };
+    return { comments, journal, system };
   }, [events]);
 
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
         <SectionLabel>Timeline</SectionLabel>
-        <div className="flex items-center gap-1 text-[11px]">
-          <FilterChip
-            label="All"
-            count={counts.all}
-            active={filter === "all"}
-            onClick={() => onFilterChange("all")}
-          />
-          <FilterChip
+        <div className="flex items-center gap-1">
+          <FilterPill
             label="Comments"
             count={counts.comments}
-            active={filter === "comments"}
-            onClick={() => onFilterChange("comments")}
+            active={filter.comments}
+            onToggle={() => toggle("comments")}
+            onSolo={() => solo("comments")}
           />
-          <FilterChip
+          <FilterPill
             label="Journal"
-            count={counts.journals}
-            active={filter === "journal"}
-            onClick={() => onFilterChange("journal")}
+            count={counts.journal}
+            active={filter.journal}
+            onToggle={() => toggle("journal")}
+            onSolo={() => solo("journal")}
           />
-          <FilterChip
+          <FilterPill
             label="System"
             count={counts.system}
-            active={filter === "system"}
-            onClick={() => onFilterChange("system")}
+            active={filter.system}
+            onToggle={() => toggle("system")}
+            onSolo={() => solo("system")}
           />
         </div>
       </div>
       <div className="space-y-2">
-        {visible.length === 0 && filter === "journal" && (
+        {visible.length === 0 && (
           <div className="rounded-xl border border-dashed border-border px-3 py-4 text-xs text-ink-subtle">
-            No journal entries yet. Agents and assignees use this space to record what they've
-            tried and what's next.
-          </div>
-        )}
-        {visible.length === 0 && filter !== "journal" && (
-          <div className="rounded-xl border border-dashed border-border px-3 py-4 text-xs text-ink-subtle">
-            Nothing to show with this filter.
+            {filter.journal && !filter.comments && !filter.system
+              ? "No journal entries yet. Agents and assignees use this space to record what they've tried and what's next."
+              : "Nothing to show with this filter."}
           </div>
         )}
         {visible.map((e) => (
@@ -675,34 +662,6 @@ function TimelineSection({
         </div>
       </form>
     </section>
-  );
-}
-
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors " +
-        (active
-          ? "bg-accent text-accent-fg"
-          : "text-ink-subtle hover:bg-surface-hover hover:text-ink-muted")
-      }
-    >
-      {label}
-      <span className="ml-1 opacity-70">{count}</span>
-    </button>
   );
 }
 

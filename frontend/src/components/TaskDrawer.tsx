@@ -4,8 +4,10 @@ import ReactMarkdown from "react-markdown";
 import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@agentic-kanban/shared";
 import { useUsers, useProjects } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
+import { useTimelineFilter } from "../lib/useTimelineFilter.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { Field, SectionLabel } from "./TaskDetail.js";
+import { FilterPill } from "./FilterPill.js";
 
 interface Props {
   taskId: string;
@@ -32,8 +34,20 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
   const { data: users = [] } = useUsers();
   const activeUsers = users.filter((u) => !u.deleted_at);
   const { data: projects = [] } = useProjects(task?.space_id);
+  const { filter, toggle, solo } = useTimelineFilter();
 
   const timelineSummary = useMemo(() => buildTimelineSummary(events), [events]);
+  const drawerCounts = useMemo(() => {
+    let comments = 0;
+    let journal = 0;
+    let system = 0;
+    for (const e of events) {
+      if (e.kind === "comment") comments++;
+      else if (e.kind === "journal_entry") journal++;
+      else system++;
+    }
+    return { comments, journal, system };
+  }, [events]);
 
   if (!task) {
     return (
@@ -235,10 +249,38 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
             </section>
           )}
 
-          {/* Timeline summary (one line) — full timeline lives on the page */}
-          {timelineSummary && (
-            <div className="mt-5 text-xs text-ink-subtle">{timelineSummary}</div>
-          )}
+          {/* Timeline — filter pills + one-line summary; full timeline lives on the task page */}
+          <section className="mt-5">
+            <div className="mb-2 flex items-center justify-between">
+              <SectionLabel>Timeline</SectionLabel>
+              <div className="flex items-center gap-1">
+                <FilterPill
+                  label="Comments"
+                  count={drawerCounts.comments}
+                  active={filter.comments}
+                  onToggle={() => toggle("comments")}
+                  onSolo={() => solo("comments")}
+                />
+                <FilterPill
+                  label="Journal"
+                  count={drawerCounts.journal}
+                  active={filter.journal}
+                  onToggle={() => toggle("journal")}
+                  onSolo={() => solo("journal")}
+                />
+                <FilterPill
+                  label="System"
+                  count={drawerCounts.system}
+                  active={filter.system}
+                  onToggle={() => toggle("system")}
+                  onSolo={() => solo("system")}
+                />
+              </div>
+            </div>
+            {timelineSummary && (
+              <div className="text-xs text-ink-subtle">{timelineSummary}</div>
+            )}
+          </section>
         </div>
       </div>
     </div>
