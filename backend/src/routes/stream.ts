@@ -1,10 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { StreamEvent } from "@agentic-kanban/shared";
 
-function shouldForwardEvent(event: StreamEvent, accessibleSpaceIds: Set<string> | "all"): boolean {
+export function shouldForwardEvent(event: StreamEvent, affiliatedSpaceIds: Set<string>): boolean {
   if (event.type === "demo.reset") return true;
-  if (accessibleSpaceIds === "all") return true;
-  return accessibleSpaceIds.has(event.space_id);
+  return affiliatedSpaceIds.has(event.space_id);
 }
 
 export const streamRoutes: FastifyPluginAsync = async (app) => {
@@ -17,8 +16,8 @@ export const streamRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      // Capture the subscriber's accessible spaces at connect time (snapshot).
-      const accessibleSpaceIds = req.actor?.accessibleSpaceIds ?? "all";
+      // Capture the subscriber's affiliated spaces at connect time (snapshot).
+      const affiliatedSpaceIds: Set<string> = req.actor?.affiliatedSpaceIds ?? new Set();
 
       reply.hijack();
       const res = reply.raw;
@@ -31,7 +30,7 @@ export const streamRoutes: FastifyPluginAsync = async (app) => {
       res.write(": connected\n\n");
 
       const unsubscribe = app.events.subscribe((event) => {
-        if (!shouldForwardEvent(event, accessibleSpaceIds)) return;
+        if (!shouldForwardEvent(event, affiliatedSpaceIds)) return;
         res.write(`event: ${event.type}\n`);
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       });

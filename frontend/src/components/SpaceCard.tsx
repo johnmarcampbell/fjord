@@ -33,6 +33,11 @@ export function SpaceCard({
                 archived
               </span>
             )}
+            {!space.affiliated && (
+              <span className="shrink-0 rounded-full bg-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+                Not in this space
+              </span>
+            )}
           </div>
           <div className="truncate text-xs text-ink-subtle">@{ownerHandle}</div>
         </div>

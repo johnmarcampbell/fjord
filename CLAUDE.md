@@ -148,7 +148,7 @@ All authenticated endpoints require either an `ak_session` cookie (humans, via `
 ### Roles and access control
 Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `default-administrator` user always has Admin role and cannot be deleted.
 
-- **Admins** can access all spaces, manage all users, and manage any space.
+- **Admins** can access all spaces, manage all users, and manage any space (full administrative powers, regardless of membership). However, Admins are **not** automatically *members* of every space — they must explicitly join spaces to appear in member lists, the assignee picker, and the SSE event stream for that space. See [ADR-0012](docs/adr/0012-space-access-carries-affiliation-not-just-permission.md).
 - **Members** can only access spaces they created or have been explicitly granted access to (via `POST /api/spaces/:id/access`). Members can create spaces (they become Owner of that space) but 403 on other spaces' resources.
 - **Soft-deleted actors** receive 400 on any authenticated request.
 
@@ -213,7 +213,7 @@ Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `defa
 - `POST /api/spaces/:id/archive` — archive; Owner or Admin only
 - `POST /api/spaces/:id/unarchive` — restore; Owner or Admin only
 - `GET /api/spaces/:id/access` — list grants (Owner or Admin only); returns `[{ user_id, space_id, granted_at, granted_by }]`
-- `POST /api/spaces/:id/access` — grant a user access; body: `{ "user_id": "<id>" }`; Owner or Admin only; 400 if user is Admin or already has access
+- `POST /api/spaces/:id/access` — grant a user (or Admin) access/affiliation; body: `{ "user_id": "<id>" }`; Owner or Admin only; 400 if already affiliated
 - `DELETE /api/spaces/:id/access/:user_id` — revoke access; Owner or Admin only; 400 if target is the space Owner
 
 ### Stream

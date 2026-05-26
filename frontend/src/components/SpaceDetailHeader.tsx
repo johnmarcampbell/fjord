@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { DEFAULT_SPACE_ID, type Space, type User } from "@agentic-kanban/shared";
+import { DEFAULT_SPACE_ID, type AuthMe, type Space, type User } from "@agentic-kanban/shared";
 import { api, ApiError } from "../lib/api.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
@@ -23,10 +23,12 @@ export function SpaceDetailHeader({
   space,
   owner,
   canEdit,
+  currentUser,
 }: {
   space: Space;
   owner: User | undefined;
   canEdit: boolean;
+  currentUser: AuthMe | undefined;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -89,6 +91,20 @@ export function SpaceDetailHeader({
     },
     onError: (err) => handleError(err, "Delete failed"),
   });
+
+  const joinMutation = useMutation({
+    mutationFn: () => api.grantSpaceAccess(space.id, { user_id: currentUser!.id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["space", space.id] });
+      queryClient.invalidateQueries({ queryKey: ["spaces"] });
+      queryClient.invalidateQueries({ queryKey: ["space-access", space.id] });
+      toast.success(`Joined "${space.name}"`);
+    },
+    onError: (err) => handleError(err, "Join failed"),
+  });
+
+  const isOwner = currentUser?.id === space.created_by;
+  const showJoin = !isArchived && !isOwner && !space.affiliated && !!currentUser;
 
   function saveName() {
     const trimmed = nameDraft.trim();
@@ -181,8 +197,19 @@ export function SpaceDetailHeader({
                 archived
               </span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              {showJoin && (
+                <button
+                  type="button"
+                  onClick={() => joinMutation.mutate()}
+                  disabled={joinMutation.isPending}
+                  className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Join this Space
+                </button>
+              )}
             {canEdit && (
-              <div className="ml-auto flex items-center gap-2">
+              <>
                 {isArchived ? (
                   <button
                     type="button"
@@ -221,8 +248,9 @@ export function SpaceDetailHeader({
                     Delete
                   </button>
                 )}
-              </div>
+              </>
             )}
+            </div>
           </>
         )}
       </div>

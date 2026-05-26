@@ -1,4 +1,4 @@
-CREATE TABLE `user_space_access` (
+CREATE TABLE IF NOT EXISTS `user_space_access` (
 	`user_id` text NOT NULL,
 	`space_id` text NOT NULL,
 	`granted_at` text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `user_space_access` (
 	FOREIGN KEY (`granted_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `user_space_access_user_idx` ON `user_space_access` (`user_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `user_space_access_user_idx` ON `user_space_access` (`user_id`);--> statement-breakpoint
 -- SQLite restricts: REFERENCES in ALTER TABLE ADD COLUMN requires NULL default when FK enforcement is ON.
 -- The FK is enforced by Drizzle's schema on new writes. Existing rows get the default value below.
 ALTER TABLE `spaces` ADD `created_by` text DEFAULT 'default-administrator' NOT NULL;--> statement-breakpoint

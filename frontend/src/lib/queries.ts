@@ -42,6 +42,14 @@ export function useArchivedTasks(spaceId?: string) {
   });
 }
 
+export function useSpace(spaceId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["space", spaceId],
+    queryFn: () => api.getSpace(spaceId!),
+    enabled: !!spaceId,
+  });
+}
+
 export function useSpaceAccess(spaceId: string | null) {
   return useQuery({
     queryKey: ["space-access", spaceId],

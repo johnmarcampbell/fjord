@@ -4,7 +4,7 @@
 ALTER TABLE `users` DROP COLUMN `token_hash`;--> statement-breakpoint
 ALTER TABLE `users` ADD `password_hash` text;--> statement-breakpoint
 
-CREATE TABLE `sessions` (
+CREATE TABLE IF NOT EXISTS `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`created_at` text NOT NULL,
@@ -13,9 +13,9 @@ CREATE TABLE `sessions` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `sessions_user_idx` ON `sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `sessions_user_idx` ON `sessions` (`user_id`);--> statement-breakpoint
 
-CREATE TABLE `api_tokens` (
+CREATE TABLE IF NOT EXISTS `api_tokens` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -29,5 +29,5 @@ CREATE TABLE `api_tokens` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `api_tokens_lookup_hash_unique` ON `api_tokens` (`lookup_hash`);--> statement-breakpoint
-CREATE INDEX `api_tokens_user_idx` ON `api_tokens` (`user_id`);
+CREATE UNIQUE INDEX IF NOT EXISTS `api_tokens_lookup_hash_unique` ON `api_tokens` (`lookup_hash`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `api_tokens_user_idx` ON `api_tokens` (`user_id`);

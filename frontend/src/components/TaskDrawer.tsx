@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Markdown } from "./Markdown.js";
 import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@agentic-kanban/shared";
-import { useUsers, useProjects } from "../lib/queries.js";
+import { useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTimelineFilter } from "../lib/useTimelineFilter.js";
 import { DateTimePicker } from "./DateTimePicker.js";
@@ -32,7 +32,13 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
   const { task, events, conflict } = editor;
 
   const { data: users = [] } = useUsers();
-  const activeUsers = users.filter((u) => !u.deleted_at);
+  const { data: space } = useSpace(task?.space_id);
+  const { data: spaceGrants = [] } = useSpaceAccess(task?.space_id ?? null);
+  const assignableUsers = useMemo(() => {
+    if (!space) return [];
+    const affiliated = new Set([space.created_by, ...spaceGrants.map((g) => g.user_id)]);
+    return users.filter((u) => !u.deleted_at && affiliated.has(u.id));
+  }, [users, space, spaceGrants]);
   const { data: projects = [] } = useProjects(task?.space_id);
   const { filter, toggle, solo } = useTimelineFilter();
 
@@ -155,7 +161,7 @@ export function TaskDrawer({ taskId, allTasks, onClose, onOpenTask }: Props) {
                     }
                     return null;
                   })()}
-                {activeUsers.map((u) => (
+                {assignableUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.display_name}
                   </option>
