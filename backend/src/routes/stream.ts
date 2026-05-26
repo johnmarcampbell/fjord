@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { StreamEvent } from "@agentic-kanban/shared";
 
-function shouldForwardEvent(event: StreamEvent, affiliatedSpaceIds: Set<string>): boolean {
+export function shouldForwardEvent(event: StreamEvent, affiliatedSpaceIds: Set<string>): boolean {
   if (event.type === "demo.reset") return true;
   return affiliatedSpaceIds.has(event.space_id);
 }

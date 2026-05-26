@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { shouldForwardEvent } from "../src/routes/stream.js";
+import type { StreamEvent } from "@agentic-kanban/shared";
 import { makeTestApp } from "./helpers.js";
 
 describe("Actor.affiliatedSpaceIds", () => {
@@ -192,6 +194,45 @@ describe("GET /api/spaces — affiliated flag", () => {
     ).json();
     const result = list.find((s: { id: string }) => s.id === space.id);
     expect(result.affiliated).toBe(true);
+  });
+});
+
+describe("shouldForwardEvent — stream affiliation filtering", () => {
+  const affiliated = new Set(["space-a", "space-b"]);
+
+  const created = (space_id: string): StreamEvent =>
+    ({ type: "task.created", task_id: "t1", space_id });
+  const updated = (space_id: string): StreamEvent =>
+    ({ type: "task.updated", task_id: "t1", version: 2, space_id });
+  const deleted = (space_id: string): StreamEvent =>
+    ({ type: "task.deleted", task_id: "t1", space_id });
+  const demoReset: StreamEvent = { type: "demo.reset" };
+
+  it("forwards events for affiliated spaces", () => {
+    expect(shouldForwardEvent(created("space-a"), affiliated)).toBe(true);
+    expect(shouldForwardEvent(updated("space-b"), affiliated)).toBe(true);
+  });
+
+  it("suppresses events for spaces the actor has not joined", () => {
+    expect(shouldForwardEvent(created("space-c"), affiliated)).toBe(false);
+    expect(shouldForwardEvent(deleted("space-z"), affiliated)).toBe(false);
+  });
+
+  it("always forwards demo.reset regardless of affiliation", () => {
+    const none = new Set<string>();
+    expect(shouldForwardEvent(demoReset, none)).toBe(true);
+    expect(shouldForwardEvent(demoReset, affiliated)).toBe(true);
+  });
+
+  it("non-affiliated Admin (empty set) receives no events for any space", () => {
+    const emptySet = new Set<string>();
+    expect(shouldForwardEvent(updated("space-a"), emptySet)).toBe(false);
+  });
+
+  it("non-affiliated Admin receives events only for spaces they have joined", () => {
+    const afterJoin = new Set(["space-a"]);
+    expect(shouldForwardEvent(updated("space-a"), afterJoin)).toBe(true);
+    expect(shouldForwardEvent(updated("space-b"), afterJoin)).toBe(false);
   });
 });
 

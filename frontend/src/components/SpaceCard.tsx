@@ -35,7 +35,7 @@ export function SpaceCard({
             )}
             {!space.affiliated && (
               <span className="shrink-0 rounded-full bg-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
-                not joined
+                Not in this space
               </span>
             )}
           </div>

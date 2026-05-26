@@ -88,7 +88,8 @@ export class EventEditForbiddenError extends Error {
 export function userCanAccessSpace(db: DB, userId: string, spaceId: string): boolean {
   const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
   if (!user) return false;
-  if (user.role === "Admin") return true;
+  // Admins are NOT implicitly eligible for every space — affiliation (owner or explicit
+  // grant) is required for assignee eligibility, matching the explicit-membership model.
   const owns = db
     .select({ id: spaces.id })
     .from(spaces)

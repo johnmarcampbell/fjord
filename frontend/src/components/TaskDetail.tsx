@@ -11,7 +11,7 @@ import {
   type TaskEvent,
 } from "@agentic-kanban/shared";
 import { useTaskEditor, type UseTaskEditor } from "../lib/useTaskEditor.js";
-import { useTasks, useUsers, useProjects } from "../lib/queries.js";
+import { useTasks, useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useCurrentUser } from "../lib/auth.js";
 import {
   useTimelineFilter,
@@ -46,7 +46,13 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const { task, events, conflict } = editor;
 
   const { data: users = [] } = useUsers();
-  const activeUsers = users.filter((u) => !u.deleted_at);
+  const { data: space } = useSpace(task?.space_id);
+  const { data: spaceGrants = [] } = useSpaceAccess(task?.space_id ?? null);
+  const assignableUsers = useMemo(() => {
+    if (!space) return [];
+    const affiliated = new Set([space.created_by, ...spaceGrants.map((g) => g.user_id)]);
+    return users.filter((u) => !u.deleted_at && affiliated.has(u.id));
+  }, [users, space, spaceGrants]);
   const usersById = useMemo(() => createUserLookup(users), [users]);
   // Resolve blocker titles against tasks in the same space. Matches the
   // board's keying so the cache is shared.
@@ -268,7 +274,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
                   }
                   return null;
                 })()}
-              {activeUsers.map((u) => (
+              {assignableUsers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.display_name}
                 </option>
