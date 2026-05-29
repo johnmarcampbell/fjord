@@ -3,20 +3,13 @@ import { Link } from "react-router-dom";
 import { Board } from "../components/Board.js";
 import { BacklogView } from "../components/BacklogView.js";
 import { ArchiveView } from "../components/ArchiveView.js";
-import { NewTaskDialog } from "../components/NewTaskDialog.js";
 import { TaskDrawer } from "../components/TaskDrawer.js";
 import { useTasks, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useBoardView } from "../lib/BoardViewContext.js";
 import { useCurrentUser } from "../lib/auth.js";
 
-export function BoardPage({
-  creating,
-  onCloseCreating,
-}: {
-  creating: boolean;
-  onCloseCreating: () => void;
-}) {
+export function BoardPage() {
   const { view } = useBoardView();
   const { activeSpaceId, spaces } = useActiveSpace();
   const { data: tasks = [] } = useTasks(activeSpaceId);
@@ -47,12 +40,6 @@ export function BoardPage({
         {view === "backlog" && <BacklogView setOpenTaskId={setOpenTaskId} />}
         {view === "archive" && <ArchiveView onOpenTask={setOpenTaskId} />}
       </main>
-      {creating && (
-        <NewTaskDialog
-          onClose={onCloseCreating}
-          defaultColumn={view === "board" ? "To Do" : view === "backlog" ? "Backlog" : "To Do"}
-        />
-      )}
       {openTaskId && (
         <TaskDrawer
           taskId={openTaskId}
