@@ -124,6 +124,7 @@ Light/dark mode stored in localStorage (`ak-theme`) and applied to `document.doc
 Routing uses `react-router-dom` v6.
 - `/` — board / backlog / archive (see `BoardPage`)
 - `/users` — user management; the `+ New user` tile creates users, and the current user can edit or self-delete their own card. The legacy header create flow has been removed (see [ADR-0003](docs/adr/0003-user-creation-on-users-page.md)). When the user table is empty, the app auto-redirects here.
+- `/tasks/new` — full-page task creation; the header `+ New task` button navigates here (carrying the referrer in `location.state`). Resolves a target space (query param `?space_id=` → active space → first accessible), POSTs a `CreateTaskRequest`, switches the active space if the target differs, and redirects to `/tasks/:id` of the new task. Pre-fills from `?column=` / `?project_id=` / `?space_id=`. Replaced the old `NewTaskDialog` modal.
 - `/tasks/:id` — full task detail; shareable URL. The `TaskDrawer` is the at-a-glance peek and links here via the ↗ "Open full view" button.
 
 ### Key components
@@ -131,7 +132,7 @@ Routing uses `react-router-dom` v6.
 - [frontend/src/components/Column.tsx](frontend/src/components/Column.tsx) — dnd-kit sortable container, handles drop (position update)
 - [frontend/src/components/TaskCard.tsx](frontend/src/components/TaskCard.tsx) — renders task with blocked state, opens drawer on click
 - [frontend/src/components/TaskDrawer.tsx](frontend/src/components/TaskDrawer.tsx) — side panel for editing task details, comments, blockers
-- [frontend/src/components/NewTaskDialog.tsx](frontend/src/components/NewTaskDialog.tsx) — modal for quick task creation
+- [frontend/src/pages/NewTaskPage.tsx](frontend/src/pages/NewTaskPage.tsx) — full-page task creation at `/tasks/new`; reuses `TaskDetail`'s `Field` / `SectionLabel` / `TagInput` and the `PageShell` layout
 - [frontend/src/components/UserMenu.tsx](frontend/src/components/UserMenu.tsx) — header avatar/menu with "Profile & API tokens" (deep-links to `/users?edit=<self>`), "Change password", "Log out"
 - [frontend/src/components/UserCard.tsx](frontend/src/components/UserCard.tsx) — single user tile rendered on `/users`
 - [frontend/src/components/UserFormDialog.tsx](frontend/src/components/UserFormDialog.tsx) — shared create + edit modal. In edit mode it now hosts the per-user **API tokens** section (`TokenList`), an admin-only **Reset password** action for other users, and self-delete. Whoever can open the dialog (admin, or the user themselves) can manage that user's tokens.

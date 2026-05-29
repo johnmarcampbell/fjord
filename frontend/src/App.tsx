@@ -22,6 +22,7 @@ import { SpacesPage } from "./pages/SpacesPage.js";
 import { SpaceDetailPage } from "./pages/SpaceDetailPage.js";
 import { ProjectPage } from "./pages/ProjectPage.js";
 import { TaskPage } from "./pages/TaskPage.js";
+import { NewTaskPage } from "./pages/NewTaskPage.js";
 
 export default function App() {
   return (
@@ -48,7 +49,6 @@ function AppShell() {
   const { data: users, isSuccess: usersLoaded } = useUsers();
   const location = useLocation();
   const navigate = useNavigate();
-  const [creating, setCreating] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(
     () =>
       (document.documentElement.getAttribute("data-theme") as "light" | "dark") ?? "light",
@@ -70,8 +70,9 @@ function AppShell() {
   }
 
   function onNewTask() {
-    if (location.pathname !== "/") navigate("/");
-    setCreating(true);
+    navigate("/tasks/new", {
+      state: { from: location.pathname + location.search },
+    });
   }
 
   return (
@@ -83,16 +84,12 @@ function AppShell() {
       )}
       <Header theme={theme} onToggleTheme={toggleTheme} onNewTask={onNewTask} />
       <Routes>
-        <Route
-          path="/"
-          element={
-            <BoardPage creating={creating} onCloseCreating={() => setCreating(false)} />
-          }
-        />
+        <Route path="/" element={<BoardPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/spaces" element={<SpacesPage />} />
         <Route path="/spaces/:id" element={<SpaceDetailPage />} />
         <Route path="/projects/:id" element={<ProjectPage />} />
+        <Route path="/tasks/new" element={<NewTaskPage />} />
         <Route path="/tasks/:id" element={<TaskPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

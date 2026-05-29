@@ -1,6 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api.js";
-import type { Column, Task, UpdateTaskRequest } from "@agentic-kanban/shared";
+import type {
+  Column,
+  CreateTaskRequest,
+  Task,
+  UpdateTaskRequest,
+} from "@agentic-kanban/shared";
+
+export function useCreateTask(options?: { onSuccess?: (task: Task) => void }) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateTaskRequest) => api.createTask(body),
+    onSuccess: (task) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      options?.onSuccess?.(task);
+    },
+  });
+}
 
 export function useUpdateTask(
   taskId: string,
