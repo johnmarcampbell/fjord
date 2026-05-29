@@ -61,6 +61,29 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  app.get(
+    "/api/projects/:id",
+    {
+      schema: {
+        summary: "Get a single project",
+        tags: ["projects"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const actor = req.actor!;
+      const row = app.db.select().from(projects).where(eq(projects.id, id)).get();
+      if (!row) return reply.code(404).send({ error: "Project not found" });
+      if (!canAccessSpace(actor, row.spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      return toProject(row);
+    },
+  );
+
   app.post(
     "/api/projects",
     {

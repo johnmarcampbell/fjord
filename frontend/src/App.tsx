@@ -20,6 +20,7 @@ import { BoardPage } from "./pages/BoardPage.js";
 import { UsersPage } from "./pages/UsersPage.js";
 import { SpacesPage } from "./pages/SpacesPage.js";
 import { SpaceDetailPage } from "./pages/SpaceDetailPage.js";
+import { ProjectPage } from "./pages/ProjectPage.js";
 import { TaskPage } from "./pages/TaskPage.js";
 
 export default function App() {
@@ -91,6 +92,7 @@ function AppShell() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/spaces" element={<SpacesPage />} />
         <Route path="/spaces/:id" element={<SpaceDetailPage />} />
+        <Route path="/projects/:id" element={<ProjectPage />} />
         <Route path="/tasks/:id" element={<TaskPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
