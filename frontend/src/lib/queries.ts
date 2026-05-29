@@ -27,6 +27,14 @@ export function useProjects(spaceId?: string) {
   });
 }
 
+export function useProject(projectId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => api.getProject(projectId!),
+    enabled: !!projectId,
+  });
+}
+
 export function useTaskEvents(taskId: string | null) {
   return useQuery({
     queryKey: ["task-events", taskId],

@@ -94,6 +94,7 @@ export const api = {
     const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";
     return request<Project[]>(`/api/projects${qs}`);
   },
+  getProject: (id: string) => request<Project>(`/api/projects/${id}`),
   createProject: (body: CreateProjectRequest) =>
     request<Project>("/api/projects", { method: "POST", body: JSON.stringify(body) }),
   updateProject: (id: string, body: UpdateProjectRequest) =>

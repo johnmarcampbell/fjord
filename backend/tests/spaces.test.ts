@@ -498,3 +498,63 @@ describe("write guards on archived spaces", () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe("GET /api/projects/:id", () => {
+  let ctx: Awaited<ReturnType<typeof makeTestApp>>;
+  beforeEach(async () => {
+    ctx = await makeTestApp();
+  });
+  afterEach(async () => {
+    await ctx.close();
+  });
+
+  it("returns a single project for an accessible space", async () => {
+    const project = (
+      await ctx.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Get me", description: "a project to fetch" },
+      })
+    ).json();
+
+    const res = await ctx.inject({ method: "GET", url: `/api/projects/${project.id}` });
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got.id).toBe(project.id);
+    expect(got.name).toBe("Get me");
+    expect(got.description).toBe("a project to fetch");
+    expect(got.space_id).toBe("default");
+  });
+
+  it("returns 404 for an unknown project id", async () => {
+    const res = await ctx.inject({ method: "GET", url: "/api/projects/does-not-exist" });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns 403 for a Member without access to the project's space", async () => {
+    // alice (Admin, default actor) creates a space + project she owns.
+    const space = (
+      await ctx.inject({ method: "POST", url: "/api/spaces", payload: { name: "Private" } })
+    ).json();
+    const project = (
+      await ctx.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Secret", space_id: space.id },
+      })
+    ).json();
+
+    // A Member with no grant to that space cannot read the project.
+    await ctx.inject({
+      method: "POST",
+      url: "/api/users",
+      payload: { id: "member-bob", display_name: "Bob", kind: "human", role: "Member" },
+    });
+    const res = await ctx.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}`,
+      headers: { "x-user-id": "member-bob" },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
