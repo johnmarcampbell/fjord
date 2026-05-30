@@ -3,6 +3,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import type { ApiTokenSummary, CreateApiTokenRequest } from "@agentic-kanban/shared";
 import { apiTokens, users } from "../db/schema.js";
 import { issueToken, revokeToken } from "../services/api_tokens.js";
+import { badRequest, forbidden, notFound } from "./http.js";
 
 function toSummary(row: typeof apiTokens.$inferSelect): ApiTokenSummary {
   return {
@@ -50,21 +51,21 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
-        return reply.code(403).send({ error: "Forbidden" });
+        return forbidden(reply);
       }
       const target = app.db.select().from(users).where(eq(users.id, id)).get();
-      if (!target) return reply.code(404).send({ error: "User not found" });
-      if (target.deletedAt) return reply.code(404).send({ error: "User not found" });
+      if (!target) return notFound(reply, "User");
+      if (target.deletedAt) return notFound(reply, "User");
 
       const body = req.body as CreateApiTokenRequest;
       let expiresAt: string | null = null;
       if (body.expires_at !== undefined && body.expires_at !== null) {
         const ms = Date.parse(body.expires_at);
         if (!Number.isFinite(ms)) {
-          return reply.code(400).send({ error: "expires_at must be an ISO8601 timestamp" });
+          return badRequest(reply, "expires_at must be an ISO8601 timestamp");
         }
         if (ms <= Date.now()) {
-          return reply.code(400).send({ error: "expires_at must be in the future" });
+          return badRequest(reply, "expires_at must be in the future");
         }
         // Normalize to canonical UTC ISO so downstream comparisons are unambiguous.
         expiresAt = new Date(ms).toISOString();
@@ -109,7 +110,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
-        return reply.code(403).send({ error: "Forbidden" });
+        return forbidden(reply);
       }
       const { include_revoked } = req.query as { include_revoked?: string };
       const includeRevoked = include_revoked === "true";
@@ -140,10 +141,10 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const isAdmin = actor.role === "Admin";
       if (!canManageTokens(actor.id, id, isAdmin)) {
-        return reply.code(403).send({ error: "Forbidden" });
+        return forbidden(reply);
       }
       const row = app.db.select().from(apiTokens).where(eq(apiTokens.id, token_id)).get();
-      if (!row || row.userId !== id) return reply.code(404).send({ error: "Token not found" });
+      if (!row || row.userId !== id) return notFound(reply, "Token");
       if (!row.revokedAt) revokeToken(app.db, token_id);
       reply.code(204);
     },

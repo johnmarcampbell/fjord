@@ -16,6 +16,7 @@ import { nowIso } from "../services/tasks.js";
 import { resolveHandleCollision } from "../services/users.js";
 import { canDeleteUser, canEditUser, canManageUsers } from "../auth/policy.js";
 import { deleteSessionsForUser } from "../services/sessions.js";
+import { badRequest, conflict, forbidden, notFound } from "./http.js";
 
 function toUser(row: typeof users.$inferSelect): User {
   return {
@@ -63,7 +64,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const row = app.db.select().from(users).where(eq(users.id, id)).get();
-      if (!row) return reply.code(404).send({ error: "User not found" });
+      if (!row) return notFound(reply, "User");
       return toUser(row);
     },
   );
@@ -92,20 +93,20 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
-      if (!canManageUsers(actor)) return reply.code(403).send({ error: "Forbidden" });
+      if (!canManageUsers(actor)) return forbidden(reply);
 
       const body = req.body as CreateUserRequest;
       if (body.role !== undefined && !canManageUsers(actor)) {
-        return reply.code(400).send({ error: "Only Admins may set role" });
+        return badRequest(reply, "Only Admins may set role");
       }
 
       const existing = app.db.select().from(users).where(eq(users.id, body.id)).get();
-      if (existing) return reply.code(409).send({ error: "User already exists" });
+      if (existing) return conflict(reply, "User already exists");
 
       let handle: string;
       if (body.handle !== undefined) {
         const result = validateHandle(body.handle);
-        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        if (!result.ok) return badRequest(reply, result.message, result.code);
         const normalized = result.value;
         const collision = app.db
           .select()
@@ -113,9 +114,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
           .where(eq(sql`lower(${users.handle})`, normalized))
           .get();
         if (collision) {
-          return reply
-            .code(409)
-            .send({ error: `Handle "${normalized}" is already taken`, code: "handle_taken" });
+          return conflict(reply, `Handle "${normalized}" is already taken`, "handle_taken");
         }
         handle = normalized;
       } else {
@@ -131,7 +130,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       let avatar: string;
       if (body.avatar !== undefined) {
         const result = validateAvatar(body.avatar);
-        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        if (!result.ok) return badRequest(reply, result.message, result.code);
         avatar = result.value;
       } else {
         avatar = pickAvatar(body.id);
@@ -192,20 +191,20 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       // Default Administrator invariant guards (before authorization)
       if (id === DEFAULT_ADMINISTRATOR_ID) {
         if (body.role !== undefined || body.handle !== undefined) {
-          return reply.code(400).send({ error: "Cannot change role or handle of the Default Administrator" });
+          return badRequest(reply, "Cannot change role or handle of the Default Administrator");
         }
       }
 
-      if (!canEditUser(actor, id)) return reply.code(403).send({ error: "Forbidden" });
+      if (!canEditUser(actor, id)) return forbidden(reply);
 
       // Non-Admins cannot set role
       if (body.role !== undefined && !canManageUsers(actor)) {
-        return reply.code(400).send({ error: "Only Admins may change role" });
+        return badRequest(reply, "Only Admins may change role");
       }
 
       const existing = app.db.select().from(users).where(eq(users.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "User not found" });
-      if (existing.deletedAt) return reply.code(404).send({ error: "User not found" });
+      if (!existing) return notFound(reply, "User");
+      if (existing.deletedAt) return notFound(reply, "User");
 
       const updates: Partial<typeof users.$inferInsert> = {};
 
@@ -218,13 +217,13 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       let clearPassword = false;
       if (body.password_hash !== undefined) {
         if (body.password_hash !== null) {
-          return reply.code(400).send({ error: "password_hash may only be set to null" });
+          return badRequest(reply, "password_hash may only be set to null");
         }
         if (!canManageUsers(actor)) {
-          return reply.code(403).send({ error: "Only Admins may reset passwords" });
+          return forbidden(reply, "Only Admins may reset passwords");
         }
         if (id === actor.id) {
-          return reply.code(400).send({ error: "Use /api/auth/change-password to change your own password" });
+          return badRequest(reply, "Use /api/auth/change-password to change your own password");
         }
         updates.passwordHash = null;
         clearPassword = true;
@@ -232,7 +231,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
       if (body.handle !== undefined) {
         const result = validateHandle(body.handle);
-        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        if (!result.ok) return badRequest(reply, result.message, result.code);
         const normalized = result.value;
         if (normalized !== (existing.handle ?? "").toLowerCase()) {
           const collision = app.db
@@ -241,9 +240,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
             .where(and(ne(users.id, id), eq(sql`lower(${users.handle})`, normalized)))
             .get();
           if (collision) {
-            return reply
-              .code(409)
-              .send({ error: `Handle "${normalized}" is already taken`, code: "handle_taken" });
+            return conflict(reply, `Handle "${normalized}" is already taken`, "handle_taken");
           }
         }
         updates.handle = normalized;
@@ -251,7 +248,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
       if (body.avatar !== undefined) {
         const result = validateAvatar(body.avatar);
-        if (!result.ok) return reply.code(400).send({ error: result.message, code: result.code });
+        if (!result.ok) return badRequest(reply, result.message, result.code);
         updates.avatar = result.value;
       }
 
@@ -286,13 +283,13 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
 
       if (id === DEFAULT_ADMINISTRATOR_ID) {
-        return reply.code(400).send({ error: "Cannot delete the Default Administrator" });
+        return badRequest(reply, "Cannot delete the Default Administrator");
       }
 
-      if (!canDeleteUser(actor, id)) return reply.code(403).send({ error: "Forbidden" });
+      if (!canDeleteUser(actor, id)) return forbidden(reply);
 
       const row = app.db.select().from(users).where(eq(users.id, id)).get();
-      if (!row) return reply.code(404).send({ error: "User not found" });
+      if (!row) return notFound(reply, "User");
       if (!row.deletedAt) {
         app.db
           .update(users)

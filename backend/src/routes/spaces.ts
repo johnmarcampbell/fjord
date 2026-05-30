@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import type { FastifyPluginAsync } from "fastify";
-import type { CreateGrantRequest, CreateSpaceRequest, Grant, UpdateSpaceRequest } from "@agentic-kanban/shared";
+import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { CreateGrantRequest, CreateSpaceRequest, Grant, Space, UpdateSpaceRequest } from "@agentic-kanban/shared";
 import {
   CannotDeleteDefaultSpaceError,
   SpaceArchiveBlockedError,
@@ -17,6 +17,8 @@ import {
 import { canAccessSpace, canGrantAccessForSpace, canManageSpace } from "../auth/policy.js";
 import { userSpaceAccess, users } from "../db/schema.js";
 import { nowIso } from "../services/tasks.js";
+import { badRequest, forbidden, notFound } from "./http.js";
+import type { DB } from "../db/index.js";
 
 function toGrant(row: typeof userSpaceAccess.$inferSelect): Grant {
   return {
@@ -25,6 +27,34 @@ function toGrant(row: typeof userSpaceAccess.$inferSelect): Grant {
     granted_at: row.grantedAt,
     granted_by: row.grantedBy,
   };
+}
+
+/**
+ * Load a space by id, sending a 404 and returning null when it doesn't exist.
+ * Optional affiliation args are forwarded to `getSpace` for the `affiliated` flag.
+ *
+ * Note: unlike `loadTaskForActor` in tasks.ts, this performs no authorization —
+ * spaces have three distinct per-route access rules (manage / access / grant), so
+ * each caller applies its own `canManageSpace` / `canAccessSpace` /
+ * `canGrantAccessForSpace` check on the returned space. Keeping authz out of the
+ * loader keeps the access matrix explicit at the call site.
+ */
+function loadSpaceOr404(
+  db: DB,
+  reply: FastifyReply,
+  id: string,
+  affiliatedSpaceIds?: Set<string>,
+  actorId?: string,
+): Space | null {
+  try {
+    return getSpace(db, id, affiliatedSpaceIds, actorId);
+  } catch (err) {
+    if (err instanceof SpaceNotFoundError) {
+      notFound(reply, "Space");
+      return null;
+    }
+    throw err;
+  }
 }
 
 export const spacesRoutes: FastifyPluginAsync = async (app) => {
@@ -67,15 +97,10 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
-      try {
-        const space = getSpace(app.db, (req.params as { id: string }).id, actor.affiliatedSpaceIds, actor.id);
-        if (!canAccessSpace(actor, space.id)) return reply.code(403).send({ error: "Forbidden" });
-        return space;
-      } catch (err) {
-        if (err instanceof SpaceNotFoundError)
-          return reply.code(404).send({ error: "Space not found" });
-        throw err;
-      }
+      const space = loadSpaceOr404(app.db, reply, (req.params as { id: string }).id, actor.affiliatedSpaceIds, actor.id);
+      if (!space) return;
+      if (!canAccessSpace(actor, space.id)) return forbidden(reply);
+      return space;
     },
   );
 
@@ -125,15 +150,10 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
-      try {
-        const space = getSpace(app.db, (req.params as { id: string }).id);
-        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
-        return updateSpace(app.db, space.id, req.body as UpdateSpaceRequest, actor.affiliatedSpaceIds, actor.id);
-      } catch (err) {
-        if (err instanceof SpaceNotFoundError)
-          return reply.code(404).send({ error: "Space not found" });
-        throw err;
-      }
+      const space = loadSpaceOr404(app.db, reply, (req.params as { id: string }).id);
+      if (!space) return;
+      if (!canManageSpace(actor, space)) return forbidden(reply);
+      return updateSpace(app.db, space.id, req.body as UpdateSpaceRequest, actor.affiliatedSpaceIds, actor.id);
     },
   );
 
@@ -153,20 +173,17 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const actor = req.actor!;
       const spaceId = (req.params as { id: string }).id;
+      const space = loadSpaceOr404(app.db, reply, spaceId);
+      if (!space) return;
+      if (!canManageSpace(actor, space)) return forbidden(reply);
       try {
-        const space = getSpace(app.db, spaceId);
-        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
         deleteSpace(app.db, spaceId);
         reply.code(204);
       } catch (err) {
         if (err instanceof CannotDeleteDefaultSpaceError)
-          return reply.code(400).send({ error: "Cannot delete the default space" });
+          return badRequest(reply, "Cannot delete the default space");
         if (err instanceof SpaceNotEmptyError)
-          return reply
-            .code(400)
-            .send({ error: "Space still has tasks; move or delete them first" });
-        if (err instanceof SpaceNotFoundError)
-          return reply.code(404).send({ error: "Space not found" });
+          return badRequest(reply, "Space still has tasks; move or delete them first");
         throw err;
       }
     },
@@ -187,17 +204,14 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
+      const space = loadSpaceOr404(app.db, reply, (req.params as { id: string }).id);
+      if (!space) return;
+      if (!canManageSpace(actor, space)) return forbidden(reply);
       try {
-        const space = getSpace(app.db, (req.params as { id: string }).id);
-        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
         return archiveSpace(app.db, space.id, actor.affiliatedSpaceIds, actor.id);
       } catch (err) {
         if (err instanceof SpaceArchiveBlockedError)
-          return reply
-            .code(400)
-            .send({ error: "Space has unarchived tasks; archive them first" });
-        if (err instanceof SpaceNotFoundError)
-          return reply.code(404).send({ error: "Space not found" });
+          return badRequest(reply, "Space has unarchived tasks; archive them first");
         throw err;
       }
     },
@@ -218,15 +232,10 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const actor = req.actor!;
-      try {
-        const space = getSpace(app.db, (req.params as { id: string }).id);
-        if (!canManageSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
-        return unarchiveSpace(app.db, space.id, actor.affiliatedSpaceIds, actor.id);
-      } catch (err) {
-        if (err instanceof SpaceNotFoundError)
-          return reply.code(404).send({ error: "Space not found" });
-        throw err;
-      }
+      const space = loadSpaceOr404(app.db, reply, (req.params as { id: string }).id);
+      if (!space) return;
+      if (!canManageSpace(actor, space)) return forbidden(reply);
+      return unarchiveSpace(app.db, space.id, actor.affiliatedSpaceIds, actor.id);
     },
   );
 
@@ -248,12 +257,8 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const actor = req.actor!;
       const spaceId = (req.params as { id: string }).id;
-      try {
-        getSpace(app.db, spaceId);
-      } catch {
-        return reply.code(404).send({ error: "Space not found" });
-      }
-      if (!canAccessSpace(actor, spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      if (!loadSpaceOr404(app.db, reply, spaceId)) return;
+      if (!canAccessSpace(actor, spaceId)) return forbidden(reply);
       const rows = app.db
         .select()
         .from(userSpaceAccess)
@@ -288,17 +293,13 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       const spaceId = (req.params as { id: string }).id;
       const { user_id: targetUserId } = req.body as CreateGrantRequest;
 
-      let space;
-      try {
-        space = getSpace(app.db, spaceId);
-      } catch {
-        return reply.code(404).send({ error: "Space not found" });
-      }
-      if (!canGrantAccessForSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+      const space = loadSpaceOr404(app.db, reply, spaceId);
+      if (!space) return;
+      if (!canGrantAccessForSpace(actor, space)) return forbidden(reply);
 
       const targetUser = app.db.select().from(users).where(eq(users.id, targetUserId)).get();
-      if (!targetUser) return reply.code(400).send({ error: "User not found" });
-      if (targetUser.deletedAt) return reply.code(400).send({ error: "Cannot grant access to deleted user" });
+      if (!targetUser) return badRequest(reply, "User not found");
+      if (targetUser.deletedAt) return badRequest(reply, "Cannot grant access to deleted user");
 
       app.db
         .insert(userSpaceAccess)
@@ -338,16 +339,12 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const { id: spaceId, user_id: targetUserId } = req.params as { id: string; user_id: string };
 
-      let space;
-      try {
-        space = getSpace(app.db, spaceId);
-      } catch {
-        return reply.code(404).send({ error: "Space not found" });
-      }
-      if (!canGrantAccessForSpace(actor, space)) return reply.code(403).send({ error: "Forbidden" });
+      const space = loadSpaceOr404(app.db, reply, spaceId);
+      if (!space) return;
+      if (!canGrantAccessForSpace(actor, space)) return forbidden(reply);
 
       if (space.created_by === targetUserId) {
-        return reply.code(400).send({ error: "Cannot revoke access from the space owner" });
+        return badRequest(reply, "Cannot revoke access from the space owner");
       }
 
       app.db

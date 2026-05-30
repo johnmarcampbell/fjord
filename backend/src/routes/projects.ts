@@ -15,6 +15,7 @@ import {
 } from "../services/spaces.js";
 import { AssigneeNoAccessError } from "../services/tasks.js";
 import { canAccessSpace } from "../auth/policy.js";
+import { badRequest, forbidden, notFound } from "./http.js";
 
 function toProject(row: typeof projects.$inferSelect) {
   return {
@@ -78,8 +79,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const { id } = req.params as { id: string };
       const actor = req.actor!;
       const row = app.db.select().from(projects).where(eq(projects.id, id)).get();
-      if (!row) return reply.code(404).send({ error: "Project not found" });
-      if (!canAccessSpace(actor, row.spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      if (!row) return notFound(reply, "Project");
+      if (!canAccessSpace(actor, row.spaceId)) return forbidden(reply);
       return toProject(row);
     },
   );
@@ -107,14 +108,14 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const body = req.body as CreateProjectRequest;
       const spaceId = body.space_id ?? DEFAULT_SPACE_ID;
-      if (!canAccessSpace(actor, spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      if (!canAccessSpace(actor, spaceId)) return forbidden(reply);
       try {
         assertSpaceWriteable(app.db, spaceId);
       } catch (err) {
         if (err instanceof UnknownSpaceError)
-          return reply.code(400).send({ error: "Unknown space_id" });
+          return badRequest(reply, "Unknown space_id");
         if (err instanceof SpaceArchivedError)
-          return reply.code(400).send({ error: "Target space is archived" });
+          return badRequest(reply, "Target space is archived");
         throw err;
       }
       const row = {
@@ -160,20 +161,20 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const body = req.body as UpdateProjectRequest;
       const actor = req.actor!;
       const existing = app.db.select().from(projects).where(eq(projects.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Project not found" });
-      if (!canAccessSpace(actor, existing.spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      if (!existing) return notFound(reply, "Project");
+      if (!canAccessSpace(actor, existing.spaceId)) return forbidden(reply);
 
       if (body.space_id && body.space_id !== existing.spaceId) {
-        if (!canAccessSpace(actor, body.space_id)) return reply.code(403).send({ error: "Forbidden" });
+        if (!canAccessSpace(actor, body.space_id)) return forbidden(reply);
         try {
           moveProjectToSpace(app.db, app.events, actor.id, id, body.space_id);
         } catch (err) {
           if (err instanceof UnknownSpaceError)
-            return reply.code(400).send({ error: "Unknown space_id" });
+            return badRequest(reply, "Unknown space_id");
           if (err instanceof SpaceArchivedError)
-            return reply.code(400).send({ error: "Target space is archived" });
+            return badRequest(reply, "Target space is archived");
           if (err instanceof AssigneeNoAccessError)
-            return reply.code(400).send({ error: err.message });
+            return badRequest(reply, err.message);
           throw err;
         }
       }
@@ -207,8 +208,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const { id } = req.params as { id: string };
       const actor = req.actor!;
       const existing = app.db.select().from(projects).where(eq(projects.id, id)).get();
-      if (!existing) return reply.code(404).send({ error: "Project not found" });
-      if (!canAccessSpace(actor, existing.spaceId)) return reply.code(403).send({ error: "Forbidden" });
+      if (!existing) return notFound(reply, "Project");
+      if (!canAccessSpace(actor, existing.spaceId)) return forbidden(reply);
       app.db.update(tasks).set({ projectId: null }).where(eq(tasks.projectId, id)).run();
       app.db.delete(projects).where(eq(projects.id, id)).run();
       reply.code(204);
