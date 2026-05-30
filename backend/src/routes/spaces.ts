@@ -32,6 +32,12 @@ function toGrant(row: typeof userSpaceAccess.$inferSelect): Grant {
 /**
  * Load a space by id, sending a 404 and returning null when it doesn't exist.
  * Optional affiliation args are forwarded to `getSpace` for the `affiliated` flag.
+ *
+ * Note: unlike `loadTaskForActor` in tasks.ts, this performs no authorization —
+ * spaces have three distinct per-route access rules (manage / access / grant), so
+ * each caller applies its own `canManageSpace` / `canAccessSpace` /
+ * `canGrantAccessForSpace` check on the returned space. Keeping authz out of the
+ * loader keeps the access matrix explicit at the call site.
  */
 function loadSpaceOr404(
   db: DB,
