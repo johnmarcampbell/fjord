@@ -143,6 +143,40 @@ export function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
   };
 }
 
+/**
+ * Build a `task_events` insert row with the common defaults: a fresh id and all
+ * optional columns null. Callers override only the fields a given kind actually
+ * uses — `body` for comments/journal entries, `fromValue`/`toValue` for change
+ * events, `blockerId` for blocker events. `createdAt` defaults to now; pass it
+ * explicitly to share a single timestamp with a sibling task-row write.
+ */
+function buildTaskEvent(args: {
+  taskId: string;
+  actorId: string;
+  kind: TaskEvent["kind"];
+  byAssignee: boolean;
+  createdAt?: string;
+  updatedAt?: string | null;
+  body?: string | null;
+  fromValue?: string | null;
+  toValue?: string | null;
+  blockerId?: string | null;
+}): typeof taskEvents.$inferSelect {
+  return {
+    id: newId(),
+    taskId: args.taskId,
+    actorId: args.actorId,
+    kind: args.kind,
+    createdAt: args.createdAt ?? nowIso(),
+    updatedAt: args.updatedAt ?? null,
+    body: args.body ?? null,
+    fromValue: args.fromValue ?? null,
+    toValue: args.toValue ?? null,
+    blockerId: args.blockerId ?? null,
+    byAssignee: args.byAssignee,
+  };
+}
+
 export function hydrateTask(db: DB, row: typeof tasks.$inferSelect): Task {
   const blockedByRows = db
     .select({ id: taskDependencies.blockerId })
@@ -305,18 +339,15 @@ export function createTask(
   };
   db.insert(tasks).values(row).run();
   db.insert(taskEvents)
-    .values({
-      id: newId(),
-      taskId: id,
-      actorId: actor,
-      kind: "task_created",
-      createdAt: now,
-      body: null,
-      fromValue: null,
-      toValue: null,
-      blockerId: null,
-      byAssignee: row.assignedTo === actor,
-    })
+    .values(
+      buildTaskEvent({
+        taskId: id,
+        actorId: actor,
+        kind: "task_created",
+        byAssignee: row.assignedTo === actor,
+        createdAt: now,
+      }),
+    )
     .run();
   events.publish({ type: "task.created", task_id: id, space_id: spaceId });
   return hydrateTask(db, { ...row });
@@ -395,18 +426,16 @@ export function updateTask(
     kind: TaskEvent["kind"],
     fromValue: string | null,
     toValue: string | null,
-  ) => ({
-    id: newId(),
-    taskId: id,
-    actorId: actor,
-    kind,
-    createdAt: now,
-    body: null,
-    fromValue,
-    toValue,
-    blockerId: null,
-    byAssignee: eventByAssignee,
-  });
+  ) =>
+    buildTaskEvent({
+      taskId: id,
+      actorId: actor,
+      kind,
+      byAssignee: eventByAssignee,
+      createdAt: now,
+      fromValue,
+      toValue,
+    });
 
   if (updates.column !== existing.column)
     eventRows.push(mkEvent("column_changed", existing.column, updates.column));
@@ -444,23 +473,16 @@ export function addComment(
 ): TaskEvent {
   const existing = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
   if (!existing) throw new TaskNotFoundError();
-  const eventId = newId();
-  const row = {
-    id: eventId,
+  const event = buildTaskEvent({
     taskId,
     actorId: actor,
-    kind: "comment" as const,
-    createdAt: nowIso(),
-    updatedAt: null,
-    body,
-    fromValue: null,
-    toValue: null,
-    blockerId: null,
+    kind: "comment",
     byAssignee: existing.assignedTo === actor,
-  };
-  db.insert(taskEvents).values(row).run();
-  events.publish({ type: "task.event_added", task_id: taskId, event_id: eventId, kind: "comment", space_id: existing.spaceId });
-  return toEvent(row);
+    body,
+  });
+  db.insert(taskEvents).values(event).run();
+  events.publish({ type: "task.event_added", task_id: taskId, event_id: event.id, kind: "comment", space_id: existing.spaceId });
+  return toEvent(event);
 }
 
 export function addJournalEntry(
@@ -472,29 +494,22 @@ export function addJournalEntry(
 ): TaskEvent {
   const existing = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
   if (!existing) throw new TaskNotFoundError();
-  const eventId = newId();
-  const row = {
-    id: eventId,
+  const event = buildTaskEvent({
     taskId,
     actorId: actor,
-    kind: "journal_entry" as const,
-    createdAt: nowIso(),
-    updatedAt: null,
-    body,
-    fromValue: null,
-    toValue: null,
-    blockerId: null,
+    kind: "journal_entry",
     byAssignee: existing.assignedTo === actor,
-  };
-  db.insert(taskEvents).values(row).run();
+    body,
+  });
+  db.insert(taskEvents).values(event).run();
   events.publish({
     type: "task.event_added",
     task_id: taskId,
-    event_id: eventId,
+    event_id: event.id,
     kind: "journal_entry",
     space_id: existing.spaceId,
   });
-  return toEvent(row);
+  return toEvent(event);
 }
 
 export function addBlocker(
@@ -519,25 +534,18 @@ export function addBlocker(
   if (existingDep) throw new DuplicateDependencyError();
 
   db.insert(taskDependencies).values({ blockerId, blockedId: taskId }).run();
-  const eventId = newId();
-  db.insert(taskEvents)
-    .values({
-      id: eventId,
-      taskId,
-      actorId: actor,
-      kind: "blocker_added",
-      createdAt: nowIso(),
-      body: null,
-      fromValue: null,
-      toValue: null,
-      blockerId,
-      byAssignee: blocked.assignedTo === actor,
-    })
-    .run();
+  const event = buildTaskEvent({
+    taskId,
+    actorId: actor,
+    kind: "blocker_added",
+    byAssignee: blocked.assignedTo === actor,
+    blockerId,
+  });
+  db.insert(taskEvents).values(event).run();
   events.publish({
     type: "task.event_added",
     task_id: taskId,
-    event_id: eventId,
+    event_id: event.id,
     kind: "blocker_added",
     space_id: blocked.spaceId,
   });
@@ -568,25 +576,18 @@ export function removeBlocker(
     .run();
 
   const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  const eventId = newId();
-  db.insert(taskEvents)
-    .values({
-      id: eventId,
-      taskId,
-      actorId: actor,
-      kind: "blocker_removed",
-      createdAt: nowIso(),
-      body: null,
-      fromValue: null,
-      toValue: null,
-      blockerId,
-      byAssignee: task?.assignedTo === actor,
-    })
-    .run();
+  const event = buildTaskEvent({
+    taskId,
+    actorId: actor,
+    kind: "blocker_removed",
+    byAssignee: task?.assignedTo === actor,
+    blockerId,
+  });
+  db.insert(taskEvents).values(event).run();
   events.publish({
     type: "task.event_added",
     task_id: taskId,
-    event_id: eventId,
+    event_id: event.id,
     kind: "blocker_removed",
     space_id: task?.spaceId ?? "",
   });
@@ -606,25 +607,18 @@ export function archiveTask(db: DB, events: EventBus, actor: string, taskId: str
     .set({ archived: true, archivedAt: now, version: nextVersion, updatedAt: now })
     .where(eq(tasks.id, taskId))
     .run();
-  const eventId = newId();
-  db.insert(taskEvents)
-    .values({
-      id: eventId,
-      taskId,
-      actorId: actor,
-      kind: "task_archived",
-      createdAt: now,
-      body: null,
-      fromValue: null,
-      toValue: null,
-      blockerId: null,
-      byAssignee: task.assignedTo === actor,
-    })
-    .run();
+  const event = buildTaskEvent({
+    taskId,
+    actorId: actor,
+    kind: "task_archived",
+    byAssignee: task.assignedTo === actor,
+    createdAt: now,
+  });
+  db.insert(taskEvents).values(event).run();
   events.publish({
     type: "task.event_added",
     task_id: taskId,
-    event_id: eventId,
+    event_id: event.id,
     kind: "task_archived",
     space_id: task.spaceId,
   });
@@ -643,25 +637,18 @@ export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: s
     .set({ archived: false, archivedAt: null, version: nextVersion, updatedAt: now })
     .where(eq(tasks.id, taskId))
     .run();
-  const eventId = newId();
-  db.insert(taskEvents)
-    .values({
-      id: eventId,
-      taskId,
-      actorId: actor,
-      kind: "task_unarchived",
-      createdAt: now,
-      body: null,
-      fromValue: null,
-      toValue: null,
-      blockerId: null,
-      byAssignee: task.assignedTo === actor,
-    })
-    .run();
+  const event = buildTaskEvent({
+    taskId,
+    actorId: actor,
+    kind: "task_unarchived",
+    byAssignee: task.assignedTo === actor,
+    createdAt: now,
+  });
+  db.insert(taskEvents).values(event).run();
   events.publish({
     type: "task.event_added",
     task_id: taskId,
-    event_id: eventId,
+    event_id: event.id,
     kind: "task_unarchived",
     space_id: task.spaceId,
   });
