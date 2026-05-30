@@ -42,6 +42,7 @@ import { SpaceArchivedError, UnknownSpaceError } from "../services/spaces.js";
 import { canAccessSpace } from "../auth/policy.js";
 import type { Actor } from "../auth/actor.js";
 import type { DB } from "../db/index.js";
+import { badRequest, conflict, forbidden, notFound } from "./http.js";
 
 const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
 
@@ -57,11 +58,11 @@ function loadTaskForActor(
 ): typeof tasks.$inferSelect | null {
   const row = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
   if (!row) {
-    reply.code(404).send({ error: "Task not found" });
+    notFound(reply, "Task");
     return null;
   }
   if (!canAccessSpace(actor, row.spaceId)) {
-    reply.code(403).send({ error: "Forbidden" });
+    forbidden(reply);
     return null;
   }
   return row;
@@ -85,44 +86,49 @@ function parseKindFilter(raw: string | undefined): EventKind[] | null {
 
 function mapServiceError(err: unknown, reply: FastifyReply): void {
   if (err instanceof TaskNotFoundError) {
-    reply.code(404).send({ error: "Task not found" });
+    notFound(reply, "Task");
   } else if (err instanceof VersionConflictError) {
     reply
       .code(409)
       .send({ error: "Version conflict", code: "version_conflict", current_version: err.currentVersion });
   } else if (err instanceof UnknownUserError) {
-    reply.code(400).send({ error: "Unknown assigned_to user" });
+    badRequest(reply, "Unknown assigned_to user");
   } else if (err instanceof UnknownProjectError) {
-    reply.code(400).send({ error: "Unknown project_id" });
+    badRequest(reply, "Unknown project_id");
   } else if (err instanceof UnknownSpaceError) {
-    reply.code(400).send({ error: "Unknown space_id" });
+    badRequest(reply, "Unknown space_id");
   } else if (err instanceof SpaceArchivedError) {
-    reply.code(400).send({ error: "Target space is archived" });
+    badRequest(reply, "Target space is archived");
   } else if (err instanceof SpaceProjectMismatchError) {
-    reply
-      .code(400)
-      .send({ error: "space_id conflicts with the project's space; move the project instead" });
+    badRequest(reply, "space_id conflicts with the project's space; move the project instead");
   } else if (err instanceof BlockerNotFoundError) {
-    reply.code(400).send({ error: "Unknown blocker task" });
+    badRequest(reply, "Unknown blocker task");
   } else if (err instanceof DuplicateDependencyError) {
-    reply.code(409).send({ error: "Dependency already exists" });
+    conflict(reply, "Dependency already exists");
   } else if (err instanceof CycleError) {
-    reply.code(400).send({ error: "Adding this dependency would create a cycle" });
+    badRequest(reply, "Adding this dependency would create a cycle");
   } else if (err instanceof DependencyNotFoundError) {
-    reply.code(404).send({ error: "Dependency not found" });
+    notFound(reply, "Dependency");
   } else if (err instanceof TaskStateError) {
-    reply.code(400).send({ error: err.message });
+    badRequest(reply, err.message);
   } else if (err instanceof AssigneeNoAccessError) {
-    reply.code(400).send({ error: err.message });
+    badRequest(reply, err.message);
   } else if (err instanceof EventNotFoundError) {
-    reply.code(404).send({ error: "Event not found" });
+    notFound(reply, "Event");
   } else if (err instanceof EventEditForbiddenError) {
     if (err.code === "not_author") {
-      reply.code(403).send({ error: "Forbidden: you are not the author of this event" });
+      forbidden(reply, "Forbidden: you are not the author of this event");
     } else if (err.code === "not_editable_kind") {
-      reply.code(403).send({ error: "Forbidden: only comments and journal entries can be edited or deleted" });
+      forbidden(reply, "Forbidden: only comments and journal entries can be edited or deleted");
     } else {
-      reply.code(403).send({ error: err.code === "subsequent_activity" ? "Cannot delete: subsequent activity exists on this task" : "Cannot edit or delete: edit window has expired", code: err.code });
+      // Carries a `code` field, so it stays inline rather than using forbidden().
+      reply.code(403).send({
+        error:
+          err.code === "subsequent_activity"
+            ? "Cannot delete: subsequent activity exists on this task"
+            : "Cannot edit or delete: edit window has expired",
+        code: err.code,
+      });
     }
   } else {
     throw err;
@@ -225,7 +231,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const actor = req.actor!;
       const body = req.body as CreateTaskRequest;
       if (body.space_id && !canAccessSpace(actor, body.space_id)) {
-        return reply.code(403).send({ error: "Forbidden" });
+        return forbidden(reply);
       }
       try {
         reply.code(201);
@@ -272,7 +278,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       if (!existing) return;
       const body = req.body as UpdateTaskRequest;
       if (body.space_id && body.space_id !== existing.spaceId && !canAccessSpace(actor, body.space_id)) {
-        return reply.code(403).send({ error: "Forbidden" });
+        return forbidden(reply);
       }
       try {
         return updateTask(app.db, app.events, actor.id, id, body);
