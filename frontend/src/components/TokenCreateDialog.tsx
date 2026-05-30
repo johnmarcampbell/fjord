@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { Modal } from "./ui/Modal.js";
+import { Button } from "./ui/Button.js";
+import { FormInput, FormSelect, ErrorBanner } from "./ui/Form.js";
 
 type ExpiryPreset = "30d" | "90d" | "1y" | "never";
 
@@ -45,13 +48,8 @@ export function TokenCreateDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-modal border border-border bg-surface p-5 shadow-modal">
+    <Modal onClose={onClose} className="w-full max-w-md">
+      <div>
         {!created ? (
           <form
             onSubmit={(e) => {
@@ -68,48 +66,36 @@ export function TokenCreateDialog({
             )}
             <label className="mb-2 block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Name</span>
-              <input
+              <FormInput
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. cli-laptop"
                 maxLength={80}
-                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
               />
             </label>
             <label className="mb-2 block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Expires</span>
-              <select
+              <FormSelect
                 value={expires}
                 onChange={(e) => setExpires(e.target.value as ExpiryPreset)}
-                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
               >
                 <option value="30d">In 30 days</option>
                 <option value="90d">In 90 days</option>
                 <option value="1y">In 1 year</option>
                 <option value="never">Never</option>
-              </select>
+              </FormSelect>
             </label>
-            {create.error && (
-              <div className="mb-3 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger-text">
-                {(create.error as Error).message ?? "Failed to create token."}
-              </div>
-            )}
+            <ErrorBanner className="mb-3">
+              {create.error ? (create.error as Error).message ?? "Failed to create token." : null}
+            </ErrorBanner>
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-              >
+              <Button variant="secondary" onClick={onClose}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={create.isPending}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-              >
+              </Button>
+              <Button type="submit" disabled={create.isPending}>
                 {create.isPending ? "Creating…" : "Create"}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -130,17 +116,11 @@ export function TokenCreateDialog({
               </button>
             </div>
             <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-              >
-                I've saved it
-              </button>
+              <Button onClick={onClose}>I've saved it</Button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
