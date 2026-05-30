@@ -14,6 +14,9 @@ import { useUsers } from "../lib/queries.js";
 import { useCurrentUser, useInvalidateMe } from "../lib/auth.js";
 import { isAdmin } from "../lib/policy.js";
 import { TokenList } from "./TokenList.js";
+import { Modal } from "./ui/Modal.js";
+import { Button } from "./ui/Button.js";
+import { FormLabel, FormInput, FormTextarea, FormSelect, FieldError, ErrorBanner } from "./ui/Form.js";
 
 type FormState = {
   display_name: string;
@@ -186,36 +189,27 @@ export function UserFormDialog({
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <Modal
+      onClose={onClose}
+      padded={false}
+      className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto"
     >
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto rounded-modal border border-border bg-surface shadow-modal">
       <form onSubmit={onSubmit} className="p-5">
         <h2 className="mb-4 text-base font-bold text-ink">
           {mode === "create" ? "New user" : `Edit ${existing?.display_name ?? "user"}`}
         </h2>
 
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Display name
-        </label>
-        <input
+        <FormLabel>Display name</FormLabel>
+        <FormInput
           autoFocus={mode === "create"}
           value={form.display_name}
           onChange={(e) => update("display_name", e.target.value)}
           maxLength={128}
-          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors"
           placeholder="Ada Lovelace"
         />
-        {fieldErrors.display_name && (
-          <p className="mt-1 text-xs text-danger-text">{fieldErrors.display_name}</p>
-        )}
+        <FieldError>{fieldErrors.display_name}</FieldError>
 
-        <label className="mt-4 mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Handle
-        </label>
+        <FormLabel className="mt-4">Handle</FormLabel>
         <div className="flex items-center rounded-lg border border-border bg-surface-subtle focus-within:border-border-focus transition-colors">
           <span className="pl-3 text-sm text-ink-subtle">@</span>
           <input
@@ -230,69 +224,54 @@ export function UserFormDialog({
             placeholder="ada"
           />
         </div>
-        {fieldErrors.handle && (
-          <p className="mt-1 text-xs text-danger-text">{fieldErrors.handle}</p>
-        )}
+        <FieldError>{fieldErrors.handle}</FieldError>
 
         <div className={`mt-4 grid gap-4 ${currentIsAdmin ? "grid-cols-3" : "grid-cols-2"}`}>
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Kind
-            </label>
-            <select
+            <FormLabel>Kind</FormLabel>
+            <FormSelect
               value={form.kind}
               onChange={(e) => update("kind", e.target.value as UserKind)}
-              className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
             >
               <option value="human">Human</option>
               <option value="agent">Agent (bot)</option>
-            </select>
+            </FormSelect>
           </div>
           {currentIsAdmin && (
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Role
-              </label>
-              <select
+              <FormLabel>Role</FormLabel>
+              <FormSelect
                 value={form.role}
                 onChange={(e) => update("role", e.target.value as Role)}
                 disabled={isDefaultAdmin}
-                className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors disabled:opacity-60"
+                className="disabled:opacity-60"
               >
                 <option value="Member">Member</option>
                 <option value="Admin">Admin</option>
-              </select>
+              </FormSelect>
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Title
-            </label>
-            <input
+            <FormLabel>Title</FormLabel>
+            <FormInput
               value={form.title}
               onChange={(e) => update("title", e.target.value)}
               maxLength={128}
-              className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors"
               placeholder="Mathematician"
             />
           </div>
         </div>
 
-        <label className="mt-4 mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Bio
-        </label>
-        <textarea
+        <FormLabel className="mt-4">Bio</FormLabel>
+        <FormTextarea
           value={form.bio}
           onChange={(e) => update("bio", e.target.value)}
           rows={3}
           maxLength={1024}
-          className="w-full resize-none rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors"
           placeholder="A few words about yourself…"
         />
 
-        <label className="mt-4 mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Avatar
-        </label>
+        <FormLabel className="mt-4">Avatar</FormLabel>
         <div className="grid grid-cols-6 gap-1.5">
           {AVATAR_EMOJI_LIST.map((e) => (
             <button
@@ -310,23 +289,17 @@ export function UserFormDialog({
             </button>
           ))}
         </div>
-        <input
+        <FormInput
           type="text"
           value={form.avatar}
           onChange={(e) => setAvatar(e.target.value)}
           placeholder="🦊 or https://…"
           maxLength={2048}
-          className="mt-2 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors"
+          className="mt-2"
         />
-        {fieldErrors.avatar && (
-          <p className="mt-1 text-xs text-danger-text">{fieldErrors.avatar}</p>
-        )}
+        <FieldError>{fieldErrors.avatar}</FieldError>
 
-        {serverError && (
-          <div className="mt-4 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger-text">
-            {serverError}
-          </div>
-        )}
+        <ErrorBanner className="mt-4">{serverError}</ErrorBanner>
 
         {canResetOthersPassword && (
           <div className="mt-6 border-t border-border pt-4">
@@ -401,20 +374,12 @@ export function UserFormDialog({
         )}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-          >
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
+          </Button>
+          <Button type="submit" disabled={pending}>
             {mode === "create" ? "Create" : "Save"}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -423,7 +388,6 @@ export function UserFormDialog({
           <TokenList userId={userId} ownerHandle={existing.handle} />
         </div>
       )}
-      </div>
-    </div>
+    </Modal>
   );
 }

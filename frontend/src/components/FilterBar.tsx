@@ -8,6 +8,9 @@ import { useActiveSpace } from "../lib/SpaceContext.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 import { useCurrentUser } from "../lib/auth.js";
+import { Modal } from "./ui/Modal.js";
+import { Button } from "./ui/Button.js";
+import { FormLabel, FormInput, ErrorBanner } from "./ui/Form.js";
 
 const PRESET_COLORS = [
   "#4A7FA5", "#6B9E8A", "#C9A94A", "#6B7F8E",
@@ -475,88 +478,67 @@ function ProjectForm({
   const mutation = isEditing ? updateMutation : createMutation;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-80 rounded-modal border border-border bg-surface p-5 shadow-modal">
-        <h2 className="mb-4 text-base font-bold text-ink">
-          {isEditing ? "Edit project" : "New project"}
-        </h2>
+    <Modal onClose={onClose} className="w-80">
+      <h2 className="mb-4 text-base font-bold text-ink">
+        {isEditing ? "Edit project" : "New project"}
+      </h2>
 
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Name
-        </label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
-        />
+      <FormLabel>Name</FormLabel>
+      <FormInput
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="mb-4"
+      />
 
-        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Color
-        </label>
-        <div className="mb-4 flex gap-1.5">
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              className={clsx(
-                "h-6 w-6 rounded-full transition-transform hover:scale-110",
-                color === c && "ring-2 ring-border-focus ring-offset-2 ring-offset-surface",
-              )}
-              style={{ background: c }}
-            />
-          ))}
-        </div>
-
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Description
-        </label>
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm text-ink focus:border-border-focus focus:outline-none transition-colors"
-        />
-
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Due date
-        </label>
-        <div className="mb-5">
-          <DateTimePicker
-            value={dueAt ? new Date(dueAt).toISOString() : ""}
-            onChange={(iso) => setDueAt(iso ? toLocalInputValue(iso) : "")}
+      <FormLabel className="mb-2">Color</FormLabel>
+      <div className="mb-4 flex gap-1.5">
+        {PRESET_COLORS.map((c) => (
+          <button
+            key={c}
+            onClick={() => setColor(c)}
+            className={clsx(
+              "h-6 w-6 rounded-full transition-transform hover:scale-110",
+              color === c && "ring-2 ring-border-focus ring-offset-2 ring-offset-surface",
+            )}
+            style={{ background: c }}
           />
-        </div>
-
-        {mutation.isError && (
-          <div className="mb-3 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger-text">
-            {(mutation.error as Error).message}
-          </div>
-        )}
-
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              if (name.trim()) mutation.mutate();
-            }}
-            disabled={!name.trim() || mutation.isPending}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            {isEditing ? "Save" : "Create"}
-          </button>
-        </div>
+        ))}
       </div>
-    </div>
+
+      <FormLabel>Description</FormLabel>
+      <FormInput
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="mb-4"
+      />
+
+      <FormLabel>Due date</FormLabel>
+      <div className="mb-5">
+        <DateTimePicker
+          value={dueAt ? new Date(dueAt).toISOString() : ""}
+          onChange={(iso) => setDueAt(iso ? toLocalInputValue(iso) : "")}
+        />
+      </div>
+
+      <ErrorBanner className="mb-3">
+        {mutation.isError ? (mutation.error as Error).message : null}
+      </ErrorBanner>
+
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            if (name.trim()) mutation.mutate();
+          }}
+          disabled={!name.trim() || mutation.isPending}
+        >
+          {isEditing ? "Save" : "Create"}
+        </Button>
+      </div>
+    </Modal>
   );
 }
 
