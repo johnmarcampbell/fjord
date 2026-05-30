@@ -149,6 +149,9 @@ export function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
  * uses — `body` for comments/journal entries, `fromValue`/`toValue` for change
  * events, `blockerId` for blocker events. `createdAt` defaults to now; pass it
  * explicitly to share a single timestamp with a sibling task-row write.
+ *
+ * `updatedAt` is always null here: events are immutable at creation. Only the
+ * edit path (`editTaskEvent`) stamps `updatedAt`, and it updates the row directly.
  */
 function buildTaskEvent(args: {
   taskId: string;
@@ -156,7 +159,6 @@ function buildTaskEvent(args: {
   kind: TaskEvent["kind"];
   byAssignee: boolean;
   createdAt?: string;
-  updatedAt?: string | null;
   body?: string | null;
   fromValue?: string | null;
   toValue?: string | null;
@@ -168,7 +170,7 @@ function buildTaskEvent(args: {
     actorId: args.actorId,
     kind: args.kind,
     createdAt: args.createdAt ?? nowIso(),
-    updatedAt: args.updatedAt ?? null,
+    updatedAt: null,
     body: args.body ?? null,
     fromValue: args.fromValue ?? null,
     toValue: args.toValue ?? null,
