@@ -6,6 +6,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
@@ -36,6 +37,11 @@ export function Board({
   const { data: projects = [] } = useProjects(activeSpaceId);
   const { data: users = [] } = useUsers();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [crossColumnDrag, setCrossColumnDrag] = useState<{
+    taskId: string;
+    targetColumn: Column;
+    insertIndex: number;
+  } | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 
   const moveMutation = useMoveTask();
@@ -103,14 +109,49 @@ export function Board({
   function handleDragStart(ev: DragStartEvent) {
     const task = tasks.find((t) => t.id === String(ev.active.id));
     setActiveTask(task ?? null);
+    setCrossColumnDrag(null);
   }
 
   function handleDragCancel() {
     setActiveTask(null);
+    setCrossColumnDrag(null);
+  }
+
+  function handleDragOver(ev: DragOverEvent) {
+    const { active, over } = ev;
+    if (!over) { setCrossColumnDrag(null); return; }
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const draggedTask = tasks.find((t) => t.id === activeId);
+    if (!draggedTask) return;
+
+    let targetColumn: Column;
+    let insertIndex: number;
+
+    if (overId.startsWith("col:")) {
+      targetColumn = overId.slice(4) as Column;
+      insertIndex = (byColumn.get(targetColumn) ?? []).length;
+    } else {
+      const overTask = tasks.find((t) => t.id === overId);
+      if (!overTask) return;
+      targetColumn = overTask.column as Column;
+      const list = byColumn.get(targetColumn) ?? [];
+      insertIndex = list.findIndex((t) => t.id === overId);
+      if (insertIndex < 0) insertIndex = list.length;
+    }
+
+    if (!byColumn.has(targetColumn) || draggedTask.column === targetColumn) {
+      setCrossColumnDrag(null);
+      return;
+    }
+
+    setCrossColumnDrag({ taskId: activeId, targetColumn, insertIndex });
   }
 
   function handleDragEnd(ev: DragEndEvent) {
     setActiveTask(null);
+    setCrossColumnDrag(null);
     const { active, over } = ev;
     if (!over) return;
     const activeId = String(active.id);
@@ -157,6 +198,21 @@ export function Board({
     });
   }
 
+  const renderByColumn = useMemo(() => {
+    if (!crossColumnDrag || !activeTask) return byColumn;
+    const { taskId, targetColumn, insertIndex } = crossColumnDrag;
+    const sourceColumn = activeTask.column as Column;
+    if (!byColumn.has(targetColumn)) return byColumn;
+
+    const result = new Map(byColumn);
+    result.set(sourceColumn, (byColumn.get(sourceColumn) ?? []).filter((t) => t.id !== taskId));
+    const targetTasks = (byColumn.get(targetColumn) ?? []).filter((t) => t.id !== taskId);
+    const withInserted = [...targetTasks];
+    withInserted.splice(insertIndex, 0, activeTask);
+    result.set(targetColumn, withInserted);
+    return result;
+  }, [byColumn, crossColumnDrag, activeTask]);
+
   if (isError) {
     return (
       <div className="p-6 text-sm text-danger">
@@ -174,6 +230,7 @@ export function Board({
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
@@ -182,7 +239,7 @@ export function Board({
             <ColumnView
               key={c}
               column={c}
-              tasks={byColumn.get(c) ?? []}
+              tasks={renderByColumn.get(c) ?? []}
               blockedIds={blockedIds}
               projectById={projectById}
               usersById={usersById}
