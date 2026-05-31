@@ -30,9 +30,7 @@ export function ProjectFormDialog({
   const [name, setName] = useState(initial?.name ?? "");
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0]);
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [dueAt, setDueAt] = useState(
-    initial?.due_at ? toLocalInputValue(initial.due_at) : "",
-  );
+  const [dueAt, setDueAt] = useState<string | null>(initial?.due_at ?? null);
 
   const isEditing = initial !== null;
 
@@ -42,7 +40,7 @@ export function ProjectFormDialog({
         name,
         color,
         description,
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        due_at: dueAt,
         space_id: activeSpaceId,
       }),
     onSuccess: () => {
@@ -57,7 +55,7 @@ export function ProjectFormDialog({
         name,
         color,
         description,
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        due_at: dueAt,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -105,10 +103,7 @@ export function ProjectFormDialog({
 
       <FormLabel>Due date</FormLabel>
       <div className="mb-5">
-        <DateTimePicker
-          value={dueAt ? new Date(dueAt).toISOString() : ""}
-          onChange={(iso) => setDueAt(iso ? toLocalInputValue(iso) : "")}
-        />
+        <DateTimePicker value={dueAt ?? ""} onChange={setDueAt} />
       </div>
 
       <ErrorBanner className="mb-3">
@@ -130,10 +125,4 @@ export function ProjectFormDialog({
       </div>
     </Modal>
   );
-}
-
-function toLocalInputValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
