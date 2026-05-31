@@ -6,6 +6,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
@@ -26,6 +27,30 @@ import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
 
+/**
+ * Resolve a dnd-kit `over.id` to a { column, index } drop target.
+ * Returns null if the id doesn't map to a known column or task.
+ * Used by both handleDragOver (visual preview) and handleDragEnd (drop math)
+ * so the ghost always predicts the real drop position.
+ */
+function resolveDropTarget(
+  overId: string,
+  byColumn: Map<Column, Task[]>,
+  tasks: Task[],
+): { column: Column; index: number } | null {
+  if (overId.startsWith("col:")) {
+    const column = overId.slice(4) as Column;
+    if (!byColumn.has(column)) return null;
+    return { column, index: byColumn.get(column)!.length };
+  }
+  const overTask = tasks.find((t) => t.id === overId);
+  if (!overTask) return null;
+  const column = overTask.column as Column;
+  const list = byColumn.get(column) ?? [];
+  const idx = list.findIndex((t) => t.id === overId);
+  return { column, index: idx < 0 ? list.length : idx };
+}
+
 export function Board({
   setOpenTaskId,
 }: {
@@ -36,6 +61,12 @@ export function Board({
   const { data: projects = [] } = useProjects(activeSpaceId);
   const { data: users = [] } = useUsers();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  // Tracks an in-progress cross-column drag for the visual ghost preview.
+  // taskId is not stored here — activeTask.id is the single source of truth.
+  const [crossColumnDrag, setCrossColumnDrag] = useState<{
+    targetColumn: Column;
+    insertIndex: number;
+  } | null>(null);
   const { selectedProject, selectedTags, selectedUsers } = useFilterContext();
 
   const moveMutation = useMoveTask();
@@ -103,14 +134,32 @@ export function Board({
   function handleDragStart(ev: DragStartEvent) {
     const task = tasks.find((t) => t.id === String(ev.active.id));
     setActiveTask(task ?? null);
+    setCrossColumnDrag(null);
   }
 
   function handleDragCancel() {
     setActiveTask(null);
+    setCrossColumnDrag(null);
+  }
+
+  function handleDragOver(ev: DragOverEvent) {
+    const { active, over } = ev;
+    if (!over) return setCrossColumnDrag(null);
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    // When the pointer is directly over the ghost card itself, dnd-kit may
+    // briefly report over.id === active.id. Ignore it to avoid a flicker
+    // where crossColumnDrag nulls out for one frame and the ghost snaps back.
+    if (overId === activeId) return;
+    const dragged = tasks.find((t) => t.id === activeId);
+    const target = dragged && resolveDropTarget(overId, byColumn, tasks);
+    if (!target || dragged.column === target.column) return setCrossColumnDrag(null);
+    setCrossColumnDrag({ targetColumn: target.column, insertIndex: target.index });
   }
 
   function handleDragEnd(ev: DragEndEvent) {
     setActiveTask(null);
+    setCrossColumnDrag(null);
     const { active, over } = ev;
     if (!over) return;
     const activeId = String(active.id);
@@ -118,21 +167,10 @@ export function Board({
     const activeTask = tasks.find((t) => t.id === activeId);
     if (!activeTask) return;
 
-    let targetColumn: Column;
-    let targetIndex: number;
-    if (overId.startsWith("col:")) {
-      targetColumn = overId.slice(4) as Column;
-      targetIndex = byColumn.get(targetColumn)!.length;
-    } else {
-      const overTask = tasks.find((t) => t.id === overId);
-      if (!overTask) return;
-      targetColumn = overTask.column as Column;
-      const list = byColumn.get(targetColumn)!;
-      targetIndex = list.findIndex((t) => t.id === overId);
-      if (targetIndex < 0) targetIndex = list.length;
-    }
+    const target = resolveDropTarget(overId, byColumn, tasks);
+    if (!target) return;
+    const { column: targetColumn, index: targetIndex } = target;
 
-    if (!byColumn.has(targetColumn)) return;
     const sourceList = byColumn.get(activeTask.column as Column) ?? [];
     const targetList = byColumn.get(targetColumn)!.filter((t) => t.id !== activeId);
     if (
@@ -157,6 +195,24 @@ export function Board({
     });
   }
 
+  // Visual-only column layout during a cross-column drag: removes the card
+  // from its source column and splices it into the target at the hover index
+  // so SortableContext renders it as a ghost (isDragging opacity).
+  // handleDragEnd always reads byColumn (real server state) for drop math.
+  const renderByColumn = useMemo(() => {
+    if (!crossColumnDrag || !activeTask) return byColumn;
+    const { targetColumn, insertIndex } = crossColumnDrag;
+    const sourceColumn = activeTask.column as Column;
+
+    const result = new Map(byColumn);
+    result.set(sourceColumn, (byColumn.get(sourceColumn) ?? []).filter((t) => t.id !== activeTask.id));
+    const targetTasks = (byColumn.get(targetColumn) ?? []).filter((t) => t.id !== activeTask.id);
+    const withInserted = [...targetTasks];
+    withInserted.splice(insertIndex, 0, activeTask);
+    result.set(targetColumn, withInserted);
+    return result;
+  }, [byColumn, crossColumnDrag, activeTask]);
+
   if (isError) {
     return (
       <div className="p-6 text-sm text-danger">
@@ -174,6 +230,7 @@ export function Board({
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
@@ -182,7 +239,7 @@ export function Board({
             <ColumnView
               key={c}
               column={c}
-              tasks={byColumn.get(c) ?? []}
+              tasks={renderByColumn.get(c) ?? []}
               blockedIds={blockedIds}
               projectById={projectById}
               usersById={usersById}
