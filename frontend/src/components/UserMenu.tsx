@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { logout, useCurrentUser, useInvalidateMe } from "../lib/auth.js";
+import { useClickOutside } from "../lib/useClickOutside.js";
 import { ChangePasswordDialog } from "./ChangePasswordDialog.js";
+import { SunIcon, MoonIcon } from "./icons.js";
 
-export function UserMenu() {
+export function UserMenu({
+  theme,
+  onToggleTheme,
+}: {
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+}) {
   const { data: me } = useCurrentUser();
   const invalidateMe = useInvalidateMe();
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
 
   if (!me) return null;
 
@@ -58,6 +58,26 @@ export function UserMenu() {
           >
             Change password
           </button>
+          <div className="my-1 border-t border-border" />
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            {theme === "light" ? <MoonIcon /> : <SunIcon />}
+            {theme === "light" ? "Dark mode" : "Light mode"}
+          </button>
+          <a
+            href="/api/docs"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            API docs
+            <span aria-hidden className="text-ink-subtle">↗</span>
+          </a>
+          <div className="my-1 border-t border-border" />
           <button
             type="button"
             onClick={() => {
