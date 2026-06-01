@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { useClickOutside } from "../lib/useClickOutside.js";
 
@@ -38,13 +38,6 @@ export function DateTimePicker({
   // Dismissing (outside mousedown or Escape) commits the buffered date/time.
   const containerRef = useClickOutside<HTMLDivElement>(open, commitAndClose);
 
-  // Refs so the close handler always sees the latest buffered values without
-  // being re-registered on every state change.
-  const selectedDateRef = useRef(selectedDate);
-  const timeStrRef = useRef(timeStr);
-  selectedDateRef.current = selectedDate;
-  timeStrRef.current = timeStr;
-
   useEffect(() => {
     if (value) {
       setSelectedDate(new Date(value));
@@ -56,10 +49,9 @@ export function DateTimePicker({
   }, [value]);
 
   function commitAndClose() {
-    const date = selectedDateRef.current;
-    if (date) {
-      const [h, m] = timeStrRef.current.split(":").map(Number);
-      const result = new Date(date);
+    if (selectedDate) {
+      const [h, m] = timeStr.split(":").map(Number);
+      const result = new Date(selectedDate);
       result.setHours(h, m, 0, 0);
       onChange(result.toISOString());
     }
