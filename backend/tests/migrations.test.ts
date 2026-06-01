@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/node-sqlite";
-import { slugify } from "@agentic-kanban/shared";
+import { slugify } from "@fjord/shared";
 import { backfillUserProfiles } from "../src/services/users.js";
 import { openDatabase, runMigrations, applyMigrations, repairSchemaDrift } from "../src/db/index.js";
 
@@ -122,7 +122,7 @@ describe("migration 0005_user_profile", () => {
     sqlite.close();
   });
 
-  it("seeded users via KANBAN_SEED_USERS have handle equal to slugified id", async () => {
+  it("seeded users via FJORD_SEED_USERS have handle equal to slugified id", async () => {
     const { makeTestApp } = await import("./helpers.js");
     const ctx = await makeTestApp();
     const res = await ctx.inject({ method: "GET", url: "/api/users" });
@@ -219,12 +219,12 @@ describe("runMigrations integration", () => {
     .map((f) => f.replace(/\.sql$/, ""))
     .sort();
 
-  it("fresh database: applies all migrations and populates __ak_migrations", () => {
+  it("fresh database: applies all migrations and populates __fjord_migrations", () => {
     const handle = openDatabase(":memory:");
     runMigrations(handle);
 
     const rows = handle.sqlite
-      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .prepare("SELECT tag FROM __fjord_migrations ORDER BY tag")
       .all() as { tag: string }[];
     expect(rows.map((r) => r.tag)).toEqual(allTags);
 
@@ -242,7 +242,7 @@ describe("runMigrations integration", () => {
     runMigrations(handle);
 
     const rows = handle.sqlite
-      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .prepare("SELECT tag FROM __fjord_migrations ORDER BY tag")
       .all() as { tag: string }[];
     expect(rows.map((r) => r.tag)).toEqual(allTags);
 
@@ -270,7 +270,7 @@ describe("runMigrations integration", () => {
     runMigrations(handle);
 
     const rows = handle.sqlite
-      .prepare("SELECT tag FROM __ak_migrations ORDER BY tag")
+      .prepare("SELECT tag FROM __fjord_migrations ORDER BY tag")
       .all() as { tag: string }[];
     expect(rows.map((r) => r.tag)).toEqual(allTags);
 
@@ -303,6 +303,48 @@ describe("runMigrations integration", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it("legacy __ak_migrations ledger: renames to __fjord_migrations and does not replay", () => {
+    const handle = openDatabase(":memory:");
+
+    // Simulate a pre-rename DB: schema fully applied, ledger under the OLD name
+    // with a distinctive applied_at we can later prove was carried over verbatim.
+    for (const tag of allTags) applyMigration(handle.sqlite, tag);
+    handle.sqlite.exec(`
+      CREATE TABLE __ak_migrations (
+        tag TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      )
+    `);
+    const insert = handle.sqlite.prepare(
+      "INSERT INTO __ak_migrations (tag, applied_at) VALUES (?, ?)",
+    );
+    for (const tag of allTags) insert.run(tag, "2020-01-01T00:00:00Z");
+
+    // Boot must not throw — a replay against populated tables would crash.
+    expect(() => runMigrations(handle)).not.toThrow();
+
+    // (a) the new ledger holds exactly the same tags
+    const rows = handle.sqlite
+      .prepare("SELECT tag FROM __fjord_migrations ORDER BY tag")
+      .all() as { tag: string }[];
+    expect(rows.map((r) => r.tag)).toEqual(allTags);
+
+    // (b) the old ledger is gone (renamed, not duplicated)
+    const oldLedger = handle.sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '__ak_migrations'")
+      .get();
+    expect(oldLedger).toBeFalsy();
+
+    // (c) no replay: rows were carried over verbatim, not re-applied with fresh
+    // timestamps (a re-apply would use the current ISO time, not our sentinel).
+    const appliedAt = handle.sqlite
+      .prepare("SELECT DISTINCT applied_at FROM __fjord_migrations")
+      .all() as { applied_at: string }[];
+    expect(appliedAt).toEqual([{ applied_at: "2020-01-01T00:00:00Z" }]);
+
+    handle.close();
   });
 });
 

@@ -4,7 +4,7 @@ import {
   type CreateSpaceRequest,
   type Space,
   type UpdateSpaceRequest,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
 import { projects, spaces, taskEvents, tasks } from "../db/schema.js";

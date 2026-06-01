@@ -7,8 +7,8 @@ import type {
   CreateTaskRequest,
   EventKind,
   UpdateTaskRequest,
-} from "@agentic-kanban/shared";
-import { COLUMNS, EVENT_KINDS } from "@agentic-kanban/shared";
+} from "@fjord/shared";
+import { COLUMNS, EVENT_KINDS } from "@fjord/shared";
 import { taskEvents, tasks } from "../db/schema.js";
 import {
   AssigneeNoAccessError,
@@ -563,7 +563,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         summary: "Edit a comment or journal entry",
         description:
           "Author-only. Updates the body of a comment or journal entry and sets `updated_at`. " +
-          "Only allowed within the configured edit window (`KANBAN_EDIT_WINDOW_MINUTES`).",
+          "Only allowed within the configured edit window (`FJORD_EDIT_WINDOW_MINUTES`).",
         tags: ["tasks"],
         params: {
           type: "object",
@@ -601,7 +601,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         description:
           "Author-only. Deletes a comment or journal entry if both conditions are met: " +
           "(1) no subsequent activity exists on the task, and " +
-          "(2) the entry is within the configured edit window (`KANBAN_EDIT_WINDOW_MINUTES`). " +
+          "(2) the entry is within the configured edit window (`FJORD_EDIT_WINDOW_MINUTES`). " +
           "Returns 403 with `code: subsequent_activity` or `code: edit_window_expired` when the respective condition fails.",
         tags: ["tasks"],
         params: {

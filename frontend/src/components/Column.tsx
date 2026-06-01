@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Column as ColumnKey, Project, Task, User } from "@agentic-kanban/shared";
+import type { Column as ColumnKey, Project, Task, User } from "@fjord/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api.js";

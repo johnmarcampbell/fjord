@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { StreamEvent } from "@agentic-kanban/shared";
+import type { StreamEvent } from "@fjord/shared";
 
 export function shouldForwardEvent(event: StreamEvent, affiliatedSpaceIds: Set<string>): boolean {
   if (event.type === "demo.reset") return true;

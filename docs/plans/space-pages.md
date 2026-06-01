@@ -4,7 +4,7 @@
 
 ## Source
 
-- GitHub issue: [#76 — Space detail page + space list page](https://github.com/johnmarcampbell/agentic_kanban/issues/76)
+- GitHub issue: [#76 — Space detail page + space list page](https://github.com/johnmarcampbell/fjord/issues/76)
 - Grilling session: alignment captured in this plan; no new ADRs.
 
 ## Context
@@ -304,4 +304,4 @@ None — all design decisions resolved during grilling. One implementation choic
 
 ## Out-of-band work
 
-- A separate issue ([#80 — Add password authentication](https://github.com/johnmarcampbell/agentic_kanban/issues/80)) tracks adding real authentication. It is unrelated to this plan but may shift how `actor` identity is established in the future. Nothing in this plan depends on the outcome.
+- A separate issue ([#80 — Add password authentication](https://github.com/johnmarcampbell/fjord/issues/80)) tracks adding real authentication. It is unrelated to this plan but may shift how `actor` identity is established in the future. Nothing in this plan depends on the outcome.

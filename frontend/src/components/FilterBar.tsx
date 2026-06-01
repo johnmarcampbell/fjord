@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import type { Project, User } from "@agentic-kanban/shared";
+import type { Project, User } from "@fjord/shared";
 import { api } from "../lib/api.js";
 import { useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";

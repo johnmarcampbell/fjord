@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-**agentic-kanban** is a small Kanban board for collaboration between one or two humans and agents. It is designed to be deployed alongside Openclaw with first-class authentication.
+**fjord** is a small Kanban board for collaboration between one or two humans and agents. It is designed to be deployed alongside Openclaw with first-class authentication.
 
 ### Key constraints
-- **Per-user authentication** — humans log in with a handle + scrypt-hashed password and receive an HttpOnly session cookie (`ak_session`). Agents and CLI callers authenticate with `Authorization: Bearer ak_...` API tokens. Demo mode auto-logs every visitor in as `default-administrator` ([ADR-0008](docs/adr/0008-password-authentication.md), [ADR-0009](docs/adr/0009-password-hash-format.md), [ADR-0010](docs/adr/0010-api-token-format-and-storage.md)).
-- **CSRF** — cookie-authenticated writes require `X-Requested-With: agentic-kanban`. Bearer-authenticated callers are exempt (no ambient credential, no CSRF risk).
+- **Per-user authentication** — humans log in with a handle + scrypt-hashed password and receive an HttpOnly session cookie (`fjord_session`). Agents and CLI callers authenticate with `Authorization: Bearer fjord_...` API tokens. Demo mode auto-logs every visitor in as `default-administrator` ([ADR-0008](docs/adr/0008-password-authentication.md), [ADR-0009](docs/adr/0009-password-hash-format.md), [ADR-0010](docs/adr/0010-api-token-format-and-storage.md)).
+- **CSRF** — cookie-authenticated writes require `X-Requested-With: fjord`. Bearer-authenticated callers are exempt (no ambient credential, no CSRF risk).
 - **Passwordless-once** — a human user whose `password_hash IS NULL` may log in once. The session is real but write endpoints respond with `403 set_password_required` until they hit `POST /api/auth/change-password`. The frontend bounces them to a forced-set-password screen.
 - **Optimistic concurrency** — tasks have a `version` field; PATCH requests must include the version the caller last saw, returning 409 if stale
 - **No soft deletes** — hard deletes only, with one exception: **users are soft-deleted** ([ADR-0004](docs/adr/0004-soft-delete-users.md)) because their IDs are referenced by tasks, events, comments, and journal entries
@@ -70,7 +70,7 @@ Exports:
 - Database decoration (`app.db`)
 - EventBus decoration (`app.events`) — in-memory pub/sub for SSE clients
 - Scalar API Reference at `/api/docs` (OpenAPI spec at `/api/docs/openapi.json`)
-- Static file serving (frontend build, if `KANBAN_STATIC_DIR` is set)
+- Static file serving (frontend build, if `FJORD_STATIC_DIR` is set)
 
 ### Database
 - **ORM**: Drizzle ORM with node:sqlite
@@ -97,16 +97,16 @@ Exports:
 
 ### Configuration
 Read at startup from environment variables (Zod-validated in [backend/src/config.ts](backend/src/config.ts)):
-- `KANBAN_PORT` (default 3000)
-- `KANBAN_HOST` (default 0.0.0.0)
-- `KANBAN_DB_PATH` (default `./data/kanban.db`)
-- `KANBAN_LOG_LEVEL` (default `info`)
-- `KANBAN_CORS_ORIGINS` (comma-separated, optional)
-- `KANBAN_SEED_USERS` (e.g., `alice:human,agent-coder:agent`, idempotent)
-- `KANBAN_STATIC_DIR` (path to frontend build for production serving)
-- `KANBAN_BOOTSTRAP_PASSWORD` (optional; seeds the `default-administrator` password on first boot if its `password_hash` is still null. Ignored thereafter and in demo mode.)
-- `KANBAN_SESSION_IDLE_DAYS` (default 30; idle expiry for session cookies)
-- `KANBAN_EDIT_WINDOW_MINUTES` (default 5; minutes after creation during which the author may edit or delete a comment or journal entry)
+- `FJORD_PORT` (default 3000)
+- `FJORD_HOST` (default 0.0.0.0)
+- `FJORD_DB_PATH` (default `./data/fjord.db`)
+- `FJORD_LOG_LEVEL` (default `info`)
+- `FJORD_CORS_ORIGINS` (comma-separated, optional)
+- `FJORD_SEED_USERS` (e.g., `alice:human,agent-coder:agent`, idempotent)
+- `FJORD_STATIC_DIR` (path to frontend build for production serving)
+- `FJORD_BOOTSTRAP_PASSWORD` (optional; seeds the `default-administrator` password on first boot if its `password_hash` is still null. Ignored thereafter and in demo mode.)
+- `FJORD_SESSION_IDLE_DAYS` (default 30; idle expiry for session cookies)
+- `FJORD_EDIT_WINDOW_MINUTES` (default 5; minutes after creation during which the author may edit or delete a comment or journal entry)
 - `NODE_ENV` (default `development`)
 
 ## Frontend architecture
@@ -118,7 +118,7 @@ Read at startup from environment variables (Zod-validated in [backend/src/config
 - **Drag & drop**: [frontend/src/components/Board.tsx](frontend/src/components/Board.tsx) and [frontend/src/components/Column.tsx](frontend/src/components/Column.tsx) use dnd-kit for column/position changes
 
 ### Theme
-Light/dark mode stored in localStorage (`ak-theme`) and applied to `document.documentElement.data-theme`. Tailwind CSS respects this via the `data-theme` selector in [frontend/tailwind.config.ts](frontend/tailwind.config.ts).
+Light/dark mode stored in localStorage (`fjord-theme`) and applied to `document.documentElement.data-theme`. Tailwind CSS respects this via the `data-theme` selector in [frontend/tailwind.config.ts](frontend/tailwind.config.ts).
 
 ### Routes
 Routing uses `react-router-dom` v6.
@@ -140,11 +140,11 @@ Routing uses `react-router-dom` v6.
 - [frontend/src/components/TokenList.tsx](frontend/src/components/TokenList.tsx) and [frontend/src/components/TokenCreateDialog.tsx](frontend/src/components/TokenCreateDialog.tsx) — API token management, embedded in `UserFormDialog`. Both surfaces label the bound user (`@handle`) so admins issuing tokens for agents can't get the binding wrong.
 
 ### API client
-[frontend/src/lib/api.ts](frontend/src/lib/api.ts): Wrapper around `fetch` that sends `credentials: "include"` (session cookie) and `X-Requested-With: agentic-kanban` on writes. Throws `ApiError` (with status, message, body) on non-2xx responses. On 401 it dispatches the auth-logout event so `AuthGate` re-renders the login page.
+[frontend/src/lib/api.ts](frontend/src/lib/api.ts): Wrapper around `fetch` that sends `credentials: "include"` (session cookie) and `X-Requested-With: fjord` on writes. Throws `ApiError` (with status, message, body) on non-2xx responses. On 401 it dispatches the auth-logout event so `AuthGate` re-renders the login page.
 
 ## API overview
 
-All authenticated endpoints require either an `ak_session` cookie (humans, via `POST /api/auth/login`) or `Authorization: Bearer ak_...` (agents and CLI, via API tokens). Cookie-authenticated writes additionally require `X-Requested-With: agentic-kanban`. Every task has a `version` integer; PATCH requires the version the caller last saw (optimistic concurrency, returns 409 on mismatch).
+All authenticated endpoints require either an `fjord_session` cookie (humans, via `POST /api/auth/login`) or `Authorization: Bearer fjord_...` (agents and CLI, via API tokens). Cookie-authenticated writes additionally require `X-Requested-With: fjord`. Every task has a `version` integer; PATCH requires the version the caller last saw (optimistic concurrency, returns 409 on mismatch).
 
 ### Roles and access control
 Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `default-administrator` user always has Admin role and cannot be deleted.
@@ -161,10 +161,10 @@ Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `defa
 - **Tasks/projects scoped to accessible spaces** — `GET /api/tasks` and `GET /api/projects` return only items in spaces the actor can access; Admins see everything
 - **Users are soft-deleted** — `DELETE /api/users/:id` sets `deleted_at`, nulls `password_hash`, and deletes the user's sessions; the row stays so historical attribution on tasks, events, comments, and journal entries continues to render. `GET /api/users` includes deleted users (clients filter them out of selection UIs); `PATCH /api/users/:id` returns 404 for a deleted user. Handles remain reserved. See [ADR-0004](docs/adr/0004-soft-delete-users.md).
 - **Journal vs comments** — journal entries (`POST .../journal`) are the assignee's durable working notes; comments (`POST .../comments`) are for cross-actor communication
-- **Handle format** — `handle` is lowercased and must match `^[a-z0-9_-]{1,32}$`; some words are reserved (`me`, `admin`, `system`, `api`, `app`, `root`, `support`, `help`, `agentic-kanban`, `agent`, `user`, `users`, `openclaw`); returns 400 if invalid or reserved, 409 if already taken
+- **Handle format** — `handle` is lowercased and must match `^[a-z0-9_-]{1,32}$`; some words are reserved (`me`, `admin`, `system`, `api`, `app`, `root`, `support`, `help`, `fjord`, `agent`, `user`, `users`, `openclaw`); returns 400 if invalid or reserved, 409 if already taken
 - **password_hash never returned** — `PATCH /api/users/:id` accepts `password_hash: null` from Admins only (and only against other users) to reset a password. Self-service password changes go through `POST /api/auth/change-password`.
 - **role field** — `POST /api/users` and `PATCH /api/users/:id` accept `role: "Admin" | "Member"`; only Admins may set a role; the default-administrator's role cannot be changed
-- **API tokens** — agents and CLI callers authenticate with `Authorization: Bearer ak_<32 base32 chars>`. Tokens are listable, revocable, and may carry an `expires_at`. The plaintext is shown exactly once at creation.
+- **API tokens** — agents and CLI callers authenticate with `Authorization: Bearer fjord_<32 base32 chars>`. Tokens are listable, revocable, and may carry an `expires_at`. The plaintext is shown exactly once at creation.
 
 ### Tasks
 - `GET /api/tasks` — list all (includes `blocked_by` and `blocking` arrays); pass `?include_archived=true` to include archived tasks
@@ -174,7 +174,7 @@ Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `defa
 - `GET /api/tasks/:id/events` — timeline (comments + system events); filter by `?kind=<event_type>`
 - `POST /api/tasks/:id/comments` — add markdown comment (visible to all actors)
 - `POST /api/tasks/:id/journal` — append a durable working note (agent's working memory; use for notes to your future self, not cross-actor communication)
-- `PATCH /api/tasks/:id/events/:event_id` — edit a comment or journal entry (author-only, within `KANBAN_EDIT_WINDOW_MINUTES`); body: `{ "body": "<text>" }`
+- `PATCH /api/tasks/:id/events/:event_id` — edit a comment or journal entry (author-only, within `FJORD_EDIT_WINDOW_MINUTES`); body: `{ "body": "<text>" }`
 - `DELETE /api/tasks/:id/events/:event_id` — delete a comment or journal entry (author-only, within window, and only if no subsequent activity exists); returns 403 with `code: subsequent_activity` or `code: edit_window_expired`
 - `POST /api/tasks/:id/blockers` — add blocking dependency (cycle-checked); body: `{ "blocker_id": "<task-id>" }`
 - `DELETE /api/tasks/:id/blockers/:blocker_id` — remove blocking dependency; `:blocker_id` is the blocking task's ID
@@ -202,7 +202,7 @@ Users have a `role` field: `"Admin"` or `"Member"` (default). The built-in `defa
 - `GET /api/auth/me` — returns `{ id, display_name, handle, kind, role, avatar, requires_password_set }`.
 
 ### API tokens
-- `POST /api/users/:id/tokens` — issue a token; returns `{ ..., token: "ak_..." }` exactly once. Caller must be Admin or the target user.
+- `POST /api/users/:id/tokens` — issue a token; returns `{ ..., token: "fjord_..." }` exactly once. Caller must be Admin or the target user.
 - `GET /api/users/:id/tokens` — list tokens (no plaintext, no hashes). `?include_revoked=true` to show revoked ones.
 - `DELETE /api/users/:id/tokens/:token_id` — soft-delete (sets `revoked_at`).
 
@@ -241,14 +241,14 @@ Tests are in `backend/tests/` and follow `.test.ts` pattern.
 
 ```bash
 npm run build
-KANBAN_STATIC_DIR=./frontend/dist KANBAN_DB_PATH=./data/kanban.db npm start
+FJORD_STATIC_DIR=./frontend/dist FJORD_DB_PATH=./data/fjord.db npm start
 ```
 
 Or via Docker:
 
 ```bash
-docker build -t agentic-kanban .
-docker run -p 3000:3000 -v $(pwd)/data:/data agentic-kanban
+docker build -t fjord .
+docker run -p 3000:3000 -v $(pwd)/data:/data fjord
 ```
 
 The backend serves both the API and the React build on a single port.

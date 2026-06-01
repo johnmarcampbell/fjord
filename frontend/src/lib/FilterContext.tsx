@@ -2,7 +2,7 @@ import { createContext, useContext, useRef, useState, useCallback, type ReactNod
 
 export const UNASSIGNED_SENTINEL = "__unassigned__";
 
-const STORAGE_KEY = "ak-filters";
+const STORAGE_KEY = "fjord-filters";
 
 interface PersistedFilters {
   selectedProject: string | null;

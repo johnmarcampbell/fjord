@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import { toast } from "sonner";
-import type { Project, Task } from "@agentic-kanban/shared";
+import type { Project, Task } from "@fjord/shared";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { useArchiveTask } from "../lib/mutations.js";
 

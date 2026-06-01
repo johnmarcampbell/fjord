@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, eq, isNull, or } from "drizzle-orm";
-import type { ApiTokenSummary, CreateApiTokenRequest } from "@agentic-kanban/shared";
+import type { ApiTokenSummary, CreateApiTokenRequest } from "@fjord/shared";
 import { apiTokens, users } from "../db/schema.js";
 import { issueToken, revokeToken } from "../services/api_tokens.js";
 import { badRequest, forbidden, notFound } from "./http.js";

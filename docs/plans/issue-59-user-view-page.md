@@ -1,7 +1,7 @@
 # Implementation plan — Issue #59: User View page
 
 This plan is self-contained. Execute it top-to-bottom. The repo is
-`agentic-kanban`; read [CLAUDE.md](../../CLAUDE.md) for monorepo conventions
+`fjord`; read [CLAUDE.md](../../CLAUDE.md) for monorepo conventions
 and [CONTEXT.md](../../CONTEXT.md) for domain terminology. The deviation from
 the issue text (creation flow location) is recorded in
 [ADR-0003](../adr/0003-user-creation-on-users-page.md) — read it before
@@ -24,7 +24,7 @@ Per the standing workflow for this repo:
 2. `git checkout -b feat/issue-59-user-view-page` — **before any code edits**
 3. Implement the steps below
 4. Pre-PR checks: `npm test`, `npm run typecheck` (in both `backend/` and
-   `frontend/`), `npm run build`, `docker build -t agentic-kanban .`
+   `frontend/`), `npm run build`, `docker build -t fjord .`
 5. Open PR with body containing "Resolves #59"
 
 ## Decisions already made
@@ -53,7 +53,7 @@ These are settled. If you find yourself wanting to deviate, stop and surface it.
 | Form library | None — plain `useState` |
 | Self-delete | "Delete account" button at the bottom of the dialog in edit mode, visually separated (danger styling), with a confirm step (second click) |
 | Bootstrap (zero users) | Auto-redirect to `/users` from any other route; empty state with `+ New user` tile drives creation |
-| Header on `/users` | All controls remain visible; tab clicks navigate to `/` and persist the view via `localStorage("ak-view")` |
+| Header on `/users` | All controls remain visible; tab clicks navigate to `/` and persist the view via `localStorage("fjord-view")` |
 | Entry point to `/users` | A quiet "Users" text link in the right-hand cluster, next to "API docs"; active-state styling (`text-ink` vs `text-ink-subtle`) when on `/users` |
 | UserPicker emoji removal | Remove `AvatarGlyph` rendering and the `${u.avatar} ` prefix on `<option>` text; keep the `<select>`, "Acting as" label, and the `(agent)` suffix |
 | UserPicker creation flow removal | Delete the `+ Add identity` button, the inline create form, the `creating`/`newId`/`newKind` state, and the `createMutation` |
@@ -107,7 +107,7 @@ Create `frontend/src/pages/BoardPage.tsx`. Move everything in the current
 Move the tab row that toggles `view` *into* `BoardPage` as well, since those
 tabs are board-context controls. The header still renders them (they live in
 the shared header), but they need to call `navigate("/")` and set
-`localStorage("ak-view")` when clicked from anywhere. See Step 3.
+`localStorage("fjord-view")` when clicked from anywhere. See Step 3.
 
 Restructure `App.tsx` so that:
 
@@ -144,7 +144,7 @@ The tab buttons in `Header` should:
 
 ```tsx
 function navigateToBoardWithView(v: "board" | "backlog" | "archive") {
-  localStorage.setItem("ak-view", v);
+  localStorage.setItem("fjord-view", v);
   if (location.pathname !== "/") navigate("/");
   // BoardPage reads localStorage on mount; for in-page tab switches it also
   // needs to react to clicks. Keep the existing setView wiring inside
@@ -257,7 +257,7 @@ Step 7, that's the bootstrap experience.
 New file: `frontend/src/components/UserCard.tsx`.
 
 ```tsx
-import type { User } from "@agentic-kanban/shared";
+import type { User } from "@fjord/shared";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
@@ -369,7 +369,7 @@ import {
   RESERVED_HANDLES,
   type User,
   type UserKind,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { api } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
 import { getCurrentUserId, setCurrentUserId } from "../lib/user.js";
@@ -572,7 +572,7 @@ deleteUser(id: string): Promise<void> {
 },
 ```
 
-Import `UpdateUserRequest` and `User` from `@agentic-kanban/shared` if not
+Import `UpdateUserRequest` and `User` from `@fjord/shared` if not
 already.
 
 ### 5.6 Self-delete
@@ -763,7 +763,7 @@ npm test                                    # backend tests still pass (no backe
 cd backend && npm run typecheck && cd ..
 cd frontend && npm run typecheck && cd ..
 npm run build                               # full monorepo build
-docker build -t agentic-kanban .            # production image
+docker build -t fjord .            # production image
 ```
 
 Then exercise manually with `npm run dev`:
@@ -773,7 +773,7 @@ Then exercise manually with `npm run dev`:
    with `+ New user` tile. Click it; create a user; land back on `/users` with
    one card; the new user is the current "Acting as" identity. Navigate to `/`
    and confirm the board renders normally.
-2. **Seeded install** — `KANBAN_SEED_USERS=alice:human,agent-coder:agent npm run dev`.
+2. **Seeded install** — `FJORD_SEED_USERS=alice:human,agent-coder:agent npm run dev`.
    Visit `/users`: see two cards. Only `alice`'s card (assuming `alice` is the
    default current user) has an "Edit" button and a "You" pill. Click Edit;
    change `display_name` and `bio`; save; card updates.

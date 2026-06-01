@@ -1,4 +1,4 @@
-import { DEFAULT_ADMINISTRATOR_ID, type User, type UserKind } from "@agentic-kanban/shared";
+import { DEFAULT_ADMINISTRATOR_ID, type User, type UserKind } from "@fjord/shared";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {

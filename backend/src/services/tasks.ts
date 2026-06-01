@@ -8,7 +8,7 @@ import {
   type Task,
   type TaskEvent,
   type UpdateTaskRequest,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
 import { spaces, taskDependencies, taskEvents, tasks, userSpaceAccess, users, projects } from "../db/schema.js";

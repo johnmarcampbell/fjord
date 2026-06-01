@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DEFAULT_SPACE_ID, type Space } from "@agentic-kanban/shared";
+import { DEFAULT_SPACE_ID, type Space } from "@fjord/shared";
 import { getStoredSpaceId, setStoredSpaceId } from "./space.js";
 import { useSpaces } from "./queries.js";
 

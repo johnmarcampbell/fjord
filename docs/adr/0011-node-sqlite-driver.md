@@ -58,9 +58,9 @@ migration and avoid coordinated upgrades for deployments that already have
 a small custom migrator in `backend/src/db/index.ts`:
 
 - Reads `*.sql` files from `backend/migrations/` directly.
-- Tracks applied tags in `__ak_migrations(tag TEXT PRIMARY KEY, applied_at TEXT)`.
+- Tracks applied tags in `__fjord_migrations(tag TEXT PRIMARY KEY, applied_at TEXT)`.
 - On the first run against a database previously migrated by Drizzle 0.45,
-  backfills `__ak_migrations` from `__drizzle_migrations` by matching
+  backfills `__fjord_migrations` from `__drizzle_migrations` by matching
   `created_at` against the legacy `meta/_journal.json` entries.
 
 Drizzle is still the runtime ORM; only the migrator was replaced. If

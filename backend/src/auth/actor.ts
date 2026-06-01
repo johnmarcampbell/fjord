@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { Role } from "@agentic-kanban/shared";
+import type { Role } from "@fjord/shared";
 import type { DB } from "../db/index.js";
 import { spaces, userSpaceAccess, users } from "../db/schema.js";
 import { SESSION_COOKIE, bumpLastSeen, resolveSession } from "../services/sessions.js";

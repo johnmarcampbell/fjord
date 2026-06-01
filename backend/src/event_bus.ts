@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { StreamEvent } from "@agentic-kanban/shared";
+import type { StreamEvent } from "@fjord/shared";
 
 const EVENT_NAME = "stream";
 

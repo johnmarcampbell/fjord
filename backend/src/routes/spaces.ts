@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyReply } from "fastify";
-import type { CreateGrantRequest, CreateSpaceRequest, Grant, Space, UpdateSpaceRequest } from "@agentic-kanban/shared";
+import type { CreateGrantRequest, CreateSpaceRequest, Grant, Space, UpdateSpaceRequest } from "@fjord/shared";
 import {
   CannotDeleteDefaultSpaceError,
   SpaceArchiveBlockedError,

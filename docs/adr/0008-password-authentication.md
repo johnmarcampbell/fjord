@@ -13,31 +13,31 @@ password auth on top of the header model, we **replace** the header model.
   session id stored in a new `sessions` table and carried in an `HttpOnly;
   Secure; SameSite=Lax` cookie.
 - Agents authenticate with **API tokens** — long-lived bearer credentials sent
-  as `Authorization: Bearer ak_...`. Humans may also hold API tokens for CLI
+  as `Authorization: Bearer fjord_...`. Humans may also hold API tokens for CLI
   use. See [ADR-0010](0010-api-token-format-and-storage.md) for the format.
-- The `X-User-Id` header, the localStorage `UserPicker`, the `KANBAN_AUTH_TOKEN`
+- The `X-User-Id` header, the localStorage `UserPicker`, the `FJORD_AUTH_TOKEN`
   shared-bearer mode, and `resolveActor`'s auto-create-on-unknown-header
   behavior are all **removed**. There is no header-trust escape hatch.
 - The auth middleware accepts either an `Authorization: Bearer` token (checked
-  first) or an `ak_session` cookie; both resolve to the same `Actor` shape.
+  first) or an `fjord_session` cookie; both resolve to the same `Actor` shape.
 - A new `password_hash` column on `users` replaces the dead `token_hash`
   column. Hash format is documented in [ADR-0009](0009-password-hash-format.md).
 - CSRF on the cookie path is mitigated by `SameSite=Lax` plus a required
-  `X-Requested-With: agentic-kanban` header on writes. No CSRF token table.
+  `X-Requested-With: fjord` header on writes. No CSRF token table.
 
 ## Bootstrap
 
 On startup, if `default-administrator` has `password_hash IS NULL`:
 
-- If `KANBAN_BOOTSTRAP_PASSWORD` is set, hash it with scrypt and store it.
+- If `FJORD_BOOTSTRAP_PASSWORD` is set, hash it with scrypt and store it.
 - Otherwise, leave the column null and emit a startup warning:
   `default-administrator has no password set; the server is accepting
   unauthenticated logins as administrator`.
 
-`KANBAN_BOOTSTRAP_PASSWORD` is honored **only** when the hash is null, so it
+`FJORD_BOOTSTRAP_PASSWORD` is honored **only** when the hash is null, so it
 cannot override an existing password. Operators who forget the admin password
 run `npm run reset-admin-password`, which sets `password_hash` back to null;
-they can then either set `KANBAN_BOOTSTRAP_PASSWORD` and restart, or log in
+they can then either set `FJORD_BOOTSTRAP_PASSWORD` and restart, or log in
 passwordless and set a new one in the UI.
 
 ## Passwordless-once login
@@ -72,7 +72,7 @@ administrator; there is no user picker. Personas in
 `backend/demo/seed.sql` exist for the board's contents (task assignees,
 commenters, journal authors) but no one logs in as them.
 
-`KANBAN_BOOTSTRAP_PASSWORD`, the force-set-password rule, and the
+`FJORD_BOOTSTRAP_PASSWORD`, the force-set-password rule, and the
 no-password-set startup warning are all suppressed in demo mode.
 
 ## Sessions
@@ -81,7 +81,7 @@ no-password-set startup warning are all suppressed in demo mode.
   `(id, user_id, created_at, last_seen_at, expires_at)`. Picked over signed
   cookies because we want revocation (password change kills other sessions;
   admin reset kills all of them) and don't need horizontal scale.
-- Idle expiry only, configurable via `KANBAN_SESSION_IDLE_DAYS` (default 30).
+- Idle expiry only, configurable via `FJORD_SESSION_IDLE_DAYS` (default 30).
   No absolute cap.
 - `last_seen_at` is updated on every authenticated request; the response
   re-issues the cookie at most once per hour to avoid hammering `Set-Cookie`.

@@ -57,7 +57,7 @@ describe("tasks", () => {
     const res = await ctx.app.inject({
       method: "POST",
       url: "/api/tasks",
-      headers: { authorization: "Bearer ak_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      headers: { authorization: "Bearer fjord_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
       payload: { title: "x" },
     });
     expect(res.statusCode).toBe(401);

@@ -9,7 +9,7 @@ import {
   type Project,
   type Task,
   type TaskEvent,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { useTaskEditor, type UseTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useCurrentUser } from "../lib/auth.js";

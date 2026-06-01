@@ -1,4 +1,4 @@
-import type { User } from "@agentic-kanban/shared";
+import type { User } from "@fjord/shared";
 
 export type UserLookup = Map<string, User>;
 

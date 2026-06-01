@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { shouldForwardEvent } from "../src/routes/stream.js";
-import type { StreamEvent } from "@agentic-kanban/shared";
+import type { StreamEvent } from "@fjord/shared";
 import { makeTestApp } from "./helpers.js";
 
 describe("Actor.affiliatedSpaceIds", () => {

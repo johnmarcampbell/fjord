@@ -197,7 +197,7 @@ export const AVATAR_EMOJI_LIST = [
 
 export const RESERVED_HANDLES: readonly string[] = [
   "me", "admin", "system", "api", "app", "root",
-  "support", "help", "agentic-kanban", "agent",
+  "support", "help", "fjord", "agent",
   "user", "users", "openclaw",
 ] as const;
 

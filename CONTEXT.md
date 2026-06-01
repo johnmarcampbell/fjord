@@ -1,4 +1,4 @@
-# agentic-kanban
+# fjord
 
 A small Kanban board for collaboration between one or two humans and agents.
 Deployed alongside Openclaw, with first-class authentication: humans sign in
@@ -112,12 +112,12 @@ _Avoid_: signin, login (as noun — see **Login**).
 A long-lived bearer credential issued to a **User** for programmatic API
 access. Typically held by **Agent** **Users**; humans may also issue them for
 CLI use. Has a **Name**, a **Token preview**, and an optional expiry. Multiple
-per user. Sent as `Authorization: Bearer ak_...`.
+per user. Sent as `Authorization: Bearer fjord_...`.
 _Avoid_: key, secret, API key.
 
 **Token preview**:
 A non-secret summary of an **API token** (prefix + first and last few chars of
-the random portion, e.g. `ak_a1b2...o5p6`) shown in the management UI so users
+the random portion, e.g. `fjord_a1b2...o5p6`) shown in the management UI so users
 can identify and revoke specific tokens. The full token is shown exactly once
 at creation and never stored in plaintext.
 

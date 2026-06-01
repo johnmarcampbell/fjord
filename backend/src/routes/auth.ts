@@ -6,7 +6,7 @@ import {
   type ChangePasswordRequest,
   type LoginRequest,
   type Role,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { users } from "../db/schema.js";
 import { hashPassword, verifyPassword } from "../services/passwords.js";
 import {

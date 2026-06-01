@@ -23,7 +23,7 @@ import {
   DEFAULT_ADMINISTRATOR_ID,
   pickAvatar,
   slugify,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import {
   resolveHandleCollision,
   backfillUserProfiles,
@@ -45,7 +45,7 @@ declare module "fastify" {
 }
 
 const CSRF_HEADER = "x-requested-with";
-const CSRF_VALUE = "agentic-kanban";
+const CSRF_VALUE = "fjord";
 
 export interface BuildAppOptions {
   config: Config;
@@ -146,9 +146,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
   await app.register(fastifySwagger, {
     openapi: {
       info: {
-        title: "Agentic Kanban API",
+        title: "Fjord API",
         description:
-          "REST API for the agentic kanban board. Authenticated endpoints accept either an `ak_session` cookie (humans) or `Authorization: Bearer ak_...` (agents).",
+          "REST API for the Fjord board. Authenticated endpoints accept either an `fjord_session` cookie (humans) or `Authorization: Bearer fjord_...` (agents).",
         version: "0.3.0",
       },
       tags: [
@@ -211,7 +211,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
         return reply.sendFile("index.html");
       });
     } else {
-      app.log.warn({ dir }, "KANBAN_STATIC_DIR set but directory does not exist");
+      app.log.warn({ dir }, "FJORD_STATIC_DIR set but directory does not exist");
     }
   }
 
@@ -238,10 +238,10 @@ async function applyBootstrapPassword(
       .set({ passwordHash: hash })
       .where(eq(users.id, DEFAULT_ADMINISTRATOR_ID))
       .run();
-    app.log.info("default-administrator password set from KANBAN_BOOTSTRAP_PASSWORD");
+    app.log.info("default-administrator password set from FJORD_BOOTSTRAP_PASSWORD");
   } else {
     app.log.warn(
-      "default-administrator has no password set. The server is accepting unauthenticated logins as administrator. Set KANBAN_BOOTSTRAP_PASSWORD on a fresh install, or log in and set a password through the UI.",
+      "default-administrator has no password set. The server is accepting unauthenticated logins as administrator. Set FJORD_BOOTSTRAP_PASSWORD on a fresh install, or log in and set a password through the UI.",
     );
   }
 }

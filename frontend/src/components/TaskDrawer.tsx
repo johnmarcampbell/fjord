@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Markdown } from "./Markdown.js";
-import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@agentic-kanban/shared";
+import { COLUMNS, isBlockerSatisfied, type Column, type Task } from "@fjord/shared";
 import { useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTimelineFilter } from "../lib/useTimelineFilter.js";

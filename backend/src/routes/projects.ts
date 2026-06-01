@@ -4,7 +4,7 @@ import {
   DEFAULT_SPACE_ID,
   type CreateProjectRequest,
   type UpdateProjectRequest,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
 import {

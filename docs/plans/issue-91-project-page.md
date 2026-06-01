@@ -4,13 +4,13 @@
 
 ## Source
 
-- GitHub issue: [#91 — Pages-first redesign: project page, drawer rethink](https://github.com/johnmarcampbell/agentic_kanban/issues/91)
+- GitHub issue: [#91 — Pages-first redesign: project page, drawer rethink](https://github.com/johnmarcampbell/fjord/issues/91)
 
 ## Context
 
 The Space detail page (`/spaces/:id`) already shows a collapsible per-project task tree via `SpaceProjectTree`. As a space grows, this tree becomes noisy — all projects visible at once, no way to deep-link into a single project. Issue #91 is an umbrella for moving the app toward a pages-first model where full pages are the primary surface for working with a task/project/space.
 
-**This plan covers sub-task 1 only: the project detail page.** Sub-task 2 (drawer redesign) is explicitly deferred until issue [#82 — Revamp the new task flow](https://github.com/johnmarcampbell/agentic_kanban/issues/82) lands, because #82 will change what (if anything) the drawer needs to do.
+**This plan covers sub-task 1 only: the project detail page.** Sub-task 2 (drawer redesign) is explicitly deferred until issue [#82 — Revamp the new task flow](https://github.com/johnmarcampbell/fjord/issues/82) lands, because #82 will change what (if anything) the drawer needs to do.
 
 See [CONTEXT.md](../../CONTEXT.md) for the meaning of **Space**, **Project**, **Task**, **Space access**, and **Role**.
 

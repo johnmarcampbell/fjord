@@ -57,7 +57,7 @@ export function TaskPage() {
   useEffect(() => {
     if (!task) return;
     const previous = document.title;
-    document.title = `${task.title} · agentic-kanban`;
+    document.title = `${task.title} · Fjord`;
     return () => {
       document.title = previous;
     };

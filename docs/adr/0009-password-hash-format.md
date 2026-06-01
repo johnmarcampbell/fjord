@@ -28,7 +28,7 @@ factors moved us off it:
 1. **No third-party native dependency.** scrypt is in `node:crypto`. The
    `argon2` npm package is a native module requiring `node-gyp` (and a C++
    toolchain) for any platform without a prebuild. We are actively trying to
-   reduce native dependencies — see [issue #84](https://github.com/johnmarcampbell/agentic_kanban/issues/84),
+   reduce native dependencies — see [issue #84](https://github.com/johnmarcampbell/fjord/issues/84),
    which proposes dropping `better-sqlite3` for `node:sqlite`. Picking argon2id
    here would directly conflict with that direction.
 2. **scrypt is OWASP-acceptable.** It is memory-hard, salted per-row, and

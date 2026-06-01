@@ -11,13 +11,13 @@ The report enumerated six "deepening opportunities". Three were judged worth doi
 
 ## Context
 
-The shared package (`@agentic-kanban/shared`) is currently a flat types-and-constants module with one behaviour helper (`isTaskBlocked`). Several domain invariants are encoded twice — once in [backend/src/services/users.ts](../../backend/src/services/users.ts) and again, in subtly different form, in [frontend/src/components/UserFormDialog.tsx](../../frontend/src/components/UserFormDialog.tsx). The two copies of avatar validation disagree (the frontend rejects multi-emoji strings; the backend accepts them, so a direct API call can persist a value the UI was designed to disallow). The frontend also string-matches on server error messages — `UserFormDialog.tsx:186` does `err.message.toLowerCase().includes("handle")` to detect a handle-conflict 409 — which is fragile.
+The shared package (`@fjord/shared`) is currently a flat types-and-constants module with one behaviour helper (`isTaskBlocked`). Several domain invariants are encoded twice — once in [backend/src/services/users.ts](../../backend/src/services/users.ts) and again, in subtly different form, in [frontend/src/components/UserFormDialog.tsx](../../frontend/src/components/UserFormDialog.tsx). The two copies of avatar validation disagree (the frontend rejects multi-emoji strings; the backend accepts them, so a direct API call can persist a value the UI was designed to disallow). The frontend also string-matches on server error messages — `UserFormDialog.tsx:186` does `err.message.toLowerCase().includes("handle")` to detect a handle-conflict 409 — which is fragile.
 
 Domain terms used below — **Handle**, **Avatar**, **Role**, **Space**, **Task**, **Blocker** — are defined in [CONTEXT.md](../../CONTEXT.md).
 
 ## Goals
 
-1. One canonical implementation of handle and avatar validation, sourced from `@agentic-kanban/shared`, exercised by both backend routes and the frontend `UserFormDialog`.
+1. One canonical implementation of handle and avatar validation, sourced from `@fjord/shared`, exercised by both backend routes and the frontend `UserFormDialog`.
 2. Shared validators return discriminated results (`{ ok: true; value } | { ok: false; code }`) — no exceptions cross the package boundary, and the failure `code` is reusable as the response code in goal 3.
 3. Backend error responses gain an optional `code: DomainErrorCode` field (string union in shared) for the six error kinds a caller actually needs to discriminate today: `handle_invalid`, `handle_reserved`, `handle_taken`, `avatar_invalid`, `set_password_required`, `version_conflict`. The frontend stops string-matching server messages.
 4. Two new shared predicates — `canArchive(task)` and `isBlockerSatisfied(blocker)` — replace the inline `column === "Done"` checks in both the backend archive route and the frontend `TaskDetail`. The existing `isTaskBlocked` is refactored to delegate to `isBlockerSatisfied`.
@@ -32,7 +32,7 @@ Domain terms used below — **Handle**, **Avatar**, **Role**, **Space**, **Task*
 4. No new error codes beyond the six listed above. Endpoints that don't currently need machine-readable discrimination keep `{ error: "message" }`. New codes can be added later when an actual caller demands one.
 5. No migration of stored DB values. The narrower avatar rule is enforced on the input path (POST/PATCH); existing rows remain readable. No data backfill needed because the curated emoji list, the avatar backfill function, and `backend/demo/seed.sql` only ever produce single-grapheme avatars.
 6. No changes to the OpenAPI / Scalar schema definitions for error responses. Fastify route schemas don't currently declare error response shapes; that gap stays open.
-7. No new test framework for the `shared/` package itself. Tests for shared logic live in `backend/tests/` and import from `@agentic-kanban/shared`.
+7. No new test framework for the `shared/` package itself. Tests for shared logic live in `backend/tests/` and import from `@fjord/shared`.
 8. No deletion of error message strings. The `error` field continues to hold a human-readable message; `code` is an additive sibling.
 
 ## Relevant prior decisions
@@ -138,7 +138,7 @@ export function isBlockerSatisfied(blocker: Pick<Task, "column" | "archived">): 
 
 4. **Move `DEFAULT_ADMINISTRATOR_ID` to shared.** Add `export const DEFAULT_ADMINISTRATOR_ID = "default-administrator"` to [shared/src/index.ts](../../shared/src/index.ts). Delete the constant from [backend/src/services/users.ts:7](../../backend/src/services/users.ts) and [frontend/src/lib/policy.ts:3](../../frontend/src/lib/policy.ts) and update their import statements. Run `npm run build` from root.
 
-5. **Move `slugify`, `hashCode`, `pickAvatar` to shared.** Copy the implementations from [backend/src/services/users.ts:16-37](../../backend/src/services/users.ts) into [shared/src/index.ts](../../shared/src/index.ts) (unchanged behaviour). Delete the originals. Update backend import sites — [backend/src/server.ts:23-24](../../backend/src/server.ts), [backend/src/services/users.ts](../../backend/src/services/users.ts) (still uses `slugify` internally in `backfillUserProfiles`), [backend/src/routes/users.ts:9-12](../../backend/src/routes/users.ts) — to import from `@agentic-kanban/shared`. Run `npm test` to confirm no regression.
+5. **Move `slugify`, `hashCode`, `pickAvatar` to shared.** Copy the implementations from [backend/src/services/users.ts:16-37](../../backend/src/services/users.ts) into [shared/src/index.ts](../../shared/src/index.ts) (unchanged behaviour). Delete the originals. Update backend import sites — [backend/src/server.ts:23-24](../../backend/src/server.ts), [backend/src/services/users.ts](../../backend/src/services/users.ts) (still uses `slugify` internally in `backfillUserProfiles`), [backend/src/routes/users.ts:9-12](../../backend/src/routes/users.ts) — to import from `@fjord/shared`. Run `npm test` to confirm no regression.
 
 6. **Add `validateHandle` and `validateAvatar` to shared.** Edit [shared/src/index.ts](../../shared/src/index.ts) to implement both with the `Validated<...>` return shape. `validateHandle`: lowercase, check `HANDLE_REGEX`, check `RESERVED_HANDLES`. `validateAvatar`: http(s) URL check (with ≤2048 length), else require non-ASCII + exactly one grapheme via `Intl.Segmenter`. Both include a `message` field on the failure branch with the same copy used today.
 
@@ -150,15 +150,15 @@ export function isBlockerSatisfied(blocker: Pick<Task, "column" | "archived">): 
 
 10. **Add `code: "version_conflict"` to the version-conflict response.** Edit `mapServiceError` in [backend/src/routes/tasks.ts:86](../../backend/src/routes/tasks.ts) so the `VersionConflictError` branch sends `reply.code(409).send({ error: "Version conflict", code: "version_conflict", current_version: err.currentVersion })`.
 
-11. **Switch the frontend `UserFormDialog` to the new validators.** Edit [frontend/src/components/UserFormDialog.tsx](../../frontend/src/components/UserFormDialog.tsx) — delete the local `validateHandle`, `validateAvatar`, `slugifyForHandle`, `countGraphemes`, `RESERVED_SET`. Import `validateHandle`, `validateAvatar`, `slugify` from `@agentic-kanban/shared`. Update the in-component field-error state: the `result.message` from a failing validator goes into `fieldErrors.handle` / `fieldErrors.avatar`.
+11. **Switch the frontend `UserFormDialog` to the new validators.** Edit [frontend/src/components/UserFormDialog.tsx](../../frontend/src/components/UserFormDialog.tsx) — delete the local `validateHandle`, `validateAvatar`, `slugifyForHandle`, `countGraphemes`, `RESERVED_SET`. Import `validateHandle`, `validateAvatar`, `slugify` from `@fjord/shared`. Update the in-component field-error state: the `result.message` from a failing validator goes into `fieldErrors.handle` / `fieldErrors.avatar`.
 
 12. **Switch the frontend error-branching from string-match to code.** Same file, around [line 186](../../frontend/src/components/UserFormDialog.tsx). Replace `err.status === 409 && err.message.toLowerCase().includes("handle")` with `err.body && (err.body as { code?: string }).code === "handle_taken"`. (`ApiError` already carries `body` per [frontend/src/lib/api.ts:31-39](../../frontend/src/lib/api.ts).)
 
 13. **Audit any other frontend consumers of `set_password_required`.** Grep `grep -rn "set_password_required" frontend/src/` — update each call site to read `body.code` rather than `body.error`. Confirm [frontend/src/components/AuthGate.tsx](../../frontend/src/components/AuthGate.tsx) is correct.
 
-14. **Add unit tests for the new shared logic.** Create `backend/tests/shared-identity.test.ts`. Import `validateHandle`, `validateAvatar`, `slugify`, `pickAvatar`, `DEFAULT_ADMINISTRATOR_ID` from `@agentic-kanban/shared`. Cover: handle invalid-format → `code: "handle_invalid"`; handle reserved → `code: "handle_reserved"`; handle valid → `ok: true`; case folding; max-length boundary; avatar single emoji ok; avatar multi-emoji rejected with `code: "avatar_invalid"`; avatar http(s) URL ok; avatar oversize URL rejected; avatar ASCII-only rejected; `slugify` deterministic samples; `pickAvatar` deterministic samples.
+14. **Add unit tests for the new shared logic.** Create `backend/tests/shared-identity.test.ts`. Import `validateHandle`, `validateAvatar`, `slugify`, `pickAvatar`, `DEFAULT_ADMINISTRATOR_ID` from `@fjord/shared`. Cover: handle invalid-format → `code: "handle_invalid"`; handle reserved → `code: "handle_reserved"`; handle valid → `ok: true`; case folding; max-length boundary; avatar single emoji ok; avatar multi-emoji rejected with `code: "avatar_invalid"`; avatar http(s) URL ok; avatar oversize URL rejected; avatar ASCII-only rejected; `slugify` deterministic samples; `pickAvatar` deterministic samples.
 
-15. **Run pre-PR checks.** From root: `npm test`, `npm run typecheck` (in both `backend/` and `frontend/`), `npm run build`, `docker build -t agentic-kanban .`. Fix anything that fails.
+15. **Run pre-PR checks.** From root: `npm test`, `npm run typecheck` (in both `backend/` and `frontend/`), `npm run build`, `docker build -t fjord .`. Fix anything that fails.
 
 16. **Open PR-1.** Title: "Move identity rules to shared, add domain error codes". Body links back to this plan and to the source report. No issue reference (no GitHub issue exists).
 
@@ -188,7 +188,7 @@ No changes to [backend/demo/seed.sql](../../backend/demo/seed.sql). This plan is
 
 ## Testing strategy
 
-**Unit tests (added in this plan)**: `backend/tests/shared-identity.test.ts` covers every public function moved into shared. Coverage matrix is itemised in step 14 and step 22. The file imports from `@agentic-kanban/shared` rather than from backend paths to confirm the package boundary actually exposes what's needed.
+**Unit tests (added in this plan)**: `backend/tests/shared-identity.test.ts` covers every public function moved into shared. Coverage matrix is itemised in step 14 and step 22. The file imports from `@fjord/shared` rather than from backend paths to confirm the package boundary actually exposes what's needed.
 
 **Integration tests (regression)**: existing [backend/tests/](../../backend/tests/) suite covers the routes touched in this plan (`/api/users`, `/api/tasks`, archive, blocker, login). All must continue passing. The error-response envelope change is additive (`code` is a new optional field), so existing tests that assert on `body.error` keep working.
 
@@ -204,7 +204,7 @@ No changes to [backend/demo/seed.sql](../../backend/demo/seed.sql). This plan is
 
 ## Acceptance criteria
 
-- [ ] `validateHandle`, `validateAvatar`, `slugify`, `pickAvatar`, `hashCode`, `DEFAULT_ADMINISTRATOR_ID`, `DOMAIN_ERROR_CODES`, `DomainErrorCode`, `Validated`, `canArchive`, `isBlockerSatisfied` are all exported from `@agentic-kanban/shared`.
+- [ ] `validateHandle`, `validateAvatar`, `slugify`, `pickAvatar`, `hashCode`, `DEFAULT_ADMINISTRATOR_ID`, `DOMAIN_ERROR_CODES`, `DomainErrorCode`, `Validated`, `canArchive`, `isBlockerSatisfied` are all exported from `@fjord/shared`.
 - [ ] `HandleError` and `AvatarError` classes no longer exist anywhere in the repo (`grep -rn "HandleError\|AvatarError" .` returns empty).
 - [ ] Frontend `UserFormDialog.tsx` no longer defines `validateHandle`, `validateAvatar`, `slugifyForHandle`, `countGraphemes`, `RESERVED_SET`.
 - [ ] `grep -rn '\.message\.toLowerCase().includes\|\.message\.includes(' frontend/src/` returns no matches related to error branching.
@@ -216,7 +216,7 @@ No changes to [backend/demo/seed.sql](../../backend/demo/seed.sql). This plan is
 - [ ] `npm test` from root passes (existing + new tests).
 - [ ] `npm run typecheck` clean in both `backend/` and `frontend/`.
 - [ ] `npm run build` from root succeeds.
-- [ ] `docker build -t agentic-kanban .` succeeds.
+- [ ] `docker build -t fjord .` succeeds.
 - [ ] Manual frontend checks listed under Testing strategy all pass.
 
 ## Open questions

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import type { Project, Task, User } from "@agentic-kanban/shared";
+import type { Project, Task, User } from "@fjord/shared";
 import { useArchivedTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useUnarchiveTask } from "../lib/mutations.js";

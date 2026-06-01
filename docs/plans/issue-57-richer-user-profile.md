@@ -1,7 +1,7 @@
 # Implementation plan — Issue #57: Richer user profile
 
 This plan is self-contained. Execute it top-to-bottom. The repo is
-`agentic-kanban`; read [CLAUDE.md](../../CLAUDE.md) for monorepo conventions
+`fjord`; read [CLAUDE.md](../../CLAUDE.md) for monorepo conventions
 and [CONTEXT.md](../../CONTEXT.md) for domain terminology. The deviations from
 the issue text are recorded in
 [ADR-0001](../adr/0001-defer-permissions-no-role-on-users.md) and
@@ -27,7 +27,7 @@ to deviate, stop and surface it to the maintainer.
 | Handle mutability | Mutable; uniqueness re-validated on PATCH |
 | Handle regex | `^[a-z0-9_-]{1,32}$`, lowercased before storage |
 | Handle case-insensitive uniqueness | Enforced via `CREATE UNIQUE INDEX … ON users(lower(handle))` |
-| Reserved handle names | `me, admin, system, api, app, root, support, help, agentic-kanban, agent, user, users, openclaw` |
+| Reserved handle names | `me, admin, system, api, app, root, support, help, fjord, agent, user, users, openclaw` |
 | `title` shape | `TEXT NOT NULL DEFAULT ''`, max 80 chars (UTF-16 code units), rendered as-is (no markdown) |
 | `bio` shape | `TEXT NOT NULL DEFAULT ''`, max 280 chars (UTF-16 code units), rendered as-is (no markdown) |
 | `avatar` storage | Single TEXT column; if starts with `http://` or `https://` treat as URL, else emoji |
@@ -121,7 +121,7 @@ export const AVATAR_EMOJI_LIST = [
 ```ts
 export const RESERVED_HANDLES: readonly string[] = [
   "me", "admin", "system", "api", "app", "root",
-  "support", "help", "agentic-kanban", "agent",
+  "support", "help", "fjord", "agent",
   "user", "users", "openclaw",
 ] as const;
 ```
@@ -230,7 +230,7 @@ New file: `backend/src/services/users.ts`
 
 ```ts
 import { eq } from "drizzle-orm";
-import { AVATAR_EMOJI_LIST, HANDLE_REGEX, RESERVED_HANDLES } from "@agentic-kanban/shared";
+import { AVATAR_EMOJI_LIST, HANDLE_REGEX, RESERVED_HANDLES } from "@fjord/shared";
 import { users } from "../db/schema.js";
 import type { DBHandle } from "../db/index.js";
 
@@ -517,7 +517,7 @@ app.patch(
 Imports needed at the top of the file:
 ```ts
 import { and, eq, ne, sql } from "drizzle-orm";
-import type { CreateUserRequest, UpdateUserRequest, User } from "@agentic-kanban/shared";
+import type { CreateUserRequest, UpdateUserRequest, User } from "@fjord/shared";
 import { HandleError, AvatarError, normalizeHandle, validateAvatar, pickAvatar, slugify, resolveHandleCollision } from "../services/users.js";
 ```
 
@@ -690,7 +690,7 @@ Add tests covering:
 File: `backend/tests/migrations.test.ts` likely already covers booting an
 in-memory DB through migrations. Add one assertion that, after migrations +
 backfill, every user has a non-empty `handle` and non-empty `avatar`. If the
-test seeds with `KANBAN_SEED_USERS`, assert the seeded user's handle is the
+test seeds with `FJORD_SEED_USERS`, assert the seeded user's handle is the
 slugified id.
 
 ### Test helpers
@@ -729,7 +729,7 @@ Then exercise it manually:
 
 ```bash
 rm -rf backend/data && mkdir -p backend/data    # fresh DB
-KANBAN_SEED_USERS=alice:human,agent-coder:agent npm run dev
+FJORD_SEED_USERS=alice:human,agent-coder:agent npm run dev
 # In another shell:
 curl -s localhost:3000/api/users | jq .
 # Expect: alice and agent-coder, each with handle="alice"/"agent-coder", avatar emoji set, title="", bio="".

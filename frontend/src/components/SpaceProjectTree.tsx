@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Project, Task, User } from "@agentic-kanban/shared";
+import type { Project, Task, User } from "@fjord/shared";
 import {
   SortControls,
   TaskRow,
