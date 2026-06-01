@@ -8,24 +8,13 @@ import {
   type SortDir,
   type SortField,
 } from "./taskList.js";
+import { CaretRightIcon } from "./icons.js";
 
 const NO_PROJECT_KEY = "__no_project__";
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 120ms" }}
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
+    <CaretRightIcon className={`transition-transform duration-100 ${open ? "rotate-90" : ""}`} />
   );
 }
 
