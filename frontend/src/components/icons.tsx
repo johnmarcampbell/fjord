@@ -8,6 +8,15 @@ export function ChevronDownIcon({ size = 12, className }: IconProps) {
   );
 }
 
+/** Right-pointing caret; callers rotate it (e.g. `rotate-90`) for disclosure state. */
+export function CaretRightIcon({ size = 12, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size = 13, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>

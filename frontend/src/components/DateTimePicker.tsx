@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
+import { useClickOutside } from "../lib/useClickOutside.js";
 
 interface DateTimePickerProps {
   value: string;
@@ -34,14 +35,8 @@ export function DateTimePicker({
     value ? new Date(value) : undefined,
   );
   const [timeStr, setTimeStr] = useState<string>(value ? toTimeString(value) : "00:00");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Refs so the close handler always sees the latest buffered values without
-  // being re-registered on every state change.
-  const selectedDateRef = useRef(selectedDate);
-  const timeStrRef = useRef(timeStr);
-  selectedDateRef.current = selectedDate;
-  timeStrRef.current = timeStr;
+  // Dismissing (outside mousedown or Escape) commits the buffered date/time.
+  const containerRef = useClickOutside<HTMLDivElement>(open, commitAndClose);
 
   useEffect(() => {
     if (value) {
@@ -54,33 +49,14 @@ export function DateTimePicker({
   }, [value]);
 
   function commitAndClose() {
-    const date = selectedDateRef.current;
-    if (date) {
-      const [h, m] = timeStrRef.current.split(":").map(Number);
-      const result = new Date(date);
+    if (selectedDate) {
+      const [h, m] = timeStr.split(":").map(Number);
+      const result = new Date(selectedDate);
       result.setHours(h, m, 0, 0);
       onChange(result.toISOString());
     }
     setOpen(false);
   }
-
-  useEffect(() => {
-    if (!open) return;
-    function handleMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        commitAndClose();
-      }
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") commitAndClose();
-    }
-    document.addEventListener("mousedown", handleMouseDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleMouseDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClear() {
     setSelectedDate(undefined);
