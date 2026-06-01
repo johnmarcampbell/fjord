@@ -4,18 +4,18 @@
 
 ## Source
 
-- GitHub issue: **#80 — Add password authentication** — https://github.com/johnmarcampbell/agentic_kanban/issues/80
-- Deferred follow-up surfaced during grilling: **#84 — Switch from better-sqlite3 to node:sqlite** — https://github.com/johnmarcampbell/agentic_kanban/issues/84 (independent; this plan does **not** depend on it but consciously avoids adding new native dependencies so #84 stays small).
+- GitHub issue: **#80 — Add password authentication** — https://github.com/johnmarcampbell/fjord/issues/80
+- Deferred follow-up surfaced during grilling: **#84 — Switch from better-sqlite3 to node:sqlite** — https://github.com/johnmarcampbell/fjord/issues/84 (independent; this plan does **not** depend on it but consciously avoids adding new native dependencies so #84 stays small).
 
 ## Context
 
-agentic-kanban today identifies callers by an `X-User-Id` header chosen from a `UserPicker` and stored in `localStorage`. The app is designed to run inside a trusted gateway alongside Openclaw, with optional coarse gating via a single shared `KANBAN_AUTH_TOKEN` bearer. There is no per-user authentication.
+fjord today identifies callers by an `X-User-Id` header chosen from a `UserPicker` and stored in `localStorage`. The app is designed to run inside a trusted gateway alongside Openclaw, with optional coarse gating via a single shared `FJORD_AUTH_TOKEN` bearer. There is no per-user authentication.
 
 Issue #80 introduces real authentication so the app can be exposed outside that trusted-gateway context. Grilling resolved the open questions in the issue:
 
 - Password auth **replaces** the header model rather than layering on top of it.
 - Demo mode remains a first-class, intentionally unauthenticated feature — every demo visitor logs in automatically as the `default-administrator`.
-- Humans use **scrypt**-hashed passwords + HttpOnly session cookies; agents use long-lived **API tokens** sent as `Authorization: Bearer ak_...`. Humans may issue API tokens for CLI use.
+- Humans use **scrypt**-hashed passwords + HttpOnly session cookies; agents use long-lived **API tokens** sent as `Authorization: Bearer fjord_...`. Humans may issue API tokens for CLI use.
 - The full design is captured across three new ADRs (see "Relevant prior decisions" below).
 
 Domain terms are defined in [CONTEXT.md](../../CONTEXT.md): **User**, **Kind**, **Handle**, **Role**, **Password**, **Session**, **API token**, **Token preview**, **Login**.
@@ -23,17 +23,17 @@ Domain terms are defined in [CONTEXT.md](../../CONTEXT.md): **User**, **Kind**, 
 ## Goals
 
 1. Humans authenticate by posting `{ user_id, password }` to `POST /api/auth/login`. The server verifies a scrypt hash and issues an HttpOnly session cookie.
-2. Agents (and humans for CLI) authenticate by sending `Authorization: Bearer ak_...` with a valid, non-revoked, non-expired API token.
-3. The `X-User-Id` header, the `UserPicker` UI, the `KANBAN_AUTH_TOKEN` shared bearer, and the demo-mode auto-create-on-unknown-header behavior are all **removed**.
+2. Agents (and humans for CLI) authenticate by sending `Authorization: Bearer fjord_...` with a valid, non-revoked, non-expired API token.
+3. The `X-User-Id` header, the `UserPicker` UI, the `FJORD_AUTH_TOKEN` shared bearer, and the demo-mode auto-create-on-unknown-header behavior are all **removed**.
 4. `users.password_hash` (nullable) replaces `users.token_hash` (dropped). A user with `password_hash IS NULL` and `kind = 'human'` can log in once without a password, after which write endpoints reject them until they set one.
-5. New `sessions` table backs server-side sessions. Idle expiry only, configurable via `KANBAN_SESSION_IDLE_DAYS` (default 30).
+5. New `sessions` table backs server-side sessions. Idle expiry only, configurable via `FJORD_SESSION_IDLE_DAYS` (default 30).
 6. New `api_tokens` table with the dual `lookup_hash` (SHA-256, O(1) lookup) + `token_hash` (scrypt, authoritative verify) pattern from [ADR-0010](../adr/0010-api-token-format-and-storage.md). Tokens are listable, revocable (soft-delete via `revoked_at`), and optionally expire.
 7. Demo mode: `POST /api/auth/login` with no body issues a session for `default-administrator`; no login UI is shown; bootstrap warnings and force-change rules are silenced.
-8. Bootstrap: `KANBAN_BOOTSTRAP_PASSWORD` env var seeds the default-administrator's password on a fresh install (only honored when `password_hash IS NULL`).
+8. Bootstrap: `FJORD_BOOTSTRAP_PASSWORD` env var seeds the default-administrator's password on a fresh install (only honored when `password_hash IS NULL`).
 9. `npm run reset-admin-password` CLI clears the default-administrator's password hash for operator recovery.
 10. Admin can reset any user's password via the existing user-card UI (sets their hash to NULL).
 11. Users can change their own password via a settings flow.
-12. CSRF on the cookie path is mitigated by `SameSite=Lax` plus a required `X-Requested-With: agentic-kanban` header on all write requests.
+12. CSRF on the cookie path is mitigated by `SameSite=Lax` plus a required `X-Requested-With: fjord` header on all write requests.
 
 ## Non-goals
 
@@ -64,8 +64,8 @@ Domain terms are defined in [CONTEXT.md](../../CONTEXT.md): **User**, **Kind**, 
 
 - [backend/src/db/schema.ts](../../backend/src/db/schema.ts) — add `password_hash` column, drop `token_hash`, add `sessions` and `api_tokens` tables.
 - [backend/src/auth/actor.ts](../../backend/src/auth/actor.ts) — currently resolves an `X-User-Id` header; will be rewritten to resolve sessions + bearer tokens.
-- [backend/src/server.ts](../../backend/src/server.ts) lines 56-100 — remove `KANBAN_AUTH_TOKEN` middleware, remove `/api/auth/validate`, wire in new auth routes and updated actor resolver.
-- [backend/src/config.ts](../../backend/src/config.ts) — remove `KANBAN_AUTH_TOKEN`, add `KANBAN_BOOTSTRAP_PASSWORD`, add `KANBAN_SESSION_IDLE_DAYS`.
+- [backend/src/server.ts](../../backend/src/server.ts) lines 56-100 — remove `FJORD_AUTH_TOKEN` middleware, remove `/api/auth/validate`, wire in new auth routes and updated actor resolver.
+- [backend/src/config.ts](../../backend/src/config.ts) — remove `FJORD_AUTH_TOKEN`, add `FJORD_BOOTSTRAP_PASSWORD`, add `FJORD_SESSION_IDLE_DAYS`.
 - [backend/src/routes/users.ts](../../backend/src/routes/users.ts) — drop `token_hash` from request/response schemas. Add admin-only "reset password" capability via `PATCH /api/users/:id` (allow setting `password_hash` to null only).
 - [backend/src/routes/stream.ts](../../backend/src/routes/stream.ts) — SSE endpoint must accept the session cookie (already authenticated by middleware) instead of `X-User-Id`.
 - [backend/src/services/users.ts](../../backend/src/services/users.ts) — drop `tokenHash` from seed paths.
@@ -83,7 +83,7 @@ Domain terms are defined in [CONTEXT.md](../../CONTEXT.md): **User**, **Kind**, 
 
 ### Frontend — existing files to modify or replace
 
-- [frontend/src/lib/api.ts](../../frontend/src/lib/api.ts) — drop `X-User-Id` header. Add `credentials: 'include'`. Add `X-Requested-With: agentic-kanban` header on all writes. Treat 401 as "redirect to /login".
+- [frontend/src/lib/api.ts](../../frontend/src/lib/api.ts) — drop `X-User-Id` header. Add `credentials: 'include'`. Add `X-Requested-With: fjord` header on all writes. Treat 401 as "redirect to /login".
 - [frontend/src/lib/auth.ts](../../frontend/src/lib/auth.ts) — currently handles the shared-token validation. Rewrite to manage session lifecycle (call `/api/auth/me`, redirect to `/login` on 401, expose `useCurrentUser()`).
 - [frontend/src/lib/user.ts](../../frontend/src/lib/user.ts) — drop the localStorage `X-User-Id` logic; the current user is whatever `/api/auth/me` returns.
 - [frontend/src/components/UserPicker.tsx](../../frontend/src/components/UserPicker.tsx) — **delete**.
@@ -123,11 +123,11 @@ Browser                          Server
   |                                 |  lookup user; verify scrypt
   |                                 |  INSERT INTO sessions
   |  200 { actor }                  |
-  |  Set-Cookie: ak_session=...     |
+  |  Set-Cookie: fjord_session=...     |
   |<--------------------------------|
   |  GET /api/tasks                 |
-  |  Cookie: ak_session=...         |
-  |  X-Requested-With: agentic-...  |  (writes only)
+  |  Cookie: fjord_session=...         |
+  |  X-Requested-With: fjord        |  (writes only)
   |-------------------------------->|
   |                                 |  resolveActor: cookie → session row → user
   |  200 [...]                      |  bump last_seen_at (debounced)
@@ -139,7 +139,7 @@ Browser                          Server
 ```
 Agent                            Server
   |  GET /api/tasks                 |
-  |  Authorization: Bearer ak_...   |
+  |  Authorization: Bearer fjord_...   |
   |-------------------------------->|
   |                                 |  resolveActor:
   |                                 |    SHA-256(token) → api_tokens lookup
@@ -161,13 +161,13 @@ This rule is silenced when `config.demo === true`.
 
 ### Migration story (operators)
 
-For deployments that previously used `KANBAN_AUTH_TOKEN`:
+For deployments that previously used `FJORD_AUTH_TOKEN`:
 
-1. Set `KANBAN_BOOTSTRAP_PASSWORD` on the new deploy.
+1. Set `FJORD_BOOTSTRAP_PASSWORD` on the new deploy.
 2. After restart, log in as `admin` with that password. Existing non-admin users will have `password_hash IS NULL`.
 3. For each user, either communicate their handle out of band so they can passwordless-log-in once, or click "Reset password" on their card (idempotent — their hash is already null) to prompt them.
 
-For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a gateway): same as above. The `default-administrator` is created automatically (per ADR-0006) and its hash starts null, so omitting `KANBAN_BOOTSTRAP_PASSWORD` will produce the startup warning and a passwordless admin.
+For deployments that did **not** use `FJORD_AUTH_TOKEN` (running open behind a gateway): same as above. The `default-administrator` is created automatically (per ADR-0006) and its hash starts null, so omitting `FJORD_BOOTSTRAP_PASSWORD` will produce the startup warning and a passwordless admin.
 
 ## Step-by-step plan
 
@@ -199,23 +199,23 @@ For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a 
    - `deleteSessionsForUser(db, userId, exceptSessionId?)`.
 
 5. **Rewrite `auth/actor.ts`.** Replace the `X-User-Id` resolver with one that:
-   1. If `Authorization: Bearer ak_...` is present, calls `services/api_tokens.ts → verifyBearer`. On success, resolve the user.
-   2. Else if `ak_session` cookie is present, calls `resolveSession`. On success, resolve the user.
+   1. If `Authorization: Bearer fjord_...` is present, calls `services/api_tokens.ts → verifyBearer`. On success, resolve the user.
+   2. Else if `fjord_session` cookie is present, calls `resolveSession`. On success, resolve the user.
    3. Else return 401.
 
    The function still returns the same `Actor` shape so downstream policy code is unchanged. Add `req.actor` decoration in [backend/src/server.ts](../../backend/src/server.ts) as today; replace the preHandler that read `X-User-Id`.
 
-   **Also delete:** the `KANBAN_AUTH_TOKEN` middleware block (lines 56-65 of `server.ts`) and the `/api/auth/validate` route (lines 139-147).
+   **Also delete:** the `FJORD_AUTH_TOKEN` middleware block (lines 56-65 of `server.ts`) and the `/api/auth/validate` route (lines 139-147).
 
 6. **Add config knobs.** In [backend/src/config.ts](../../backend/src/config.ts):
-   - Remove `KANBAN_AUTH_TOKEN` (`config.authToken`).
-   - Add `KANBAN_BOOTSTRAP_PASSWORD` (optional string; zod `.optional()`).
-   - Add `KANBAN_SESSION_IDLE_DAYS` (optional number, default 30).
+   - Remove `FJORD_AUTH_TOKEN` (`config.authToken`).
+   - Add `FJORD_BOOTSTRAP_PASSWORD` (optional string; zod `.optional()`).
+   - Add `FJORD_SESSION_IDLE_DAYS` (optional number, default 30).
 
 ### Phase 4 — Auth endpoints
 
 7. **Create `routes/auth.ts`** registering:
-   - `POST /api/auth/login` — body `{ handle?: string, password?: string }`. In **demo mode**, ignore the body and issue a session for `default-administrator`. In **prod mode**, look up the user by `handle`; reject if `kind !== 'human'`, soft-deleted, or unknown; verify password if `password_hash IS NOT NULL`, else accept any submission (passwordless-once). On success, create a session, set `Set-Cookie: ak_session=...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=<idle-seconds>`, return `{ actor, requires_password_set: <hash is null in prod> }`.
+   - `POST /api/auth/login` — body `{ handle?: string, password?: string }`. In **demo mode**, ignore the body and issue a session for `default-administrator`. In **prod mode**, look up the user by `handle`; reject if `kind !== 'human'`, soft-deleted, or unknown; verify password if `password_hash IS NOT NULL`, else accept any submission (passwordless-once). On success, create a session, set `Set-Cookie: fjord_session=...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=<idle-seconds>`, return `{ actor, requires_password_set: <hash is null in prod> }`.
    - `POST /api/auth/logout` — deletes the current session row, clears the cookie. 204.
    - `POST /api/auth/logout-all` — deletes all sessions for the current actor. 204.
    - `POST /api/auth/change-password` — body `{ current_password?: string, new_password: string }`. If the actor's `password_hash IS NULL`, ignore `current_password`. Otherwise require it and verify. Hash `new_password`, update the user row, delete all other sessions for this user (keep current). 204.
@@ -223,20 +223,20 @@ For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a 
 
    These routes go through the normal auth middleware except `POST /api/auth/login`, which must be in the `ACTOR_SKIP` allow-list.
 
-8. **Add the CSRF custom-header check.** In the auth preHandler (or as a separate hook), reject write methods (POST/PATCH/DELETE) without `X-Requested-With: agentic-kanban` when authenticated via cookie. Bearer-authenticated callers are exempt (no ambient credential, no CSRF risk).
+8. **Add the CSRF custom-header check.** In the auth preHandler (or as a separate hook), reject write methods (POST/PATCH/DELETE) without `X-Requested-With: fjord` when authenticated via cookie. Bearer-authenticated callers are exempt (no ambient credential, no CSRF risk).
 
 ### Phase 5 — Bootstrap and startup warning
 
 9. **Hook bootstrap into startup.** Extend `seedDefaultAdministrator` (in [backend/src/server.ts](../../backend/src/server.ts)) so that after ensuring the row exists:
    - If `password_hash IS NULL` and **not in demo mode**:
      - If `config.bootstrapPassword` is set, hash it with `services/passwords.ts` and update the row.
-     - Else log a `WARN`-level message via `app.log.warn`: `"default-administrator has no password set. The server is accepting unauthenticated logins as administrator. Set KANBAN_BOOTSTRAP_PASSWORD on a fresh install, or log in and set a password through the UI."`
+     - Else log a `WARN`-level message via `app.log.warn`: `"default-administrator has no password set. The server is accepting unauthenticated logins as administrator. Set FJORD_BOOTSTRAP_PASSWORD on a fresh install, or log in and set a password through the UI."`
    - In demo mode, no-op (warning suppressed, env var ignored).
 
 ### Phase 6 — API tokens
 
 10. **Implement `services/api_tokens.ts`.** Functions:
-    - `generateToken()`: 20 random bytes → base32 lower → prepend `ak_`. Compute `lookupHash` = `crypto.createHash('sha256').update(token).digest('hex')` and `tokenHash` = `hashPassword(token)`. Compute `preview` = `ak_<first 4 of random>...<last 4 of random>`.
+    - `generateToken()`: 20 random bytes → base32 lower → prepend `fjord_`. Compute `lookupHash` = `crypto.createHash('sha256').update(token).digest('hex')` and `tokenHash` = `hashPassword(token)`. Compute `preview` = `fjord_<first 4 of random>...<last 4 of random>`.
     - `issueToken(db, userId, name, expiresAt?)`: insert row, return `{ id, plaintext, ...nonSecretFields }`.
     - `verifyBearer(db, headerValue)`: parse and validate prefix/length, compute SHA-256, look up by `lookupHash`, check `revokedAt`/`expiresAt`, then verify scrypt against `tokenHash`. On success, bump `lastUsedAt` (debounced same as sessions). Returns `{ userId } | null`.
     - `revokeToken(db, id)`: sets `revokedAt = now`.
@@ -262,24 +262,24 @@ For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a 
     import { users } from "../db/schema.js";
     import { eq } from "drizzle-orm";
 
-    const dbPath = process.env.KANBAN_DB_PATH ?? "./data/kanban.db";
+    const dbPath = process.env.FJORD_DB_PATH ?? "./data/fjord.db";
     const handle = openDatabase(dbPath);
     runMigrations(handle);
     handle.db.update(users).set({ passwordHash: null })
       .where(eq(users.id, "default-administrator")).run();
     console.log(`default-administrator password cleared at ${dbPath}.`);
-    console.log("Restart the server (set KANBAN_BOOTSTRAP_PASSWORD to seed a known one)");
+    console.log("Restart the server (set FJORD_BOOTSTRAP_PASSWORD to seed a known one)");
     console.log("or log in as 'admin' with no password to set a new one in the UI.");
     handle.close();
     ```
-    Add to [backend/package.json](../../backend/package.json) scripts: `"reset-admin-password": "tsx src/scripts/reset-admin-password.ts"`. Add to root [package.json](../../package.json) scripts: `"reset-admin-password": "npm run reset-admin-password -w @agentic-kanban/backend"`.
+    Add to [backend/package.json](../../backend/package.json) scripts: `"reset-admin-password": "tsx src/scripts/reset-admin-password.ts"`. Add to root [package.json](../../package.json) scripts: `"reset-admin-password": "npm run reset-admin-password -w @fjord/backend"`.
 
 ### Phase 8 — Frontend
 
 15. **Update the API client.** In [frontend/src/lib/api.ts](../../frontend/src/lib/api.ts):
     - Delete the code that reads the local user id and sets `X-User-Id`.
     - Add `credentials: "include"` to every `fetch` call so the session cookie is sent.
-    - Add `X-Requested-With: agentic-kanban` header on POST/PATCH/DELETE.
+    - Add `X-Requested-With: fjord` header on POST/PATCH/DELETE.
     - On 401: emit an auth event (or directly redirect) so the auth gate re-renders the login page.
 
 16. **Rewrite the auth gate.** Replace [frontend/src/lib/auth.ts](../../frontend/src/lib/auth.ts) and [frontend/src/components/AuthGate.tsx](../../frontend/src/components/AuthGate.tsx) with:
@@ -306,8 +306,8 @@ For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a 
 23. **Rewrite the relevant CLAUDE.md sections.** Specifically:
     - "Key constraints" section: replace the no-authentication bullet with a description of password+session auth, demo-mode exception, and API tokens.
     - "Frontend architecture → Data flow": remove the `X-User-Id`/localStorage bullet; replace with session-cookie flow.
-    - "Configuration" section: remove `KANBAN_AUTH_TOKEN`; add `KANBAN_BOOTSTRAP_PASSWORD`, `KANBAN_SESSION_IDLE_DAYS`.
-    - "API overview" intro: remove "All write endpoints require `X-User-Id` header"; replace with "All authenticated endpoints require either a session cookie (`ak_session`) or `Authorization: Bearer ak_...`".
+    - "Configuration" section: remove `FJORD_AUTH_TOKEN`; add `FJORD_BOOTSTRAP_PASSWORD`, `FJORD_SESSION_IDLE_DAYS`.
+    - "API overview" intro: remove "All write endpoints require `X-User-Id` header"; replace with "All authenticated endpoints require either a session cookie (`fjord_session`) or `Authorization: Bearer fjord_...`".
     - Add a brief "Auth" subsection listing the new endpoints.
 
 24. **Update the README.** Add a "Recovery" section documenting `npm run reset-admin-password` and the Docker invocation pattern.
@@ -322,7 +322,7 @@ For deployments that did **not** use `KANBAN_AUTH_TOKEN` (running open behind a 
       ('token-demo-1', 'agent-backend', 'demo-token-backend',
        '<sha256 of a known string>',
        '<scrypt hash of the same string>',
-       'ak_demo...0001',
+       'fjord_demo...0001',
        '2025-02-01T00:00:00Z');
     ```
 
@@ -340,23 +340,23 @@ Covered in step 25 above. The plan adds two new tables (`sessions`, `api_tokens`
 - `tests/sessions.test.ts` (new) — create/resolve/expire/delete; bumpLastSeen debounce.
 - `tests/api_tokens.test.ts` (new) — token generation, dual-hash verification, revoke, expire, last-used bump.
 - `tests/auth.test.ts` (new) — login (prod + demo + bad creds), logout, logout-all, change-password (with and without current), passwordless-once flow, force-change-on-write gate.
-- `tests/bootstrap.test.ts` (new) — KANBAN_BOOTSTRAP_PASSWORD seeds; missing env var → warning emitted; demo mode → both suppressed.
-- Update existing tests that send `X-User-Id` headers — they will all need to issue a session via `POST /api/auth/login` first and propagate cookies via `app.inject({ cookies: { ak_session: ... } })`. Add a `tests/helpers/auth.ts` helper that returns a logged-in injector.
+- `tests/bootstrap.test.ts` (new) — FJORD_BOOTSTRAP_PASSWORD seeds; missing env var → warning emitted; demo mode → both suppressed.
+- Update existing tests that send `X-User-Id` headers — they will all need to issue a session via `POST /api/auth/login` first and propagate cookies via `app.inject({ cookies: { fjord_session: ... } })`. Add a `tests/helpers/auth.ts` helper that returns a logged-in injector.
 - Regression: every existing test under `backend/tests/` must continue to pass after this migration.
 
 ### Manual frontend checks (no component test framework)
 
 Walk through these in a browser against `npm run dev`:
 
-- Fresh install (no `KANBAN_BOOTSTRAP_PASSWORD`): server starts, warning visible in logs. Log in as `admin` with no password → forced to set-password → app loads normally.
-- Fresh install with `KANBAN_BOOTSTRAP_PASSWORD=correct horse battery staple`: same, but the set-password page is *not* shown after first login (hash is set, force-change rule satisfied).
+- Fresh install (no `FJORD_BOOTSTRAP_PASSWORD`): server starts, warning visible in logs. Log in as `admin` with no password → forced to set-password → app loads normally.
+- Fresh install with `FJORD_BOOTSTRAP_PASSWORD=correct horse battery staple`: same, but the set-password page is *not* shown after first login (hash is set, force-change rule satisfied).
 - Login with wrong password → 401, error shown inline.
 - Logout → redirected to login page; the back button does not bypass the gate.
 - Change own password → next request still works (cookie unchanged); other sessions (if any) would be invalidated.
 - Admin clicks "Reset password" on user `bob` → `bob`'s next login is passwordless → `bob` is forced to set-password.
 - Issue an API token for a human user → plaintext shown once → copy → close modal → token visible in list with correct preview → revoke → row dimmed with revoked timestamp.
 - Hit `/api/tasks` from `curl` with `Authorization: Bearer <issued-token>` → 200. With a revoked token → 401.
-- Demo mode (`KANBAN_DEMO=true`): browser opens → no login page → board renders → reload preserves session until the DB resets.
+- Demo mode (`FJORD_DEMO=true`): browser opens → no login page → board renders → reload preserves session until the DB resets.
 - `npm run reset-admin-password` clears the hash; subsequent login is passwordless.
 
 ### Regression risk
@@ -370,14 +370,14 @@ Walk through these in a browser against `npm run dev`:
 - [ ] `sessions` and `api_tokens` tables exist with the schema from ADR-0010.
 - [ ] `POST /api/auth/login`, `/logout`, `/logout-all`, `/change-password`, `GET /api/auth/me` implemented and tested.
 - [ ] `POST/GET/DELETE /api/users/:id/tokens` implemented and tested.
-- [ ] `KANBAN_BOOTSTRAP_PASSWORD` honored on first boot when admin hash is null; ignored otherwise; ignored in demo mode.
+- [ ] `FJORD_BOOTSTRAP_PASSWORD` honored on first boot when admin hash is null; ignored otherwise; ignored in demo mode.
 - [ ] Startup warning emitted when admin hash is null and not in demo mode.
 - [ ] `npm run reset-admin-password` clears the default-administrator's `password_hash` and prints recovery instructions.
 - [ ] `X-User-Id` header is rejected (or simply ignored — the new middleware does not look at it).
-- [ ] `KANBAN_AUTH_TOKEN` is no longer read; `/api/auth/validate` no longer exists.
+- [ ] `FJORD_AUTH_TOKEN` is no longer read; `/api/auth/validate` no longer exists.
 - [ ] Demo mode logs visitors in as `default-administrator` on app load with zero clicks.
 - [ ] In prod mode, a human with `password_hash IS NULL` can log in once and is immediately forced to set a password before any write request succeeds.
-- [ ] Agents can authenticate with `Authorization: Bearer ak_...`; revoked and expired tokens are rejected.
+- [ ] Agents can authenticate with `Authorization: Bearer fjord_...`; revoked and expired tokens are rejected.
 - [ ] Frontend `UserPicker` and localStorage `X-User-Id` logic are deleted; user menu in header replaces them.
 - [ ] [CONTEXT.md](../../CONTEXT.md), [CLAUDE.md](../../CLAUDE.md), and [README.md](../../README.md) are updated.
 - [ ] [backend/demo/seed.sql](../../backend/demo/seed.sql) compiles against the new schema and includes at least one example `api_tokens` row.

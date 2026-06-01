@@ -1,4 +1,4 @@
--- Demo seed: agentic-kanban building itself
+-- Demo seed: Fjord building itself
 -- Clears all tables and repopulates with a rich demo scenario.
 
 DELETE FROM task_dependencies;
@@ -39,7 +39,7 @@ INSERT INTO spaces (id, name, description, created_by, created_at, updated_at) V
 
 -- Projects
 INSERT INTO projects (id, name, color, description, due_at, created_at) VALUES
-  ('proj-core',  'Agentic Kanban', '#6366f1', 'The kanban board app for human-agent collaboration', '2025-07-01T00:00:00Z', '2025-01-10T09:00:00Z'),
+  ('proj-core',  'Fjord', '#6366f1', 'The kanban board app for human-agent collaboration', '2025-07-01T00:00:00Z', '2025-01-10T09:00:00Z'),
   ('proj-infra', 'Infrastructure', '#10b981', 'Deployment, Docker, CI/CD',                          NULL,                   '2025-01-15T10:00:00Z');
 
 -- Sandbox projects: three parallel narratives — internal R&D spike, external
@@ -150,7 +150,7 @@ INSERT INTO tasks (id, title, description, column, position, reported_by, assign
 
   ('task-prod-config',
    'Document all environment variables',
-   'Write a reference for every KANBAN_* env var: purpose, type, default, and example. Add a .env.example to the repo root.',
+   'Write a reference for every FJORD_* env var: purpose, type, default, and example. Add a .env.example to the repo root.',
    'To Do', 5.0, 'john', NULL, NULL, 'proj-infra',
    '["infra","docs","dx"]',
    '2025-02-09T11:30:00Z', '2025-02-09T11:30:00Z', 1, 0, NULL);
@@ -586,7 +586,7 @@ INSERT INTO api_tokens (id, user_id, name, lookup_hash, token_hash, preview, cre
    'openclaw-backend',
    '11111111111111111111111111111111111111111111111111111111aaaaaaaa',
    'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
-   'ak_demo...0001',
+   'fjord_demo...0001',
    '2025-02-01T00:00:00Z',
    '2025-02-25T11:00:00Z',
    NULL,
@@ -596,7 +596,7 @@ INSERT INTO api_tokens (id, user_id, name, lookup_hash, token_hash, preview, cre
    'retrieval-eval-laptop',
    '22222222222222222222222222222222222222222222222222222222bbbbbbbb',
    'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
-   'ak_demo...0002',
+   'fjord_demo...0002',
    '2025-02-18T09:30:00Z',
    '2025-03-01T14:00:00Z',
    '2026-02-18T00:00:00Z',
@@ -606,7 +606,7 @@ INSERT INTO api_tokens (id, user_id, name, lookup_hash, token_hash, preview, cre
    'old-ci-runner (rotated)',
    '33333333333333333333333333333333333333333333333333333333cccccccc',
    'scrypt$N=16384,r=8,p=1$ZGVtbw==$ZGVtbw==',
-   'ak_demo...0003',
+   'fjord_demo...0003',
    '2025-01-12T09:00:00Z',
    '2025-01-31T15:00:00Z',
    NULL,

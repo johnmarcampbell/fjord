@@ -5,7 +5,7 @@ import type {
   CreateTaskRequest,
   Task,
   UpdateTaskRequest,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 
 export function useCreateTask(options?: { onSuccess?: (task: Task) => void }) {
   const queryClient = useQueryClient();

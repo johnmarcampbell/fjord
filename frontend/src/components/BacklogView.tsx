@@ -13,7 +13,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { isTaskBlocked, type Column, type Project, type Task, type User } from "@agentic-kanban/shared";
+import { isTaskBlocked, type Column, type Project, type Task, type User } from "@fjord/shared";
 import { useTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useMoveTask } from "../lib/mutations.js";

@@ -4,7 +4,7 @@ import type { DB } from "../db/index.js";
 import { sessions } from "../db/schema.js";
 import { nowIso } from "./tasks.js";
 
-export const SESSION_COOKIE = "ak_session";
+export const SESSION_COOKIE = "fjord_session";
 
 function newSessionId(): string {
   return randomBytes(32).toString("base64url");

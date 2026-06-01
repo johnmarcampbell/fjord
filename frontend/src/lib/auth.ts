@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AuthMe, LoginRequest } from "@agentic-kanban/shared";
+import type { AuthMe, LoginRequest } from "@fjord/shared";
 
 const ME_KEY = ["auth", "me"] as const;
 
@@ -30,7 +30,7 @@ export async function login(body: LoginRequest): Promise<AuthMe> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", "X-Requested-With": "agentic-kanban" },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "fjord" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -53,7 +53,7 @@ export async function logout(): Promise<void> {
   await fetch("/api/auth/logout", {
     method: "POST",
     credentials: "include",
-    headers: { "X-Requested-With": "agentic-kanban" },
+    headers: { "X-Requested-With": "fjord" },
   });
 }
 
@@ -61,7 +61,7 @@ export async function changePassword(body: { current_password?: string; new_pass
   const res = await fetch("/api/auth/change-password", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", "X-Requested-With": "agentic-kanban" },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "fjord" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {

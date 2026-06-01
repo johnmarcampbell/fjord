@@ -4,12 +4,12 @@
 
 ## Source
 
-- GitHub issue: [#95 — Admins should be explicit members of spaces](https://github.com/johnmarcampbell/agentic_kanban/issues/95)
+- GitHub issue: [#95 — Admins should be explicit members of spaces](https://github.com/johnmarcampbell/fjord/issues/95)
 - New ADR drafted alongside this plan: [ADR-0012 — Space access carries affiliation, not just permission](../adr/0012-space-access-carries-affiliation-not-just-permission.md)
 
 ## Context
 
-agentic-kanban already has a permissions model (see [ADR-0005](../adr/0005-role-column-on-users.md)): every **User** has a global **Role** (`Admin` or `Member`), and **Members** earn per-**Space** entry via rows in the `user_space_access` table. **Admins** bypass that table entirely — they have implicit access to every **Space**, which the auth layer represents with the sentinel `accessibleSpaceIds: "all"` on the resolved `Actor`.
+fjord already has a permissions model (see [ADR-0005](../adr/0005-role-column-on-users.md)): every **User** has a global **Role** (`Admin` or `Member`), and **Members** earn per-**Space** entry via rows in the `user_space_access` table. **Admins** bypass that table entirely — they have implicit access to every **Space**, which the auth layer represents with the sentinel `accessibleSpaceIds: "all"` on the resolved `Actor`.
 
 That shortcut was convenient for permission resolution, but it has a social cost: in any space larger than a personal workspace, a **Member** cannot tell which **Admins** are *actually* collaborating in this space versus which **Admins** are merely operationally responsible for the install. Every **Admin** appears in every member list and every assignee picker, because there's no way to express "I am present here" separately from "I have permission here". The two ideas have been the same row.
 
@@ -197,6 +197,6 @@ None — all design decisions resolved during grilling. The four design forks (t
 
 ## Out-of-band work
 
-- Issues [#91 (pages-first redesign)](https://github.com/johnmarcampbell/agentic_kanban/issues/91) and [#63 (MCP server)](https://github.com/johnmarcampbell/agentic_kanban/issues/63) are blocked on this plan landing — both depend on the final permission/affiliation semantics. Once this ships, unblock them in their issue bodies.
+- Issues [#91 (pages-first redesign)](https://github.com/johnmarcampbell/fjord/issues/91) and [#63 (MCP server)](https://github.com/johnmarcampbell/fjord/issues/63) are blocked on this plan landing — both depend on the final permission/affiliation semantics. Once this ships, unblock them in their issue bodies.
 - A follow-up issue should be filed for **self-leave** (Member or Admin removing their own `user_space_access` row) — natural symmetry with "Join this Space" but deliberately punted from this plan to keep scope tight.
 - A future plan for `@mentions` or notifications should consult ADR-0012 to ensure those features use `affiliatedSpaceIds`, not `accessibleSpaceIds`.

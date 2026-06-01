@@ -28,7 +28,7 @@ export function LoginPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-bg">
       <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 shadow-sm">
-        <h1 className="mb-1 text-xl font-bold tracking-tight text-ink">Agentic Kanban</h1>
+        <h1 className="mb-1 text-xl font-bold tracking-tight text-ink">Fjord</h1>
         <p className="mb-6 text-sm text-ink-subtle">Sign in to continue.</p>
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">

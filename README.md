@@ -1,4 +1,4 @@
-# agentic-kanban
+# fjord
 
 A tiny Kanban board built for collaboration between one or two humans and a small
 fleet of agents. Humans authenticate with handle + password and get a session
@@ -26,7 +26,7 @@ This runs:
 Open `http://localhost:5173`. On a fresh install the `default-administrator`
 exists with no password; the first sign-in goes through immediately and forces
 you to set a password before any write request will succeed. To seed a known
-password ahead of time, set `KANBAN_BOOTSTRAP_PASSWORD` on the first boot (see
+password ahead of time, set `FJORD_BOOTSTRAP_PASSWORD` on the first boot (see
 **Configuration** below).
 
 ## Tests
@@ -41,7 +41,7 @@ Vitest runs against an in-memory SQLite DB via `app.inject()`.
 
 ```bash
 npm run build
-KANBAN_STATIC_DIR=./frontend/dist KANBAN_DB_PATH=./data/kanban.db npm start
+FJORD_STATIC_DIR=./frontend/dist FJORD_DB_PATH=./data/fjord.db npm start
 ```
 
 In production the backend serves the React build itself and is the single port
@@ -50,12 +50,12 @@ to expose.
 ## Docker
 
 ```bash
-docker build -t agentic-kanban .
-docker run -p 3000:3000 -v $(pwd)/data:/data agentic-kanban
+docker build -t fjord .
+docker run -p 3000:3000 -v $(pwd)/data:/data fjord
 ```
 
 The image bundles the backend and the frontend build. SQLite lives at
-`/data/kanban.db`; mount a volume there to persist across restarts.
+`/data/fjord.db`; mount a volume there to persist across restarts.
 
 ## Configuration
 
@@ -63,18 +63,18 @@ All config is read at startup from environment variables (Zod-validated).
 
 | Variable                | Default                  | Notes                                       |
 | ----------------------- | ------------------------ | ------------------------------------------- |
-| `KANBAN_PORT`           | `3000`                   | HTTP listen port                            |
-| `KANBAN_HOST`           | `0.0.0.0`                | HTTP listen host                            |
-| `KANBAN_DB_PATH`        | `./data/kanban.db`       | SQLite file path; use `:memory:` for tests  |
-| `KANBAN_LOG_LEVEL`      | `info`                   | `fatal`/`error`/`warn`/`info`/`debug`/`trace` |
-| `KANBAN_CORS_ORIGINS`   | _(off)_                  | Comma-separated origins to allow            |
-| `KANBAN_SEED_USERS`     | _(none)_                 | e.g. `alice:human,agent-coder:agent`        |
-| `KANBAN_STATIC_DIR`     | _(none)_                 | Path to built frontend assets to serve      |
-| `KANBAN_BOOTSTRAP_PASSWORD` | _(none)_             | Set the `default-administrator` password on first boot if it is still unset. Ignored on subsequent boots and in demo mode. |
-| `KANBAN_SESSION_IDLE_DAYS`  | `30`                 | Idle expiry for session cookies             |
+| `FJORD_PORT`           | `3000`                   | HTTP listen port                            |
+| `FJORD_HOST`           | `0.0.0.0`                | HTTP listen host                            |
+| `FJORD_DB_PATH`        | `./data/fjord.db`       | SQLite file path; use `:memory:` for tests  |
+| `FJORD_LOG_LEVEL`      | `info`                   | `fatal`/`error`/`warn`/`info`/`debug`/`trace` |
+| `FJORD_CORS_ORIGINS`   | _(off)_                  | Comma-separated origins to allow            |
+| `FJORD_SEED_USERS`     | _(none)_                 | e.g. `alice:human,agent-coder:agent`        |
+| `FJORD_STATIC_DIR`     | _(none)_                 | Path to built frontend assets to serve      |
+| `FJORD_BOOTSTRAP_PASSWORD` | _(none)_             | Set the `default-administrator` password on first boot if it is still unset. Ignored on subsequent boots and in demo mode. |
+| `FJORD_SESSION_IDLE_DAYS`  | `30`                 | Idle expiry for session cookies             |
 | `NODE_ENV`              | `development`            |                                             |
 
-`KANBAN_SEED_USERS` only inserts users that don't already exist; it's safe to
+`FJORD_SEED_USERS` only inserts users that don't already exist; it's safe to
 keep set across restarts.
 
 ## Recovery
@@ -84,20 +84,20 @@ role left who can reset it), run the recovery script against the on-disk
 database:
 
 ```bash
-KANBAN_DB_PATH=./data/kanban.db npm run reset-admin-password
+FJORD_DB_PATH=./data/fjord.db npm run reset-admin-password
 ```
 
 This clears `default-administrator`'s `password_hash` and deletes its sessions.
 The next login as `admin` will succeed without a password and the UI will
 force-set a new one. To seed a known password instead, restart the server with
-`KANBAN_BOOTSTRAP_PASSWORD=<value>` set and the same `KANBAN_DB_PATH`.
+`FJORD_BOOTSTRAP_PASSWORD=<value>` set and the same `FJORD_DB_PATH`.
 
 Docker:
 
 ```bash
 docker run --rm -v $(pwd)/data:/data \
-  -e KANBAN_DB_PATH=/data/kanban.db \
-  agentic-kanban npm run reset-admin-password
+  -e FJORD_DB_PATH=/data/fjord.db \
+  fjord npm run reset-admin-password
 ```
 
 ## API
@@ -105,7 +105,7 @@ docker run --rm -v $(pwd)/data:/data \
 Interactive docs: `http://<host>/api/docs` (Scalar API Reference from
 auto-generated OpenAPI). Machine-readable spec at `/api/docs/openapi.json`.
 Cookie-authenticated writes additionally require `X-Requested-With:
-agentic-kanban`; bearer-authenticated writes do not. See `POST /api/auth/login`
+fjord`; bearer-authenticated writes do not. See `POST /api/auth/login`
 to obtain a session, and `POST /api/users/:id/tokens` to mint an API token.
 
 Key endpoints:

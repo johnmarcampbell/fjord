@@ -12,7 +12,7 @@ import {
   validateHandle,
   type Column,
   type Task,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 
 describe("DEFAULT_ADMINISTRATOR_ID", () => {
   it("is the documented constant", () => {

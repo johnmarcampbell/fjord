@@ -1,6 +1,6 @@
-import { DEFAULT_SPACE_ID } from "@agentic-kanban/shared";
+import { DEFAULT_SPACE_ID } from "@fjord/shared";
 
-const KEY = "kanban.active_space_id";
+const KEY = "fjord.active_space_id";
 
 export function getStoredSpaceId(): string {
   return localStorage.getItem(KEY) ?? DEFAULT_SPACE_ID;

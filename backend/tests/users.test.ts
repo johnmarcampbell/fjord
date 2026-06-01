@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/node-sqlite";
 import { eq } from "drizzle-orm";
-import { slugify, pickAvatar, validateHandle, validateAvatar } from "@agentic-kanban/shared";
+import { slugify, pickAvatar, validateHandle, validateAvatar } from "@fjord/shared";
 import { users } from "../src/db/schema.js";
 import { resolveHandleCollision, backfillUserProfiles } from "../src/services/users.js";
 import { makeTestApp } from "./helpers.js";

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 
 export type BoardView = "board" | "backlog" | "archive";
 
-const STORAGE_KEY = "ak-view";
+const STORAGE_KEY = "fjord-view";
 
 function readStoredView(): BoardView {
   const stored = localStorage.getItem(STORAGE_KEY);

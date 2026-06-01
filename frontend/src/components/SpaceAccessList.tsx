@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Grant, Space, User } from "@agentic-kanban/shared";
+import type { Grant, Space, User } from "@fjord/shared";
 import { api, ApiError } from "../lib/api.js";
 import { Combobox } from "./Combobox.js";
 

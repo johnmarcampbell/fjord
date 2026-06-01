@@ -90,7 +90,7 @@ export async function makeTestApp(overrides: Partial<Config> = {}) {
       headers["cookie"] = cookieHeader ? `${cookieHeader}; ${cookiePart}` : cookiePart;
       const method = (o.method ?? "GET").toString().toUpperCase();
       if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
-        if (!headers["x-requested-with"]) headers["x-requested-with"] = "agentic-kanban";
+        if (!headers["x-requested-with"]) headers["x-requested-with"] = "fjord";
       }
       return app.inject(o);
     },

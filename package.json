@@ -1,5 +1,5 @@
 {
-  "name": "agentic-kanban",
+  "name": "fjord",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -14,7 +14,7 @@
     "build": "npm run build -w shared && npm run build -w frontend && npm run build -w backend",
     "test": "npm run build -w shared && npm run test -w backend",
     "start": "node backend/dist/index.js",
-    "reset-admin-password": "npm run reset-admin-password -w @agentic-kanban/backend"
+    "reset-admin-password": "npm run reset-admin-password -w @fjord/backend"
   },
   "devDependencies": {
     "concurrently": "9.2.1",

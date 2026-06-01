@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { COLUMNS, type Column } from "@agentic-kanban/shared";
+import { COLUMNS, type Column } from "@fjord/shared";
 import {
   useProjects,
   useSpace,
@@ -112,7 +112,7 @@ export function NewTaskPage() {
 
   useEffect(() => {
     const previous = document.title;
-    document.title = "New task · agentic-kanban";
+    document.title = "New task · Fjord";
     return () => {
       document.title = previous;
     };

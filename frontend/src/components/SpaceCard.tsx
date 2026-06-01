@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { DEFAULT_SPACE_ID, type Space } from "@agentic-kanban/shared";
+import { DEFAULT_SPACE_ID, type Space } from "@fjord/shared";
 
 export function SpaceCard({
   space,

@@ -15,7 +15,7 @@ import {
   type User,
   type Column,
   type Task,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { useTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";

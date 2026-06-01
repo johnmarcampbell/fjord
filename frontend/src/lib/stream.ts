@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { StreamEvent } from "@agentic-kanban/shared";
+import type { StreamEvent } from "@fjord/shared";
 import { dispatchLogout } from "./auth.js";
 
 export function useStreamSubscription(queryClient: QueryClient): void {

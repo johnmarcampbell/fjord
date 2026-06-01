@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Task, TaskEvent, UpdateTaskRequest } from "@agentic-kanban/shared";
+import type { Task, TaskEvent, UpdateTaskRequest } from "@fjord/shared";
 import { api, ApiError } from "./api.js";
 import {
   useAddBlocker,

@@ -67,15 +67,24 @@ function hasColumn(sqlite: DatabaseSync, tableName: string, columnName: string):
  * by matching `created_at` against the legacy `meta/_journal.json`.
  */
 export function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string): void {
+  // One-shot guarded rename of the migration ledger (project rename ak → fjord).
+  // An existing DB physically has `__ak_migrations`; without this, the
+  // CREATE TABLE IF NOT EXISTS below would make an empty `__fjord_migrations`,
+  // conclude no migrations are applied, and re-run them against populated tables.
+  // Transitional: safe to remove once all live DBs have booted at least once.
+  if (hasTable(sqlite, "__ak_migrations") && !hasTable(sqlite, "__fjord_migrations")) {
+    sqlite.exec("ALTER TABLE __ak_migrations RENAME TO __fjord_migrations");
+  }
+
   sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS __ak_migrations (
+    CREATE TABLE IF NOT EXISTS __fjord_migrations (
       tag TEXT PRIMARY KEY,
       applied_at TEXT NOT NULL
     )
   `);
 
   const applied = new Set(
-    (sqlite.prepare("SELECT tag FROM __ak_migrations").all() as { tag: string }[]).map((r) => r.tag),
+    (sqlite.prepare("SELECT tag FROM __fjord_migrations").all() as { tag: string }[]).map((r) => r.tag),
   );
 
   const hasLegacy = hasTable(sqlite, "__drizzle_migrations");
@@ -104,7 +113,7 @@ export function applyMigrations(sqlite: DatabaseSync, migrationsFolder: string):
     withTransaction(sqlite, () => {
       for (const stmt of statements) sqlite.exec(stmt);
       sqlite
-        .prepare("INSERT INTO __ak_migrations (tag, applied_at) VALUES (?, ?)")
+        .prepare("INSERT INTO __fjord_migrations (tag, applied_at) VALUES (?, ?)")
         .run(tag, new Date().toISOString());
     });
     console.log(`[migrations] applied ${tag}`);
@@ -133,7 +142,7 @@ function backfillFromDrizzleMigrations(
     .prepare("SELECT created_at FROM __drizzle_migrations")
     .all() as { created_at: number | string }[];
   const insert = sqlite.prepare(
-    "INSERT OR IGNORE INTO __ak_migrations (tag, applied_at) VALUES (?, ?)",
+    "INSERT OR IGNORE INTO __fjord_migrations (tag, applied_at) VALUES (?, ?)",
   );
   const now = new Date().toISOString();
   for (const row of rows) {
@@ -154,7 +163,7 @@ function backfillFromDrizzleMigrations(
  * actual schema. This keeps startup resilient for older upgraded volumes.
  *
  * When repair is needed for schema objects that belong to a specific migration,
- * we also mark that migration as applied in __ak_migrations (if the table
+ * we also mark that migration as applied in __fjord_migrations (if the table
  * exists). This prevents applyMigrations from re-running it on the next startup,
  * which would fail because SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS
  * guard and the column was already created here.
@@ -237,9 +246,9 @@ export function repairSchemaDrift(sqlite: DatabaseSync): void {
     // that migration as applied so the migration runner skips it on the next
     // startup. (ALTER TABLE ADD COLUMN has no IF NOT EXISTS in SQLite, so
     // re-running it would crash.)
-    if ((repaired0007 || repaired0008) && hasTable(sqlite, "__ak_migrations")) {
+    if ((repaired0007 || repaired0008) && hasTable(sqlite, "__fjord_migrations")) {
       const now = new Date().toISOString();
-      const insert = sqlite.prepare("INSERT OR IGNORE INTO __ak_migrations (tag, applied_at) VALUES (?, ?)");
+      const insert = sqlite.prepare("INSERT OR IGNORE INTO __fjord_migrations (tag, applied_at) VALUES (?, ?)");
       if (repaired0007) insert.run("0007_dizzy_komodo", now);
       if (repaired0008) insert.run("0008_password_auth", now);
     }

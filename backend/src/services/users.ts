@@ -4,7 +4,7 @@ import {
   RESERVED_HANDLES,
   pickAvatar,
   slugify,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { users } from "../db/schema.js";
 import type { DBHandle } from "../db/index.js";
 import { nowIso } from "./tasks.js";

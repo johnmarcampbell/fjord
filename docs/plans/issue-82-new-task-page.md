@@ -4,9 +4,9 @@
 
 ## Source
 
-- GitHub issue: [#82 — Revamp the new task flow in the UI](https://github.com/johnmarcampbell/agentic_kanban/issues/82)
-- Blocked-by [#91 — Project page (`/projects/:id`)](https://github.com/johnmarcampbell/agentic_kanban/issues/91) — **CLOSED / landed** (commit `d8f8c18`). It settled the row-style page shell and design language this page reuses. The blocker is cleared.
-- Blocks [#109 — Drawer redesign: slim to a peek or remove it](https://github.com/johnmarcampbell/agentic_kanban/issues/109) — out of scope here; #109 decides the drawer's fate only after this page lands.
+- GitHub issue: [#82 — Revamp the new task flow in the UI](https://github.com/johnmarcampbell/fjord/issues/82)
+- Blocked-by [#91 — Project page (`/projects/:id`)](https://github.com/johnmarcampbell/fjord/issues/91) — **CLOSED / landed** (commit `d8f8c18`). It settled the row-style page shell and design language this page reuses. The blocker is cleared.
+- Blocks [#109 — Drawer redesign: slim to a peek or remove it](https://github.com/johnmarcampbell/fjord/issues/109) — out of scope here; #109 decides the drawer's fate only after this page lands.
 - Direct precedent: [docs/plans/issue-58-task-detail-page.md](issue-58-task-detail-page.md), which created `TaskDetail`, `useTaskEditor`, and `TaskPage` and established the `pages/` + `PageShell` idiom this plan builds on.
 
 ## Context
@@ -141,7 +141,7 @@ flowchart TD
    - `const create = useCreateTask({ onSuccess: (task) => { if (targetSpaceId !== activeSpaceId) setActiveSpaceId(targetSpaceId); navigate(\`/tasks/\${task.id}\`, { replace: true }); } });`
    - Render inside `PageShell` (copied from `TaskPage`): a top bar with a Cancel/"← Back" affordance (`onClick={() => navigate(state?.from ?? "/")}`), the read-only space chip, then the two-column grid — left: Title (large input), Description (edit/preview toggle over `draftDesc`); right (`Field` wrappers): Status `<select>`, Assigned-to `<select>`, Due `DateTimePicker`, Project `<select>`, Tags `TagInput`. A primary **Create task** button (disabled when `!title.trim() || create.isPending`) and a **Cancel** button. An inline error banner when `create.isError`.
    - On submit: `create.mutate({ title: title.trim(), description: draftDesc, column, assigned_to: assignedTo, due_at: dueAt, project_id: projectId, space_id: targetSpaceId, tags })`.
-   - `document.title = "New task · agentic-kanban"` in a `useEffect`, restored on unmount (copy `TaskPage` lines 57–64).
+   - `document.title = "New task · fjord"` in a `useEffect`, restored on unmount (copy `TaskPage` lines 57–64).
    - Import `Field`, `SectionLabel`, `TagInput` from `../components/TaskDetail.js`.
 
    Verify: `cd frontend && npm run typecheck`.
@@ -190,7 +190,7 @@ npm test                                    # backend tests (no backend changes 
 cd backend && npm run typecheck && cd ..
 cd frontend && npm run typecheck && cd ..
 npm run build                               # full monorepo build
-docker build -t agentic-kanban .            # production image
+docker build -t fjord .            # production image
 ```
 
 ## Acceptance criteria
@@ -210,7 +210,7 @@ docker build -t agentic-kanban .            # production image
 - [ ] No backend changes; no demo seed changes.
 - [ ] `npm test` passes from root.
 - [ ] `npm run typecheck` passes in both `backend/` and `frontend/`.
-- [ ] `npm run build` succeeds; `docker build -t agentic-kanban .` succeeds.
+- [ ] `npm run build` succeeds; `docker build -t fjord .` succeeds.
 - [ ] PR body contains "Resolves #82".
 
 ## Open questions

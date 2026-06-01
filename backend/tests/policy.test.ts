@@ -8,7 +8,7 @@ import {
   canManageSpace,
   canManageUsers,
 } from "../src/auth/policy.js";
-import { DEFAULT_ADMINISTRATOR_ID } from "@agentic-kanban/shared";
+import { DEFAULT_ADMINISTRATOR_ID } from "@fjord/shared";
 
 const admin: Actor = { id: "admin-1", role: "Admin", accessibleSpaceIds: "all", affiliatedSpaceIds: new Set(["s1"]), authMethod: "session" };
 const member: Actor = { id: "member-1", role: "Member", accessibleSpaceIds: new Set(["s1", "s2"]), affiliatedSpaceIds: new Set(["s1", "s2"]), authMethod: "session" };

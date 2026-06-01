@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { DEFAULT_SPACE_ID, type AuthMe, type Space, type User } from "@agentic-kanban/shared";
+import { DEFAULT_SPACE_ID, type AuthMe, type Space, type User } from "@fjord/shared";
 import { api, ApiError } from "../lib/api.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {

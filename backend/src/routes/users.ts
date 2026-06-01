@@ -10,7 +10,7 @@ import {
   type Role,
   type UpdateUserRequest,
   type User,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { users } from "../db/schema.js";
 import { nowIso } from "../services/tasks.js";
 import { resolveHandleCollision } from "../services/users.js";

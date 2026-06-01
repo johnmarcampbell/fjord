@@ -27,10 +27,10 @@ RUN npm run build -w shared \
 FROM node:24-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
-    KANBAN_HOST=0.0.0.0 \
-    KANBAN_PORT=3000 \
-    KANBAN_DB_PATH=/data/kanban.db \
-    KANBAN_STATIC_DIR=/app/frontend/dist
+    FJORD_HOST=0.0.0.0 \
+    FJORD_PORT=3000 \
+    FJORD_DB_PATH=/data/fjord.db \
+    FJORD_STATIC_DIR=/app/frontend/dist
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json

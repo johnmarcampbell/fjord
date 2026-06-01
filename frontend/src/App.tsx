@@ -65,7 +65,7 @@ function AppShell() {
   function toggleTheme() {
     const next = theme === "light" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("ak-theme", next);
+    localStorage.setItem("fjord-theme", next);
     setTheme(next);
   }
 

@@ -5,7 +5,7 @@ import { apiTokens } from "../db/schema.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
 import { nowIso } from "./tasks.js";
 
-export const TOKEN_PREFIX = "ak_";
+export const TOKEN_PREFIX = "fjord_";
 const TOKEN_BODY_LEN = 32;
 const TOTAL_TOKEN_LEN = TOKEN_PREFIX.length + TOKEN_BODY_LEN;
 const TOKEN_BODY_REGEX = /^[a-z2-7]{32}$/;

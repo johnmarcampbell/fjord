@@ -10,12 +10,12 @@ the verification path.
 ### Token format
 
 ```
-ak_<32 base32 lower characters>
+fjord_<32 base32 lower characters>
 ```
 
-Total length 35. Example: `ak_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`.
+Total length 38. Example: `fjord_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`.
 
-- `ak_` prefix identifies the credential kind and lets secret scanners
+- `fjord_` prefix identifies the credential kind and lets secret scanners
   (GitHub, gitleaks) detect leaks.
 - 32 base32 characters = 160 bits of entropy. Base32 lower is URL-safe,
   case-insensitive in scanner defaults, and avoids the `I/l/1/O/0` lookalikes
@@ -31,7 +31,7 @@ user_id       text not null references users(id) on delete cascade
 name          text not null      -- human label: "openclaw-prod", "alice cli"
 lookup_hash   text not null unique  -- SHA-256(token), fast O(1) lookup
 token_hash    text not null      -- scrypt(token), authoritative auth check
-preview       text not null      -- "ak_a1b2...o5p6" (prefix + first 4 + last 4)
+preview       text not null      -- "fjord_a1b2...o5p6" (prefix + first 4 + last 4)
 created_at    text not null
 last_used_at  text               -- nullable, debounced like sessions
 expires_at    text               -- nullable, null = never expires
@@ -40,7 +40,7 @@ revoked_at    text               -- nullable, soft-delete for audit
 
 ### Verification path
 
-On any request with `Authorization: Bearer ak_...`:
+On any request with `Authorization: Bearer fjord_...`:
 
 1. Reject malformed prefixes/lengths cheaply without a DB hit.
 2. Compute `SHA-256` of the submitted token; look up the row by `lookup_hash`.
@@ -84,7 +84,7 @@ Never). Past `expires_at`, auth fails with the same error as a revoked token.
 ## Rejected alternatives
 
 - **Random opaque ID with no prefix.** Loses secret-scanner detection of
-  leaked tokens. The 3-byte `ak_` prefix is cheap insurance.
+  leaked tokens. The 6-byte `fjord_` prefix is cheap insurance.
 - **`token_hash` alone (no `lookup_hash`).** Forces a full table scan of
   scrypt-verifies per auth attempt. Tolerable at our scale but
   catastrophically bad once the table grows; better to pay the small storage

@@ -79,7 +79,7 @@ export function Header({
     <header className="flex flex-col gap-2 border-b border-border bg-surface px-4 py-2.5 shadow-[0_1px_0_var(--color-border)] sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <span className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">Agentic Kanban</span>
+          <span className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">Fjord</span>
         </div>
         <div className="flex items-center gap-1 sm:hidden">
           <Link to="/spaces" className={spacesLinkClass()}>

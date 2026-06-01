@@ -112,13 +112,13 @@ describe("POST /api/auth/login (prod mode)", () => {
 
     const setCookie = res.headers["set-cookie"]!;
     const cookieStr = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const sid = /ak_session=([^;]+)/.exec(cookieStr)![1];
+    const sid = /fjord_session=([^;]+)/.exec(cookieStr)![1];
 
     // Write attempt is rejected with set_password_required
     const write = await ctx.app.inject({
       method: "POST",
       url: "/api/tasks",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { title: "blocked" },
     });
     expect(write.statusCode).toBe(403);
@@ -128,7 +128,7 @@ describe("POST /api/auth/login (prod mode)", () => {
     const change = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/change-password",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { new_password: "new-secret-1" },
     });
     expect(change.statusCode).toBe(204);
@@ -136,7 +136,7 @@ describe("POST /api/auth/login (prod mode)", () => {
     const write2 = await ctx.app.inject({
       method: "POST",
       url: "/api/tasks",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { title: "ok now" },
     });
     expect(write2.statusCode).toBe(201);
@@ -171,7 +171,7 @@ describe("change-password", () => {
     const res = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/change-password",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { new_password: "abcdefgh" },
     });
     expect(res.statusCode).toBe(400);
@@ -184,7 +184,7 @@ describe("change-password", () => {
     const res = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/change-password",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { current_password: "wrong", new_password: "abcdefgh" },
     });
     expect(res.statusCode).toBe(403);
@@ -202,12 +202,12 @@ describe("change-password", () => {
       payload: { handle: "alice", password: "original" },
     });
     const otherCookie = (Array.isArray(second.headers["set-cookie"]) ? second.headers["set-cookie"][0] : second.headers["set-cookie"]) as string;
-    const otherSid = /ak_session=([^;]+)/.exec(otherCookie)![1];
+    const otherSid = /fjord_session=([^;]+)/.exec(otherCookie)![1];
 
     const res = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/change-password",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
       payload: { current_password: "original", new_password: "abcdefgh" },
     });
     expect(res.statusCode).toBe(204);
@@ -247,7 +247,7 @@ describe("logout / logout-all", () => {
       url: "/api/auth/login",
       payload: { handle: "alice", password: "pw" },
     });
-    const sid = /ak_session=([^;]+)/.exec(
+    const sid = /fjord_session=([^;]+)/.exec(
       (Array.isArray(login.headers["set-cookie"]) ? login.headers["set-cookie"][0] : login.headers["set-cookie"]) as string,
     )![1];
 
@@ -262,13 +262,13 @@ describe("logout / logout-all", () => {
     const out = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/logout",
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
     });
     expect(out.statusCode).toBe(204);
     const setCookie = out.headers["set-cookie"];
     const cookieStr = Array.isArray(setCookie) ? setCookie[0] : setCookie!;
     // Clearing a cookie sets it to empty with an immediate expiry.
-    expect(cookieStr).toMatch(/ak_session=/);
+    expect(cookieStr).toMatch(/fjord_session=/);
 
     // The (now-deleted) session no longer authenticates.
     const after = await ctx.app.inject({
@@ -285,14 +285,14 @@ describe("logout / logout-all", () => {
     // Two independent logins (two tabs / devices)
     const a = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { handle: "alice", password: "pw" } });
     const b = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { handle: "alice", password: "pw" } });
-    const sidA = /ak_session=([^;]+)/.exec(((Array.isArray(a.headers["set-cookie"]) ? a.headers["set-cookie"][0] : a.headers["set-cookie"])) as string)![1];
-    const sidB = /ak_session=([^;]+)/.exec(((Array.isArray(b.headers["set-cookie"]) ? b.headers["set-cookie"][0] : b.headers["set-cookie"])) as string)![1];
+    const sidA = /fjord_session=([^;]+)/.exec(((Array.isArray(a.headers["set-cookie"]) ? a.headers["set-cookie"][0] : a.headers["set-cookie"])) as string)![1];
+    const sidB = /fjord_session=([^;]+)/.exec(((Array.isArray(b.headers["set-cookie"]) ? b.headers["set-cookie"][0] : b.headers["set-cookie"])) as string)![1];
     expect(sidA).not.toBe(sidB);
 
     const out = await ctx.app.inject({
       method: "POST",
       url: "/api/auth/logout-all",
-      headers: { cookie: cookieHeader(sidA), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sidA), "x-requested-with": "fjord" },
     });
     expect(out.statusCode).toBe(204);
 
@@ -303,7 +303,7 @@ describe("logout / logout-all", () => {
   });
 });
 
-describe("bootstrap (KANBAN_BOOTSTRAP_PASSWORD)", () => {
+describe("bootstrap (FJORD_BOOTSTRAP_PASSWORD)", () => {
   it("seeds the admin password on first boot when one is provided and the hash is null", async () => {
     const { buildApp } = await import("../src/server.js");
     const { openDatabase } = await import("../src/db/index.js");
@@ -331,7 +331,7 @@ describe("bootstrap (KANBAN_BOOTSTRAP_PASSWORD)", () => {
     }
   });
 
-  it("ignores KANBAN_BOOTSTRAP_PASSWORD when the admin already has a hash", async () => {
+  it("ignores FJORD_BOOTSTRAP_PASSWORD when the admin already has a hash", async () => {
     const { buildApp } = await import("../src/server.js");
     const { openDatabase } = await import("../src/db/index.js");
     const { seedDefaultAdministrator } = await import("../src/services/users.js");
@@ -458,7 +458,7 @@ describe("API tokens (Bearer auth)", () => {
     const res = await ctx.app.inject({
       method: "GET",
       url: "/api/tasks",
-      headers: { authorization: `Bearer ak_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` },
+      headers: { authorization: `Bearer fjord_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -469,7 +469,7 @@ describe("API tokens (Bearer auth)", () => {
     const del = await ctx.app.inject({
       method: "DELETE",
       url: `/api/users/agent-coder/tokens/${issued.id}`,
-      headers: { cookie: cookieHeader(sid), "x-requested-with": "agentic-kanban" },
+      headers: { cookie: cookieHeader(sid), "x-requested-with": "fjord" },
     });
     expect(del.statusCode).toBe(204);
     const res = await ctx.app.inject({
@@ -542,8 +542,8 @@ describe("token routes", () => {
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
-    expect(body.token).toMatch(/^ak_[a-z2-7]{32}$/);
-    expect(body.preview).toMatch(/^ak_/);
+    expect(body.token).toMatch(/^fjord_[a-z2-7]{32}$/);
+    expect(body.preview).toMatch(/^fjord_/);
 
     // Listing never returns the plaintext or hash
     const list = await ctx.inject({ method: "GET", url: "/api/users/agent-coder/tokens" });

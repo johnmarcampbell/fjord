@@ -8,7 +8,7 @@ import {
   validateHandle,
   type Role,
   type UserKind,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { api, ApiError } from "../lib/api.js";
 import { useUsers } from "../lib/queries.js";
 import { useCurrentUser, useInvalidateMe } from "../lib/auth.js";

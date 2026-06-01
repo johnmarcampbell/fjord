@@ -1,4 +1,4 @@
-import type { Column, Task, User } from "@agentic-kanban/shared";
+import type { Column, Task, User } from "@fjord/shared";
 
 export type SortField = "progress" | "due_date";
 export type SortDir = "asc" | "desc";

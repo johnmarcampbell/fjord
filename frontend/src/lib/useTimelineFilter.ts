@@ -6,7 +6,7 @@ export interface TimelineFilterState {
   system: boolean;
 }
 
-const STORAGE_KEY = "ak-timeline-filter";
+const STORAGE_KEY = "fjord-timeline-filter";
 const DEFAULT_FILTER: TimelineFilterState = { comments: true, journal: false, system: false };
 
 type Subscriber = (filter: TimelineFilterState) => void;

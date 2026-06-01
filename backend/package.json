@@ -1,5 +1,5 @@
 {
-  "name": "@agentic-kanban/backend",
+  "name": "@fjord/backend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "reset-admin-password": "tsx src/scripts/reset-admin-password.ts"
   },
   "dependencies": {
-    "@agentic-kanban/shared": "*",
+    "@fjord/shared": "*",
     "@fastify/cookie": "11.0.2",
     "@fastify/cors": "10.1.0",
     "@fastify/static": "9.1.3",

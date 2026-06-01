@@ -4,7 +4,7 @@
 
 ## Source
 
-- GitHub issue: [#84 — Switch from better-sqlite3 to node:sqlite (eliminate native dependency)](https://github.com/johnmarcampbell/agentic_kanban/issues/84)
+- GitHub issue: [#84 — Switch from better-sqlite3 to node:sqlite (eliminate native dependency)](https://github.com/johnmarcampbell/fjord/issues/84)
 
 ## Context
 
@@ -65,7 +65,7 @@ The Drizzle migrator import path moves from `drizzle-orm/better-sqlite3/migrator
 
 ### Decision update: custom migrator instead of Drizzle's built-in
 
-During execution, the Drizzle 1.0 RC migrator turned out to expect a new on-disk layout (`<timestamp>_<name>/migration.sql` directories) rather than the flat `<tag>.sql` files in `backend/migrations/`. Rather than reformatting all existing migrations and breaking the upgrade path from older deployments, the implementation uses a custom migrator (`applyMigrations` in `backend/src/db/index.ts`) that reads the existing flat layout and tracks applied migrations in `__ak_migrations`. On first run against a database previously migrated by Drizzle 0.45, it backfills from `__drizzle_migrations` by matching `created_at` timestamps against `meta/_journal.json`. See the doc comment on `applyMigrations` in `backend/src/db/index.ts` for details.
+During execution, the Drizzle 1.0 RC migrator turned out to expect a new on-disk layout (`<timestamp>_<name>/migration.sql` directories) rather than the flat `<tag>.sql` files in `backend/migrations/`. Rather than reformatting all existing migrations and breaking the upgrade path from older deployments, the implementation uses a custom migrator (`applyMigrations` in `backend/src/db/index.ts`) that reads the existing flat layout and tracks applied migrations in `__fjord_migrations`. On first run against a database previously migrated by Drizzle 0.45, it backfills from `__drizzle_migrations` by matching `created_at` timestamps against `meta/_journal.json`. See the doc comment on `applyMigrations` in `backend/src/db/index.ts` for details.
 
 ## Step-by-step plan
 
@@ -118,9 +118,9 @@ During execution, the Drizzle 1.0 RC migrator turned out to expect a new on-disk
 
 11. **Run the full test suite and typecheck.** From the repo root: `npm test` (builds shared, then runs backend tests), `npm run typecheck -w backend`, `npm run typecheck -w frontend`. All must pass clean.
 
-12. **Verify the Docker build.** From the repo root: `docker build -t agentic-kanban .`. Confirm: (a) the build succeeds without the toolchain install step; (b) the resulting image runs `docker run -p 3000:3000 -v $(pwd)/data-test:/data agentic-kanban` and `GET http://localhost:3000/api/health` returns 200. Tear down the test container and data dir afterwards.
+12. **Verify the Docker build.** From the repo root: `docker build -t fjord .`. Confirm: (a) the build succeeds without the toolchain install step; (b) the resulting image runs `docker run -p 3000:3000 -v $(pwd)/data-test:/data fjord` and `GET http://localhost:3000/api/health` returns 200. Tear down the test container and data dir afterwards.
 
-13. **Verify the existing-database upgrade path.** This is the riskiest scenario: an older volume with a pre-existing `kanban.db` containing pre-`repairSchemaDrift` schema. Construct a representative old-shape DB (or copy one from a running deployment if available) and start the backend against it; confirm `repairSchemaDrift` applies cleanly and queries succeed against the repaired schema. If no realistic old DB is available, at minimum re-run the existing `migrations.test.ts` cases that exercise the drift path against the new driver (covered in step 9, but call this out explicitly here as a verification gate).
+13. **Verify the existing-database upgrade path.** This is the riskiest scenario: an older volume with a pre-existing `fjord.db` containing pre-`repairSchemaDrift` schema. Construct a representative old-shape DB (or copy one from a running deployment if available) and start the backend against it; confirm `repairSchemaDrift` applies cleanly and queries succeed against the repaired schema. If no realistic old DB is available, at minimum re-run the existing `migrations.test.ts` cases that exercise the drift path against the new driver (covered in step 9, but call this out explicitly here as a verification gate).
 
 14. **Run the dev server end-to-end.** From repo root: `npm run dev`. In the browser, log in as `default-administrator`, create a task, drag it through columns, add a comment, refresh. Confirm SSE stream reconnects on page load and updates propagate. This catches any startup ordering issue (WAL pragma must run before any query) that unit tests might miss.
 
@@ -143,7 +143,7 @@ The seed file *is* exercised by this plan transitively (via [backend/src/demo.ts
   - Docker build and run in step 12 — confirms the production launch path.
 
 - **Regression risk:**
-  - **WAL pragma timing** — `journal_mode = WAL` must be set before any query runs, including before Drizzle starts issuing reads through its prepared-statement cache. Verify by checking that the DB file's `-wal` companion file appears after a write (`ls data/kanban.db*` after a task create).
+  - **WAL pragma timing** — `journal_mode = WAL` must be set before any query runs, including before Drizzle starts issuing reads through its prepared-statement cache. Verify by checking that the DB file's `-wal` companion file appears after a write (`ls data/fjord.db*` after a task create).
   - **Foreign keys** — `enableForeignKeyConstraints: true` must actually be honoured. Spot-check by deleting a user and confirming their sessions are cascaded (existing `auth` tests cover this).
   - **Transaction rollback** — `withTransaction` must rollback on error. Force an error inside `repairSchemaDrift` (temporarily, in a scratch branch) and confirm the partial repair is rolled back. Not a permanent test; just one-time verification during execution.
 
@@ -158,7 +158,7 @@ The seed file *is* exercised by this plan transitively (via [backend/src/demo.ts
 - [ ] `README.md` and `CLAUDE.md` mention Node 24 and `node:sqlite` (not Node 22 / better-sqlite3).
 - [ ] `npm test` from repo root passes (builds shared, runs backend tests).
 - [ ] `npm run typecheck` clean in both `backend/` and `frontend/`.
-- [ ] `docker build -t agentic-kanban .` succeeds.
+- [ ] `docker build -t fjord .` succeeds.
 - [ ] `docker run` of the built image serves `GET /api/health` returning 200.
 - [ ] Demo mode (`npm run demo`) loads the seeded board successfully.
 - [ ] Manual dev-server walkthrough (login, create task, drag, comment, refresh) completes without errors.
@@ -172,4 +172,4 @@ None — all design decisions resolved during grilling. One execution-time check
 ## Out-of-band work
 
 - When Drizzle 1.0 **stable** lands, file a follow-up to swap the RC pin for the stable version. The change should be a one-line edit to two `package.json` files plus a re-run of the test suite.
-- Existing deployments with persistent `kanban.db` volumes will continue to work via `repairSchemaDrift`; no data migration is required. Anyone deploying from an old Node 22 base image will need to rebuild against `node:24-slim` — communicate this in the release notes for the change.
+- Existing deployments with persistent `fjord.db` volumes will continue to work via `repairSchemaDrift`; no data migration is required. Anyone deploying from an old Node 22 base image will need to rebuild against `node:24-slim` — communicate this in the release notes for the change.

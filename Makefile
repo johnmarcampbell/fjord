@@ -1,4 +1,4 @@
-IMAGE   := agentic-kanban
+IMAGE   := fjord
 PORT    := 3000
 DATA    := $(CURDIR)/data
 
@@ -14,9 +14,9 @@ run:
 	-docker rm $(IMAGE) 2>/dev/null
 	docker run -d --name $(IMAGE) -p $(PORT):3000 \
 		-v $(DATA):/data \
-		-e KANBAN_SEED_USERS="$$KANBAN_SEED_USERS" \
-		-e KANBAN_DEMO_MODE \
+		-e FJORD_SEED_USERS="$$FJORD_SEED_USERS" \
+		-e FJORD_DEMO_MODE \
 		$(IMAGE)
 
 demo:
-	KANBAN_DEMO_MODE=true $(MAKE) run
+	FJORD_DEMO_MODE=true $(MAKE) run

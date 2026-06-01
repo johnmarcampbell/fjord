@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import type { Project } from "@agentic-kanban/shared";
+import type { Project } from "@fjord/shared";
 import { api } from "../lib/api.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { DateTimePicker } from "./DateTimePicker.js";

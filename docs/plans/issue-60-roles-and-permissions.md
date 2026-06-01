@@ -4,7 +4,7 @@
 
 ## Source
 
-- GitHub issue: **#60 — Roles & permissions (Admin/User + per-space access)** — https://github.com/johnmarcampbell/agentic_kanban/issues/60
+- GitHub issue: **#60 — Roles & permissions (Admin/User + per-space access)** — https://github.com/johnmarcampbell/fjord/issues/60
 - Dependency (shipped): #56 (Spaces), #57 (Richer user profile)
 - This plan refines the issue text in two notable ways resolved during grilling:
   - The non-Admin role is named **Member**, not **User**, because **User** is already the canonical term for any actor on the board (see [CONTEXT.md](../../CONTEXT.md)).
@@ -12,7 +12,7 @@
 
 ## Context
 
-agentic-kanban currently has no concept of permissions — every authenticated user (everyone with a valid `X-User-Id`) can do everything. This issue introduces:
+fjord currently has no concept of permissions — every authenticated user (everyone with a valid `X-User-Id`) can do everything. This issue introduces:
 
 - A global **Role** on each **User**: `Admin` or `Member`.
 - A **Space access** grants table that lets specific Members see and act within specific Spaces. Admins implicitly access every Space; Space Owners implicitly access their own.

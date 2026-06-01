@@ -23,11 +23,11 @@ import type {
   UpdateTaskRequest,
   UpdateUserRequest,
   User,
-} from "@agentic-kanban/shared";
+} from "@fjord/shared";
 import { dispatchLogout } from "./auth.js";
 
 const CSRF_HEADER = "X-Requested-With";
-const CSRF_VALUE = "agentic-kanban";
+const CSRF_VALUE = "fjord";
 
 export class ApiError extends Error {
   constructor(

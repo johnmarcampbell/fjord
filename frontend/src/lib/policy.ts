@@ -1,4 +1,4 @@
-import type { Space, User } from "@agentic-kanban/shared";
+import type { Space, User } from "@fjord/shared";
 
 export function isAdmin(user: User): boolean {
   return user.role === "Admin";

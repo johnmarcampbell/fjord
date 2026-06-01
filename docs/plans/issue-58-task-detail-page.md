@@ -4,7 +4,7 @@
 
 ## Source
 
-- GitHub issue: [#58 — Task detail: add modal and dedicated route alongside drawer](https://github.com/johnmarcampbell/agentic_kanban/issues/58)
+- GitHub issue: [#58 — Task detail: add modal and dedicated route alongside drawer](https://github.com/johnmarcampbell/fjord/issues/58)
 
 **Deviation from the issue text:** the issue calls for three surfaces — drawer (peek), modal (in-context full view), and route (shareable full view). After grilling, the modal was dropped: once the route exists, "open as page" is just clicking the URL, and a separate modal would duplicate the page's content with a different shell. Two surfaces only:
 
@@ -120,7 +120,7 @@ Blocker chips remain clickable. **Click behavior unchanged: opens the drawer on 
 - A visible **"← Board"** link top-left of the page content. Always navigates to `/` (not `navigate(-1)`) — robust to arriving from a notification.
 - Centered, `max-w-[880px]`, padded.
 - Two-column layout at `lg:` and up; stacks to single column below. Left column: title, description, blockers, timeline (with composers). Right column (`lg:w-[280px]`): metadata fields (status, assignee, reporter, due, project, tags), then an **Archive / Unarchive** button, then at the very bottom a danger-styled **Delete** button (matches `UserFormDialog`'s destructive pattern, two-click confirm).
-- `document.title` set to `${task.title} · agentic-kanban` on mount; restored on unmount.
+- `document.title` set to `${task.title} · fjord` on mount; restored on unmount.
 
 ### Edge cases
 
@@ -194,7 +194,7 @@ Blocker chips remain clickable. **Click behavior unchanged: opens the drawer on 
    - Reads `id` from `useParams<{ id: string }>()`.
    - Calls `useTaskEditor(id)` only to gate on `isLoading` / not-found / no-access. (Yes, this calls the hook twice — once here for gating, once inside `TaskDetail`. The hook is cheap because the underlying `useQuery` deduplicates.)
    - Manages local state for the drawer (`openBlockerId: string | null`) so blocker chip clicks open the drawer over the page. Renders `<TaskDrawer>` when set.
-   - Sets `document.title = \`${task.title} · agentic-kanban\`` in a `useEffect`; restores prior title on unmount.
+   - Sets `document.title = \`${task.title} · fjord\`` in a `useEffect`; restores prior title on unmount.
    - Renders error states:
      - Loading: `<div className="text-sm text-ink-subtle">Loading…</div>` inside the page shell.
      - 404 (API error status `404`): inline card "Task not found." + `← Board` link.
@@ -259,7 +259,7 @@ Blocker chips remain clickable. **Click behavior unchanged: opens the drawer on 
    - `/tasks/:id` — full task detail; shareable URL. The `TaskDrawer` is the at-a-glance peek and links here via the ↗ "Open full view" button.
    ```
 
-10. **No demo seed changes.** The existing [backend/demo/seed.sql](../../backend/demo/seed.sql) already exercises tasks with descriptions, blockers, comments, journal entries, archived tasks, and tasks in multiple spaces — enough to demo every aspect of the new page. Verify by visiting `/tasks/<id>` for a seeded task with blockers and comments after `KANBAN_DEMO_MODE=true npm run dev`.
+10. **No demo seed changes.** The existing [backend/demo/seed.sql](../../backend/demo/seed.sql) already exercises tasks with descriptions, blockers, comments, journal entries, archived tasks, and tasks in multiple spaces — enough to demo every aspect of the new page. Verify by visiting `/tasks/<id>` for a seeded task with blockers and comments after `FJORD_DEMO_MODE=true npm run dev`.
 
 ## Demo seed data
 
@@ -292,7 +292,7 @@ No seed changes. The feature is UI-only — no new tables, columns, entities, or
    - Archive → button toggles to "Unarchive"; status select disables.
    - Unarchive → reverses.
    - Two-click Delete → task gone; redirects to `/`.
-4. **Page — chrome.** Full app header visible. "← Board" link top-left always returns to `/`. Browser tab title shows `${task.title} · agentic-kanban`. Restoring the prior title on unmount: navigate away and confirm the tab title resets.
+4. **Page — chrome.** Full app header visible. "← Board" link top-left always returns to `/`. Browser tab title shows `${task.title} · fjord`. Restoring the prior title on unmount: navigate away and confirm the tab title resets.
 5. **Page — blocker drawer.** On the page, click a blocker chip → drawer overlays the page. Click another blocker chip inside that drawer → drawer swaps. Close drawer → page is intact underneath.
 6. **Cold deep-link.** Open a new tab, paste `/tasks/<id>` for a task in a *non-active* space the user has access to. Page renders. Active space in the header is **not** changed. "← Board" returns to whatever board was active before.
 7. **Cold deep-link — archived task.** Same as above but for an archived task. Page renders; "Unarchive" button visible.
@@ -310,7 +310,7 @@ npm test                                    # backend tests still pass (no backe
 cd backend && npm run typecheck && cd ..
 cd frontend && npm run typecheck && cd ..
 npm run build                               # full monorepo build
-docker build -t agentic-kanban .            # production image
+docker build -t fjord .            # production image
 ```
 
 ## Acceptance criteria
@@ -332,7 +332,7 @@ docker build -t agentic-kanban .            # production image
 - [ ] `npm test` passes from root.
 - [ ] `npm run typecheck` passes in both `backend/` and `frontend/`.
 - [ ] `npm run build` succeeds.
-- [ ] `docker build -t agentic-kanban .` succeeds.
+- [ ] `docker build -t fjord .` succeeds.
 - [ ] PR body contains "Resolves #58" and notes the no-modal deviation up front.
 
 ## Open questions
