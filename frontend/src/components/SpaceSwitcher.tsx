@@ -1,38 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useActiveSpace } from "../lib/SpaceContext.js";
-
-function ChevronIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
+import { useClickOutside } from "../lib/useClickOutside.js";
+import { ChevronDownIcon, CheckIcon } from "./icons.js";
 
 export function SpaceSwitcher() {
   const navigate = useNavigate();
   const { activeSpaceId, activeSpace, spaces, setActiveSpaceId } = useActiveSpace();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
-
-  const selectable = spaces.filter((s) => s.archived_at === null);
+  // Hide archived spaces from the quick switcher, but always keep the active
+  // space listed so an archived current space still has a checkmarked entry.
+  const selectable = spaces.filter((s) => s.archived_at === null || s.id === activeSpaceId);
 
   function choose(id: string) {
     setOpen(false);
@@ -52,7 +32,7 @@ export function SpaceSwitcher() {
       >
         <span className="max-w-[9rem] truncate sm:max-w-[12rem]">{activeSpace?.name ?? "Space"}</span>
         <span className="text-ink-subtle">
-          <ChevronIcon />
+          <ChevronDownIcon />
         </span>
       </button>
       {open && (
