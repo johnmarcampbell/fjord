@@ -18,6 +18,7 @@ import {
 } from "@fjord/shared";
 import { useTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useMoveTask } from "../lib/mutations.js";
+import { resolveDropTarget } from "../lib/dnd.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
@@ -26,30 +27,6 @@ import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
-
-/**
- * Resolve a dnd-kit `over.id` to a { column, index } drop target.
- * Returns null if the id doesn't map to a known column or task.
- * Used by both handleDragOver (visual preview) and handleDragEnd (drop math)
- * so the ghost always predicts the real drop position.
- */
-function resolveDropTarget(
-  overId: string,
-  byColumn: Map<Column, Task[]>,
-  tasks: Task[],
-): { column: Column; index: number } | null {
-  if (overId.startsWith("col:")) {
-    const column = overId.slice(4) as Column;
-    if (!byColumn.has(column)) return null;
-    return { column, index: byColumn.get(column)!.length };
-  }
-  const overTask = tasks.find((t) => t.id === overId);
-  if (!overTask) return null;
-  const column = overTask.column as Column;
-  const list = byColumn.get(column) ?? [];
-  const idx = list.findIndex((t) => t.id === overId);
-  return { column, index: idx < 0 ? list.length : idx };
-}
 
 export function Board({
   setOpenTaskId,
