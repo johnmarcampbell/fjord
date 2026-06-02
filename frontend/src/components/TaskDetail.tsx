@@ -63,8 +63,10 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
-  const [comment, setComment] = useState("");
-  const [journal, setJournal] = useState("");
+  const [draft, setDraft] = useState("");
+  const [composerMode, setComposerMode] = useState<"comment" | "journal">(
+    "comment",
+  );
   const { filter: timelineFilter, toggle: toggleTimeline, solo: soloTimeline } = useTimelineFilter();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -219,18 +221,22 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             filter={timelineFilter}
             toggle={toggleTimeline}
             solo={soloTimeline}
-            comment={comment}
-            setComment={setComment}
-            journal={journal}
-            setJournal={setJournal}
-            commentPending={editor.commentPending}
-            journalPending={editor.journalPending}
-            onSubmitComment={() =>
-              editor.addComment(comment, { onSuccess: () => setComment("") })
+            draft={draft}
+            setDraft={setDraft}
+            composerMode={composerMode}
+            setComposerMode={setComposerMode}
+            pending={
+              composerMode === "comment"
+                ? editor.commentPending
+                : editor.journalPending
             }
-            onSubmitJournal={() =>
-              editor.addJournal(journal, { onSuccess: () => setJournal("") })
-            }
+            onSubmit={() => {
+              const fn =
+                composerMode === "comment"
+                  ? editor.addComment
+                  : editor.addJournal;
+              fn(draft, { onSuccess: () => setDraft("") });
+            }}
             currentUserId={me?.id ?? null}
             editor={editor}
           />
@@ -522,14 +528,12 @@ function TimelineSection({
   filter,
   toggle,
   solo,
-  comment,
-  setComment,
-  journal,
-  setJournal,
-  commentPending,
-  journalPending,
-  onSubmitComment,
-  onSubmitJournal,
+  draft,
+  setDraft,
+  composerMode,
+  setComposerMode,
+  pending,
+  onSubmit,
   currentUserId,
   editor,
 }: {
@@ -540,14 +544,12 @@ function TimelineSection({
   filter: TimelineFilterState;
   toggle: (kind: keyof TimelineFilterState) => void;
   solo: (kind: keyof TimelineFilterState) => void;
-  comment: string;
-  setComment: (v: string) => void;
-  journal: string;
-  setJournal: (v: string) => void;
-  commentPending: boolean;
-  journalPending: boolean;
-  onSubmitComment: () => void;
-  onSubmitJournal: () => void;
+  draft: string;
+  setDraft: (v: string) => void;
+  composerMode: "comment" | "journal";
+  setComposerMode: (m: "comment" | "journal") => void;
+  pending: boolean;
+  onSubmit: () => void;
   currentUserId: string | null;
   editor: UseTaskEditor;
 }) {
@@ -620,61 +622,65 @@ function TimelineSection({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (comment.trim()) onSubmitComment();
+          if (draft.trim() && !pending) onSubmit();
         }}
         className="mt-4"
       >
+        <div className="mb-2 flex justify-end">
+        <div
+          role="group"
+          aria-label="Choose what to post"
+          className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface-subtle p-0.5"
+        >
+          {(["comment", "journal"] as const).map((mode) => {
+            const active = composerMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setComposerMode(mode)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                  active
+                    ? "bg-accent text-accent-fg"
+                    : "text-ink-muted hover:bg-surface-hover hover:text-ink"
+                }`}
+              >
+                {mode === "comment" ? "Comment" : "Journal"}
+              </button>
+            );
+          })}
+        </div>
+        </div>
         <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a comment — talk to other actors (markdown)"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (
+              (e.metaKey || e.ctrlKey) &&
+              e.key === "Enter" &&
+              draft.trim() &&
+              !pending
+            ) {
+              e.preventDefault();
+              onSubmit();
+            }
+          }}
+          placeholder={
+            composerMode === "comment"
+              ? "Add a comment — talk to other actors (markdown)"
+              : "Add a journal entry — durable working notes for your future self (markdown)"
+          }
           rows={2}
           className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
         />
         <div className="mt-1.5 flex justify-end">
           <button
             type="submit"
-            disabled={!comment.trim() || commentPending}
+            disabled={!draft.trim() || pending}
             className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
-            Comment
-          </button>
-        </div>
-      </form>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (journal.trim()) onSubmitJournal();
-        }}
-        className="mt-3"
-      >
-        <textarea
-          value={journal}
-          onChange={(e) => setJournal(e.target.value)}
-          placeholder="Add a journal entry — durable working notes for your future self (markdown)"
-          rows={2}
-          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
-        />
-        <div className="mt-1.5 flex justify-end">
-          <button
-            type="submit"
-            disabled={!journal.trim() || journalPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-40"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-            </svg>
-            Journal entry
+            Post
           </button>
         </div>
       </form>
