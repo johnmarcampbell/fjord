@@ -21,6 +21,7 @@ import {
 import { Combobox } from "./Combobox.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { FilterPill } from "./FilterPill.js";
+import { TimelineComposer } from "./TimelineComposer.js";
 import {
   createUserLookup,
   formatActorLabel,
@@ -63,10 +64,6 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
-  const [draft, setDraft] = useState("");
-  const [composerMode, setComposerMode] = useState<"comment" | "journal">(
-    "comment",
-  );
   const { filter: timelineFilter, toggle: toggleTimeline, solo: soloTimeline } = useTimelineFilter();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -221,22 +218,6 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             filter={timelineFilter}
             toggle={toggleTimeline}
             solo={soloTimeline}
-            draft={draft}
-            setDraft={setDraft}
-            composerMode={composerMode}
-            setComposerMode={setComposerMode}
-            pending={
-              composerMode === "comment"
-                ? editor.commentPending
-                : editor.journalPending
-            }
-            onSubmit={() => {
-              const fn =
-                composerMode === "comment"
-                  ? editor.addComment
-                  : editor.addJournal;
-              fn(draft, { onSuccess: () => setDraft("") });
-            }}
             currentUserId={me?.id ?? null}
             editor={editor}
           />
@@ -528,12 +509,6 @@ function TimelineSection({
   filter,
   toggle,
   solo,
-  draft,
-  setDraft,
-  composerMode,
-  setComposerMode,
-  pending,
-  onSubmit,
   currentUserId,
   editor,
 }: {
@@ -544,12 +519,6 @@ function TimelineSection({
   filter: TimelineFilterState;
   toggle: (kind: keyof TimelineFilterState) => void;
   solo: (kind: keyof TimelineFilterState) => void;
-  draft: string;
-  setDraft: (v: string) => void;
-  composerMode: "comment" | "journal";
-  setComposerMode: (m: "comment" | "journal") => void;
-  pending: boolean;
-  onSubmit: () => void;
   currentUserId: string | null;
   editor: UseTaskEditor;
 }) {
@@ -619,71 +588,7 @@ function TimelineSection({
           />
         ))}
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (draft.trim() && !pending) onSubmit();
-        }}
-        className="mt-4"
-      >
-        <div className="mb-2 flex justify-end">
-        <div
-          role="group"
-          aria-label="Choose what to post"
-          className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface-subtle p-0.5"
-        >
-          {(["comment", "journal"] as const).map((mode) => {
-            const active = composerMode === mode;
-            return (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setComposerMode(mode)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                  active
-                    ? "bg-accent text-accent-fg"
-                    : "text-ink-muted hover:bg-surface-hover hover:text-ink"
-                }`}
-              >
-                {mode === "comment" ? "Comment" : "Journal"}
-              </button>
-            );
-          })}
-        </div>
-        </div>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (
-              (e.metaKey || e.ctrlKey) &&
-              e.key === "Enter" &&
-              draft.trim() &&
-              !pending
-            ) {
-              e.preventDefault();
-              onSubmit();
-            }
-          }}
-          placeholder={
-            composerMode === "comment"
-              ? "Add a comment — talk to other actors (markdown)"
-              : "Add a journal entry — durable working notes for your future self (markdown)"
-          }
-          rows={2}
-          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
-        />
-        <div className="mt-1.5 flex justify-end">
-          <button
-            type="submit"
-            disabled={!draft.trim() || pending}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            Post
-          </button>
-        </div>
-      </form>
+      <TimelineComposer editor={editor} />
     </section>
   );
 }
