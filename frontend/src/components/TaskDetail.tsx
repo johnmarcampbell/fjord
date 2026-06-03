@@ -21,6 +21,7 @@ import {
 import { Combobox } from "./Combobox.js";
 import { DateTimePicker } from "./DateTimePicker.js";
 import { FilterPill } from "./FilterPill.js";
+import { TimelineComposer } from "./TimelineComposer.js";
 import {
   createUserLookup,
   formatActorLabel,
@@ -63,8 +64,6 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
-  const [comment, setComment] = useState("");
-  const [journal, setJournal] = useState("");
   const { filter: timelineFilter, toggle: toggleTimeline, solo: soloTimeline } = useTimelineFilter();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -219,18 +218,6 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
             filter={timelineFilter}
             toggle={toggleTimeline}
             solo={soloTimeline}
-            comment={comment}
-            setComment={setComment}
-            journal={journal}
-            setJournal={setJournal}
-            commentPending={editor.commentPending}
-            journalPending={editor.journalPending}
-            onSubmitComment={() =>
-              editor.addComment(comment, { onSuccess: () => setComment("") })
-            }
-            onSubmitJournal={() =>
-              editor.addJournal(journal, { onSuccess: () => setJournal("") })
-            }
             currentUserId={me?.id ?? null}
             editor={editor}
           />
@@ -522,14 +509,6 @@ function TimelineSection({
   filter,
   toggle,
   solo,
-  comment,
-  setComment,
-  journal,
-  setJournal,
-  commentPending,
-  journalPending,
-  onSubmitComment,
-  onSubmitJournal,
   currentUserId,
   editor,
 }: {
@@ -540,14 +519,6 @@ function TimelineSection({
   filter: TimelineFilterState;
   toggle: (kind: keyof TimelineFilterState) => void;
   solo: (kind: keyof TimelineFilterState) => void;
-  comment: string;
-  setComment: (v: string) => void;
-  journal: string;
-  setJournal: (v: string) => void;
-  commentPending: boolean;
-  journalPending: boolean;
-  onSubmitComment: () => void;
-  onSubmitJournal: () => void;
   currentUserId: string | null;
   editor: UseTaskEditor;
 }) {
@@ -617,67 +588,7 @@ function TimelineSection({
           />
         ))}
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (comment.trim()) onSubmitComment();
-        }}
-        className="mt-4"
-      >
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a comment — talk to other actors (markdown)"
-          rows={2}
-          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
-        />
-        <div className="mt-1.5 flex justify-end">
-          <button
-            type="submit"
-            disabled={!comment.trim() || commentPending}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            Comment
-          </button>
-        </div>
-      </form>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (journal.trim()) onSubmitJournal();
-        }}
-        className="mt-3"
-      >
-        <textarea
-          value={journal}
-          onChange={(e) => setJournal(e.target.value)}
-          placeholder="Add a journal entry — durable working notes for your future self (markdown)"
-          rows={2}
-          className="w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-subtle focus:border-border-focus focus:outline-none transition-colors resize-none"
-        />
-        <div className="mt-1.5 flex justify-end">
-          <button
-            type="submit"
-            disabled={!journal.trim() || journalPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-40"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-            </svg>
-            Journal entry
-          </button>
-        </div>
-      </form>
+      <TimelineComposer editor={editor} />
     </section>
   );
 }
