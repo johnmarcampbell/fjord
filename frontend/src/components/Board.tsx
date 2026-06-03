@@ -24,32 +24,9 @@ import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
+import { resolveDropTarget, computeInsertPosition } from "../lib/dnd.js";
 
 const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
-
-/**
- * Resolve a dnd-kit `over.id` to a { column, index } drop target.
- * Returns null if the id doesn't map to a known column or task.
- * Used by both handleDragOver (visual preview) and handleDragEnd (drop math)
- * so the ghost always predicts the real drop position.
- */
-function resolveDropTarget(
-  overId: string,
-  byColumn: Map<Column, Task[]>,
-  tasks: Task[],
-): { column: Column; index: number } | null {
-  if (overId.startsWith("col:")) {
-    const column = overId.slice(4) as Column;
-    if (!byColumn.has(column)) return null;
-    return { column, index: byColumn.get(column)!.length };
-  }
-  const overTask = tasks.find((t) => t.id === overId);
-  if (!overTask) return null;
-  const column = overTask.column as Column;
-  const list = byColumn.get(column) ?? [];
-  const idx = list.findIndex((t) => t.id === overId);
-  return { column, index: idx < 0 ? list.length : idx };
-}
 
 export function Board({
   setOpenTaskId,
@@ -179,13 +156,7 @@ export function Board({
     )
       return;
 
-    const before = targetList[targetIndex - 1];
-    const after = targetList[targetIndex];
-    let newPosition: number;
-    if (!before && !after) newPosition = 0;
-    else if (!before) newPosition = after!.position - 1;
-    else if (!after) newPosition = before.position + 1;
-    else newPosition = (before.position + after.position) / 2;
+    const newPosition = computeInsertPosition(targetList, targetIndex);
 
     moveMutation.mutate({
       id: activeId,

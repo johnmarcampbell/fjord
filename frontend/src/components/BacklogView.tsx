@@ -21,6 +21,7 @@ import { useIsMobile } from "../lib/useIsMobile.js";
 import { FilterBar } from "./FilterBar.js";
 import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
+import { computeInsertPosition } from "../lib/dnd.js";
 
 function DragGripIcon() {
   return (
@@ -373,13 +374,7 @@ export function BacklogView({
     const sourceIndex = backlogTasks.findIndex((t) => t.id === activeId);
     if (sourceIndex === targetIndex) return;
 
-    const before = reordered[targetIndex - 1];
-    const after = reordered[targetIndex];
-    let newPosition: number;
-    if (!before && !after) newPosition = 0;
-    else if (!before) newPosition = after!.position - 1;
-    else if (!after) newPosition = before.position + 1;
-    else newPosition = (before.position + after.position) / 2;
+    const newPosition = computeInsertPosition(reordered, targetIndex);
 
     moveMutation.mutate({
       id: activeId,
