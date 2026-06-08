@@ -86,41 +86,41 @@ export function ProjectPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-4">
-          <Link
-            to={`/spaces/${project.space_id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-ink-subtle transition-colors hover:text-ink"
-          >
-            ← {space ? space.name : "Back"}
-          </Link>
+      <div className="mb-4">
+        <Link
+          to={`/spaces/${project.space_id}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-ink-subtle transition-colors hover:text-ink"
+        >
+          ← {space ? space.name : "Back"}
+        </Link>
+      </div>
+
+      <ProjectDetailHeader project={project} canEdit={true} />
+
+      <section className="py-5">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">Tasks</h2>
+          <span className="text-xs text-ink-subtle">({sortedTasks.length})</span>
+          <div className="ml-auto">
+            <SortControls
+              sortField={sortField}
+              sortDir={sortDir}
+              onChangeField={setSortField}
+              onToggleDir={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            />
+          </div>
         </div>
 
-        <ProjectDetailHeader project={project} canEdit={true} />
-
-        <section className="py-5">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">Tasks</h2>
-            <span className="text-xs text-ink-subtle">({sortedTasks.length})</span>
-            <div className="ml-auto">
-              <SortControls
-                sortField={sortField}
-                sortDir={sortDir}
-                onChangeField={setSortField}
-                onToggleDir={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-              />
-            </div>
+        {sortedTasks.length === 0 ? (
+          <p className="text-sm italic text-ink-subtle">No tasks in this project yet.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {sortedTasks.map((t) => (
+              <TaskRow key={t.id} task={t} users={users} />
+            ))}
           </div>
-
-          {sortedTasks.length === 0 ? (
-            <p className="text-sm italic text-ink-subtle">No tasks in this project yet.</p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {sortedTasks.map((t) => (
-                <TaskRow key={t.id} task={t} users={users} />
-              ))}
-            </div>
-          )}
-        </section>
+        )}
+      </section>
     </main>
   );
 }
