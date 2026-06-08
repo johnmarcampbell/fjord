@@ -22,7 +22,7 @@ import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
-import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { useFilterContext, applyTaskFilters, collectTags } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 import { resolveDropTarget, computeInsertPosition } from "../lib/dnd.js";
 
@@ -54,30 +54,12 @@ export function Board() {
   );
   const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const t of tasks) {
-      for (const tag of t.tags) tagSet.add(tag);
-    }
-    return Array.from(tagSet).sort();
-  }, [tasks]);
+  const allTags = useMemo(() => collectTags(tasks), [tasks]);
 
-  const filteredTasks = useMemo(() => {
-    let result = tasks;
-    if (selectedProject) {
-      result = result.filter((t) => t.project_id === selectedProject);
-    }
-    if (selectedTags.length > 0) {
-      result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
-    }
-    if (selectedUsers.length > 0) {
-      result = result.filter((t) => {
-        if (selectedUsers.includes(UNASSIGNED_SENTINEL) && t.assigned_to === null) return true;
-        return t.assigned_to !== null && selectedUsers.includes(t.assigned_to);
-      });
-    }
-    return result;
-  }, [tasks, selectedProject, selectedTags, selectedUsers]);
+  const filteredTasks = useMemo(
+    () => applyTaskFilters(tasks, { selectedProject, selectedTags, selectedUsers }),
+    [tasks, selectedProject, selectedTags, selectedUsers],
+  );
 
   const byColumn = useMemo(() => {
     const map = new Map<Column, Task[]>();

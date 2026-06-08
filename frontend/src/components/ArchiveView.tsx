@@ -6,7 +6,7 @@ import { useArchivedTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
-import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { useFilterContext, applyTaskFilters, collectTags } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 interface RowProps {
@@ -91,29 +91,15 @@ export function ArchiveView() {
   );
   const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const t of tasks ?? []) {
-      for (const tag of t.tags) tagSet.add(tag);
-    }
-    return Array.from(tagSet).sort();
-  }, [tasks]);
+  const allTags = useMemo(() => collectTags(tasks ?? []), [tasks]);
 
   const sortedTasks = useMemo(() => {
-    let result = (tasks ?? []).slice();
-    if (selectedProject) {
-      result = result.filter((t) => t.project_id === selectedProject);
-    }
-    if (selectedTags.length > 0) {
-      result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
-    }
-    if (selectedUsers.length > 0) {
-      result = result.filter((t) => {
-        if (selectedUsers.includes(UNASSIGNED_SENTINEL) && t.assigned_to === null) return true;
-        return t.assigned_to !== null && selectedUsers.includes(t.assigned_to);
-      });
-    }
-    return result.sort((a, b) => {
+    const filtered = applyTaskFilters(tasks ?? [], {
+      selectedProject,
+      selectedTags,
+      selectedUsers,
+    });
+    return [...filtered].sort((a, b) => {
       const aTime = a.archived_at ? new Date(a.archived_at).getTime() : 0;
       const bTime = b.archived_at ? new Date(b.archived_at).getTime() : 0;
       return bTime - aTime;

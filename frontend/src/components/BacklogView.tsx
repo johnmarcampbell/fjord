@@ -20,7 +20,7 @@ import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useMoveTask } from "../lib/mutations.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { FilterBar } from "./FilterBar.js";
-import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { useFilterContext, applyTaskFilters, collectTags } from "../lib/FilterContext.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 import { computeInsertPosition } from "../lib/dnd.js";
 
@@ -284,37 +284,17 @@ export function BacklogView() {
   );
   const usersById = useMemo<Map<string, User>>(() => createUserLookup(users), [users]);
 
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const t of tasks) {
-      if (t.column === "Backlog") {
-        for (const tag of t.tags) tagSet.add(tag);
-      }
-    }
-    return Array.from(tagSet).sort();
-  }, [tasks]);
-
   const backlogTasks = useMemo(
     () => tasks.filter((t) => t.column === "Backlog").sort((a, b) => a.position - b.position),
     [tasks],
   );
 
-  const filteredTasks = useMemo(() => {
-    let result = backlogTasks;
-    if (selectedProject) {
-      result = result.filter((t) => t.project_id === selectedProject);
-    }
-    if (selectedTags.length > 0) {
-      result = result.filter((t) => selectedTags.some((tag) => t.tags.includes(tag)));
-    }
-    if (selectedUsers.length > 0) {
-      result = result.filter((t) => {
-        if (selectedUsers.includes(UNASSIGNED_SENTINEL) && t.assigned_to === null) return true;
-        return t.assigned_to !== null && selectedUsers.includes(t.assigned_to);
-      });
-    }
-    return result;
-  }, [backlogTasks, selectedProject, selectedTags, selectedUsers]);
+  const allTags = useMemo(() => collectTags(backlogTasks), [backlogTasks]);
+
+  const filteredTasks = useMemo(
+    () => applyTaskFilters(backlogTasks, { selectedProject, selectedTags, selectedUsers }),
+    [backlogTasks, selectedProject, selectedTags, selectedUsers],
+  );
 
   const blockedIds = useMemo(() => {
     const taskById = new Map(tasks.map((t) => [t.id, t]));
