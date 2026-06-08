@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { idParam } from "./schemas.js";
 import { asc, eq, inArray } from "drizzle-orm";
 import {
   DEFAULT_SPACE_ID,
@@ -7,15 +8,9 @@ import {
 } from "@fjord/shared";
 import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
-import {
-  SpaceArchivedError,
-  UnknownSpaceError,
-  assertSpaceWriteable,
-  moveProjectToSpace,
-} from "../services/spaces.js";
-import { AssigneeNoAccessError } from "../services/tasks.js";
+import { assertSpaceWriteable, moveProjectToSpace } from "../services/spaces.js";
 import { canAccessSpace } from "../auth/policy.js";
-import { badRequest, forbidden, notFound } from "./http.js";
+import { forbidden, mapSpaceWriteError, notFound } from "./http.js";
 
 function toProject(row: typeof projects.$inferSelect) {
   return {
@@ -68,11 +63,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Get a single project",
         tags: ["projects"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -112,10 +103,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       try {
         assertSpaceWriteable(app.db, spaceId);
       } catch (err) {
-        if (err instanceof UnknownSpaceError)
-          return badRequest(reply, "Unknown space_id");
-        if (err instanceof SpaceArchivedError)
-          return badRequest(reply, "Target space is archived");
+        const handled = mapSpaceWriteError(reply, err);
+        if (handled) return handled;
         throw err;
       }
       const row = {
@@ -139,11 +128,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Update a project (set space_id to move it; child tasks move too)",
         tags: ["projects"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           properties: {
@@ -169,12 +154,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         try {
           moveProjectToSpace(app.db, app.events, actor.id, id, body.space_id);
         } catch (err) {
-          if (err instanceof UnknownSpaceError)
-            return badRequest(reply, "Unknown space_id");
-          if (err instanceof SpaceArchivedError)
-            return badRequest(reply, "Target space is archived");
-          if (err instanceof AssigneeNoAccessError)
-            return badRequest(reply, err.message);
+          const handled = mapSpaceWriteError(reply, err);
+          if (handled) return handled;
           throw err;
         }
       }
@@ -197,11 +178,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Delete a project (tasks lose their project assignment)",
         tags: ["projects"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
