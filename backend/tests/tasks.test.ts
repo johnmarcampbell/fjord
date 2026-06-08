@@ -109,6 +109,53 @@ describe("tasks", () => {
     expect(colChange.to_value).toBe("In Review");
   });
 
+  it("records assigned_to, due_date, and tags change events on a single update", async () => {
+    const t = (await createTask(ctx, "alice", { title: "T" })).json();
+    const dueAt = "2026-07-01T00:00:00.000Z";
+    const res = await ctx.inject({
+      method: "PATCH",
+      url: `/api/tasks/${t.id}`,
+      headers: { "x-user-id": "alice" },
+      payload: { version: 1, assigned_to: "agent-coder", due_at: dueAt, tags: ["urgent", "backend"] },
+    });
+    expect(res.statusCode).toBe(200);
+    // Tag round-trip on the returned task.
+    const updated = res.json();
+    expect(updated.assigned_to).toBe("agent-coder");
+    expect(updated.due_at).toBe(dueAt);
+    expect(updated.tags).toEqual(["urgent", "backend"]);
+
+    const events = (
+      await ctx.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
+    ).json();
+
+    const assigneeChange = events.find((e: any) => e.kind === "assigned_to_changed");
+    expect(assigneeChange.from_value).toBe(null);
+    expect(assigneeChange.to_value).toBe("agent-coder");
+
+    const dueChange = events.find((e: any) => e.kind === "due_date_changed");
+    expect(dueChange.from_value).toBe(null);
+    expect(dueChange.to_value).toBe(dueAt);
+
+    const tagsChange = events.find((e: any) => e.kind === "tags_changed");
+    expect(tagsChange.from_value).toBe("[]");
+    expect(tagsChange.to_value).toBe(JSON.stringify(["urgent", "backend"]));
+  });
+
+  it("emits no change events when an update sets identical values", async () => {
+    const t = (await createTask(ctx, "alice", { title: "T", tags: ["x"] })).json();
+    await ctx.inject({
+      method: "PATCH",
+      url: `/api/tasks/${t.id}`,
+      headers: { "x-user-id": "alice" },
+      payload: { version: 1, column: "Backlog", tags: ["x"] },
+    });
+    const events = (
+      await ctx.inject({ method: "GET", url: `/api/tasks/${t.id}/events` })
+    ).json();
+    expect(events.some((e: any) => e.kind.endsWith("_changed"))).toBe(false);
+  });
+
   it("appends a comment", async () => {
     const t = (await createTask(ctx, "alice", { title: "T" })).json();
     const res = await ctx.inject({

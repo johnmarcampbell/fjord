@@ -241,6 +241,14 @@ function getProjectSpace(db: DB, projectId: string): string {
   return row.spaceId;
 }
 
+/** Fetch a task row by id or throw `TaskNotFoundError`. The shared preamble of
+ * nearly every task mutation. */
+function getTaskOrThrow(db: DB, id: string): typeof tasks.$inferSelect {
+  const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
+  if (!task) throw new TaskNotFoundError();
+  return task;
+}
+
 export function isActorAssignee(db: DB, taskId: string, actorId: string): boolean {
   const row = db
     .select({ assignedTo: tasks.assignedTo })
@@ -355,29 +363,18 @@ export function createTask(
   return hydrateTask(db, { ...row });
 }
 
-export function updateTask(
+/**
+ * Resolve the destination space for an update and enforce the cross-space-move
+ * guards. A project-bound task's space follows its project; a project-less task
+ * may move space directly. When the space actually changes, the destination must
+ * be writeable and the resulting assignee must retain access. Returns the
+ * resolved `spaceId`/`projectId` for the updates row.
+ */
+function resolveTargetSpace(
   db: DB,
-  events: EventBus,
-  actor: string,
-  id: string,
+  existing: typeof tasks.$inferSelect,
   body: UpdateTaskRequest,
-): Task {
-  const existing = db.select().from(tasks).where(eq(tasks.id, id)).get();
-  if (!existing) throw new TaskNotFoundError();
-  if (existing.version !== body.version) throw new VersionConflictError(existing.version);
-
-  if (body.assigned_to != null) requireUser(db, body.assigned_to);
-  if (body.project_id != null) requireProject(db, body.project_id);
-
-  const now = nowIso();
-  const nextColumn = (body.column ?? existing.column) as Column;
-  let nextPosition = existing.position;
-  if (body.position !== undefined) {
-    nextPosition = body.position;
-  } else if (body.column && body.column !== existing.column) {
-    nextPosition = columnTailPosition(db, nextColumn);
-  }
-
+): { spaceId: string; projectId: string | null } {
   const newProjectId = body.project_id === undefined ? existing.projectId : body.project_id;
   const projectIdChanging = body.project_id !== undefined && body.project_id !== existing.projectId;
 
@@ -395,6 +392,7 @@ export function updateTask(
   } else {
     newSpaceId = existing.spaceId;
   }
+
   if (newSpaceId !== existing.spaceId) {
     assertSpaceWriteable(db, newSpaceId);
     const nextAssignee =
@@ -402,42 +400,37 @@ export function updateTask(
     if (nextAssignee) assertAssigneeCanAccessSpace(db, nextAssignee, newSpaceId);
   }
 
-  const newTagsArr =
-    body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
-  const newTagsStr = JSON.stringify(newTagsArr);
+  return { spaceId: newSpaceId, projectId: newProjectId };
+}
 
-  const updates = {
-    title: body.title ?? existing.title,
-    description: body.description ?? existing.description,
-    column: nextColumn,
-    position: nextPosition,
-    assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
-    dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
-    projectId: newProjectId,
-    spaceId: newSpaceId,
-    tags: newTagsStr,
-    updatedAt: now,
-    version: existing.version + 1,
-  };
-  db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
-
+/**
+ * Insert a `*_changed` task event for each field whose value differs between
+ * `existing` and `updates`. `byAssignee` uses the post-update assignee so a
+ * reassignment event reflects the resulting assignment.
+ */
+function emitChangeEvents(
+  db: DB,
+  actor: string,
+  taskId: string,
+  now: string,
+  existing: typeof tasks.$inferSelect,
+  updates: {
+    column: Column;
+    assignedTo: string | null;
+    dueAt: string | null;
+    projectId: string | null;
+    spaceId: string;
+    tags: string;
+  },
+): void {
   const eventRows: Array<typeof taskEvents.$inferInsert> = [];
-  // Use post-update assignee for byAssignee so a reassignment event reflects the resulting assignment.
-  const eventByAssignee = updates.assignedTo === actor;
+  const byAssignee = updates.assignedTo === actor;
   const mkEvent = (
     kind: TaskEvent["kind"],
     fromValue: string | null,
     toValue: string | null,
   ) =>
-    buildTaskEvent({
-      taskId: id,
-      actorId: actor,
-      kind,
-      byAssignee: eventByAssignee,
-      createdAt: now,
-      fromValue,
-      toValue,
-    });
+    buildTaskEvent({ taskId, actorId: actor, kind, byAssignee, createdAt: now, fromValue, toValue });
 
   if (updates.column !== existing.column)
     eventRows.push(mkEvent("column_changed", existing.column, updates.column));
@@ -453,17 +446,92 @@ export function updateTask(
     eventRows.push(mkEvent("tags_changed", existing.tags, updates.tags));
 
   if (eventRows.length) db.insert(taskEvents).values(eventRows).run();
+}
 
-  events.publish({ type: "task.updated", task_id: id, version: updates.version, space_id: newSpaceId });
-  const newRow = db.select().from(tasks).where(eq(tasks.id, id)).get()!;
-  return hydrateTask(db, newRow);
+export function updateTask(
+  db: DB,
+  events: EventBus,
+  actor: string,
+  id: string,
+  body: UpdateTaskRequest,
+): Task {
+  const existing = getTaskOrThrow(db, id);
+  if (existing.version !== body.version) throw new VersionConflictError(existing.version);
+
+  if (body.assigned_to != null) requireUser(db, body.assigned_to);
+  if (body.project_id != null) requireProject(db, body.project_id);
+
+  const now = nowIso();
+  const nextColumn = (body.column ?? existing.column) as Column;
+  let nextPosition = existing.position;
+  if (body.position !== undefined) {
+    nextPosition = body.position;
+  } else if (body.column && body.column !== existing.column) {
+    nextPosition = columnTailPosition(db, nextColumn);
+  }
+
+  const target = resolveTargetSpace(db, existing, body);
+
+  const newTagsArr =
+    body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
+
+  const updates = {
+    title: body.title ?? existing.title,
+    description: body.description ?? existing.description,
+    column: nextColumn,
+    position: nextPosition,
+    assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
+    dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
+    projectId: target.projectId,
+    spaceId: target.spaceId,
+    tags: JSON.stringify(newTagsArr),
+    updatedAt: now,
+    version: existing.version + 1,
+  };
+  db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
+
+  emitChangeEvents(db, actor, id, now, existing, updates);
+
+  events.publish({ type: "task.updated", task_id: id, version: updates.version, space_id: target.spaceId });
+  return hydrateTask(db, { ...existing, ...updates });
 }
 
 export function deleteTask(db: DB, events: EventBus, id: string): void {
-  const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
-  if (!task) throw new TaskNotFoundError();
+  const task = getTaskOrThrow(db, id);
   db.delete(tasks).where(eq(tasks.id, id)).run();
   events.publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
+}
+
+/**
+ * Append a free-text timeline entry. `comment` is cross-actor communication;
+ * `journal_entry` is the assignee's durable working notes. They differ only by
+ * kind, so both public entry points delegate here.
+ */
+function addTimelineEntry(
+  db: DB,
+  events: EventBus,
+  actor: string,
+  taskId: string,
+  kind: "comment" | "journal_entry",
+  body: string,
+): TaskEvent {
+  const existing = getTaskOrThrow(db, taskId);
+  const event = buildTaskEvent({
+    taskId,
+    actorId: actor,
+    kind,
+    byAssignee: existing.assignedTo === actor,
+    body,
+  });
+  db.insert(taskEvents).values(event).run();
+  events.publish({
+    type: "task.event_added",
+    task_id: taskId,
+    event_id: event.id,
+    kind,
+    space_id: existing.spaceId,
+  });
+  return toEvent(event);
 }
 
 export function addComment(
@@ -473,18 +541,7 @@ export function addComment(
   taskId: string,
   body: string,
 ): TaskEvent {
-  const existing = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!existing) throw new TaskNotFoundError();
-  const event = buildTaskEvent({
-    taskId,
-    actorId: actor,
-    kind: "comment",
-    byAssignee: existing.assignedTo === actor,
-    body,
-  });
-  db.insert(taskEvents).values(event).run();
-  events.publish({ type: "task.event_added", task_id: taskId, event_id: event.id, kind: "comment", space_id: existing.spaceId });
-  return toEvent(event);
+  return addTimelineEntry(db, events, actor, taskId, "comment", body);
 }
 
 export function addJournalEntry(
@@ -494,24 +551,7 @@ export function addJournalEntry(
   taskId: string,
   body: string,
 ): TaskEvent {
-  const existing = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!existing) throw new TaskNotFoundError();
-  const event = buildTaskEvent({
-    taskId,
-    actorId: actor,
-    kind: "journal_entry",
-    byAssignee: existing.assignedTo === actor,
-    body,
-  });
-  db.insert(taskEvents).values(event).run();
-  events.publish({
-    type: "task.event_added",
-    task_id: taskId,
-    event_id: event.id,
-    kind: "journal_entry",
-    space_id: existing.spaceId,
-  });
-  return toEvent(event);
+  return addTimelineEntry(db, events, actor, taskId, "journal_entry", body);
 }
 
 export function addBlocker(
@@ -521,8 +561,7 @@ export function addBlocker(
   taskId: string,
   blockerId: string,
 ): Task {
-  const blocked = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!blocked) throw new TaskNotFoundError();
+  const blocked = getTaskOrThrow(db, taskId);
   if (!db.select().from(tasks).where(eq(tasks.id, blockerId)).get()) throw new BlockerNotFoundError();
   if (wouldCreateCycle(db, blockerId, taskId)) throw new CycleError();
 
@@ -596,23 +635,39 @@ export function removeBlocker(
   events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0, space_id: task?.spaceId ?? "" });
 }
 
-export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!task) throw new TaskNotFoundError();
-  if (!canArchive({ column: task.column as Column, archived: task.archived })) {
-    throw new TaskStateError("Can only archive tasks in Done column");
+/**
+ * Archive or unarchive a task. The two directions differ only in the state
+ * guard, the row flags, and the event kind; everything else (version bump,
+ * event row, dual publish, re-hydration) is shared.
+ */
+function setArchived(
+  db: DB,
+  events: EventBus,
+  actor: string,
+  taskId: string,
+  archived: boolean,
+): Task {
+  const task = getTaskOrThrow(db, taskId);
+  if (archived) {
+    if (!canArchive({ column: task.column as Column, archived: task.archived })) {
+      throw new TaskStateError("Can only archive tasks in Done column");
+    }
+  } else if (!task.archived) {
+    throw new TaskStateError("Task is not archived");
   }
 
   const now = nowIso();
-  const nextVersion = task.version + 1;
-  db.update(tasks)
-    .set({ archived: true, archivedAt: now, version: nextVersion, updatedAt: now })
-    .where(eq(tasks.id, taskId))
-    .run();
+  const changes = {
+    archived,
+    archivedAt: archived ? now : null,
+    version: task.version + 1,
+    updatedAt: now,
+  };
+  db.update(tasks).set(changes).where(eq(tasks.id, taskId)).run();
   const event = buildTaskEvent({
     taskId,
     actorId: actor,
-    kind: "task_archived",
+    kind: archived ? "task_archived" : "task_unarchived",
     byAssignee: task.assignedTo === actor,
     createdAt: now,
   });
@@ -621,41 +676,19 @@ export function archiveTask(db: DB, events: EventBus, actor: string, taskId: str
     type: "task.event_added",
     task_id: taskId,
     event_id: event.id,
-    kind: "task_archived",
+    kind: archived ? "task_archived" : "task_unarchived",
     space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
-  return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
+  events.publish({ type: "task.updated", task_id: taskId, version: changes.version, space_id: task.spaceId });
+  return hydrateTask(db, { ...task, ...changes });
+}
+
+export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
+  return setArchived(db, events, actor, taskId, true);
 }
 
 export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!task) throw new TaskNotFoundError();
-  if (!task.archived) throw new TaskStateError("Task is not archived");
-
-  const now = nowIso();
-  const nextVersion = task.version + 1;
-  db.update(tasks)
-    .set({ archived: false, archivedAt: null, version: nextVersion, updatedAt: now })
-    .where(eq(tasks.id, taskId))
-    .run();
-  const event = buildTaskEvent({
-    taskId,
-    actorId: actor,
-    kind: "task_unarchived",
-    byAssignee: task.assignedTo === actor,
-    createdAt: now,
-  });
-  db.insert(taskEvents).values(event).run();
-  events.publish({
-    type: "task.event_added",
-    task_id: taskId,
-    event_id: event.id,
-    kind: "task_unarchived",
-    space_id: task.spaceId,
-  });
-  events.publish({ type: "task.updated", task_id: taskId, version: nextVersion, space_id: task.spaceId });
-  return hydrateTask(db, db.select().from(tasks).where(eq(tasks.id, taskId)).get()!);
+  return setArchived(db, events, actor, taskId, false);
 }
 
 const EDITABLE_KINDS = new Set(["comment", "journal_entry"]);
@@ -692,8 +725,7 @@ export function editTaskEvent(
   body: string,
   editWindowMinutes: number,
 ): TaskEvent {
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!task) throw new TaskNotFoundError();
+  const task = getTaskOrThrow(db, taskId);
   const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
   if (!event || event.taskId !== taskId) throw new EventNotFoundError();
 
@@ -714,8 +746,7 @@ export function deleteTaskEvent(
   eventId: string,
   editWindowMinutes: number,
 ): void {
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!task) throw new TaskNotFoundError();
+  const task = getTaskOrThrow(db, taskId);
   const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
   if (!event || event.taskId !== taskId) throw new EventNotFoundError();
 
