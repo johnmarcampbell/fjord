@@ -10,7 +10,8 @@ import { projects, tasks } from "../db/schema.js";
 import { newId, nowIso } from "../services/tasks.js";
 import { assertSpaceWriteable, moveProjectToSpace } from "../services/spaces.js";
 import { canAccessSpace } from "../auth/policy.js";
-import { forbidden, mapSpaceWriteError, notFound } from "./http.js";
+import { forbidden, notFound } from "./http.js";
+import { mapSpaceWriteError } from "./errors.js";
 
 function toProject(row: typeof projects.$inferSelect) {
   return {

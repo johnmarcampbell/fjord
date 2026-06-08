@@ -6,7 +6,8 @@ import { api } from "../lib/api.js";
 import { useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useClickOutside } from "../lib/useClickOutside.js";
-import { useFilterContext, UNASSIGNED_SENTINEL } from "../lib/FilterContext.js";
+import { useFilterContext } from "../lib/FilterContext.js";
+import { UNASSIGNED_SENTINEL } from "../lib/taskFilters.js";
 import { useCurrentUser } from "../lib/auth.js";
 import { ProjectFormDialog } from "./ProjectFormDialog.js";
 

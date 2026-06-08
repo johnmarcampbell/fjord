@@ -41,7 +41,8 @@ import {
 import { canAccessSpace } from "../auth/policy.js";
 import type { Actor } from "../auth/actor.js";
 import type { DB } from "../db/index.js";
-import { badRequest, conflict, forbidden, mapSpaceWriteError, notFound } from "./http.js";
+import { badRequest, conflict, forbidden, notFound } from "./http.js";
+import { mapSpaceWriteError } from "./errors.js";
 
 const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
 

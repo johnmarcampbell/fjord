@@ -54,11 +54,6 @@ export function toSpace(
   };
 }
 
-export function requireSpace(db: DB, spaceId: string): void {
-  if (!db.select().from(spaces).where(eq(spaces.id, spaceId)).get())
-    throw new UnknownSpaceError();
-}
-
 /**
  * Validate that the given space exists and is not archived — i.e. it's a valid
  * target for creating new tasks/projects or moving a project into it. Throws

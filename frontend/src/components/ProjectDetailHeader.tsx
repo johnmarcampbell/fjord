@@ -44,20 +44,22 @@ export function ProjectDetailHeader({
   return (
     <div className="border-b border-border pb-5">
       <div className="flex flex-wrap items-center gap-2">
-        <InlineEditableTitle
-          value={project.name}
-          canEdit={canEdit}
-          isPending={nameMutation.isPending}
-          onSave={(name) => nameMutation.mutateAsync(name)}
-          leading={
-            project.color ? (
-              <span
-                className="inline-block h-3 w-3 shrink-0 rounded-full"
-                style={{ background: project.color }}
-              />
-            ) : null
-          }
-        />
+        <div className="flex flex-1 items-center gap-2">
+          <InlineEditableTitle
+            value={project.name}
+            canEdit={canEdit}
+            isPending={nameMutation.isPending}
+            onSave={(name) => nameMutation.mutateAsync(name)}
+            leading={
+              project.color ? (
+                <span
+                  className="inline-block h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: project.color }}
+                />
+              ) : null
+            }
+          />
+        </div>
       </div>
 
       <div className="mt-3">

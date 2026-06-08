@@ -22,7 +22,8 @@ import { useActiveSpace } from "../lib/SpaceContext.js";
 import { ColumnView } from "./Column.js";
 import { TaskCardOverlay } from "./TaskCard.js";
 import { FilterBar } from "./FilterBar.js";
-import { useFilterContext, applyTaskFilters, collectTags } from "../lib/FilterContext.js";
+import { useFilterContext } from "../lib/FilterContext.js";
+import { applyTaskFilters, collectTags } from "../lib/taskFilters.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 import { resolveDropTarget, computeInsertPosition } from "../lib/dnd.js";
 

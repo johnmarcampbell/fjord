@@ -6,7 +6,8 @@ import { useArchivedTasks, useProjects, useUsers } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useUnarchiveTask } from "../lib/mutations.js";
 import { FilterBar } from "./FilterBar.js";
-import { useFilterContext, applyTaskFilters, collectTags } from "../lib/FilterContext.js";
+import { useFilterContext } from "../lib/FilterContext.js";
+import { applyTaskFilters, collectTags } from "../lib/taskFilters.js";
 import { createUserLookup, formatAssigneeLabel } from "../lib/userLabels.js";
 
 interface RowProps {
