@@ -5,6 +5,7 @@ import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useCurrentUser } from "../lib/auth.js";
 import { useTimelineFilter } from "../lib/useTimelineFilter.js";
+import { collectTags } from "../lib/FilterContext.js";
 import { createUserLookup, formatReporterLabel } from "../lib/userLabels.js";
 import { Markdown } from "./Markdown.js";
 import { Combobox } from "./Combobox.js";
@@ -64,7 +65,7 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
   }
 
   const taskById = new Map(allTasks.map((t) => [t.id, t]));
-  const allTags = Array.from(new Set(allTasks.flatMap((t) => t.tags))).sort();
+  const allTags = collectTags(allTasks);
   const reporterLabel = formatReporterLabel(usersById, task.reported_by);
 
   return (

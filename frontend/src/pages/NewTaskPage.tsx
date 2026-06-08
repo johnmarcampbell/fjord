@@ -12,6 +12,7 @@ import {
 } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useCreateTask } from "../lib/mutations.js";
+import { collectTags } from "../lib/FilterContext.js";
 import { Field, SectionLabel, TagInput } from "../components/form-fields.js";
 import { DateTimePicker } from "../components/DateTimePicker.js";
 import { Markdown } from "../components/Markdown.js";
@@ -96,10 +97,7 @@ export function NewTaskPage() {
     return users.filter((u) => !u.deleted_at && affiliated.has(u.id));
   }, [users, space, spaceGrants]);
 
-  const allTags = useMemo(
-    () => Array.from(new Set(spaceTasks.flatMap((t) => t.tags))).sort(),
-    [spaceTasks],
-  );
+  const allTags = useMemo(() => collectTags(spaceTasks), [spaceTasks]);
 
   const create = useCreateTask({
     onSuccess: (task) => {
