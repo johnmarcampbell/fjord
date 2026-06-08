@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { DEFAULT_SPACE_ID, type AuthMe, type Space, type User } from "@fjord/shared";
-import { api, ApiError } from "../lib/api.js";
+import { api } from "../lib/api.js";
+import { handleError } from "../lib/toastError.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
@@ -42,11 +43,6 @@ export function SpaceDetailHeader({
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["space", space.id] });
     queryClient.invalidateQueries({ queryKey: ["spaces"] });
-  }
-
-  function handleError(err: unknown, fallback: string) {
-    const msg = err instanceof ApiError ? err.message : fallback;
-    toast.error(msg);
   }
 
   const nameMutation = useMutation({

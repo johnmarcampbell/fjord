@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Project } from "@fjord/shared";
-import { api, ApiError } from "../lib/api.js";
+import { api } from "../lib/api.js";
+import { handleError } from "../lib/toastError.js";
 
 /**
  * Inline-editable name + description for the project detail page.
@@ -32,11 +32,6 @@ export function ProjectDetailHeader({
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["project", project.id] });
     queryClient.invalidateQueries({ queryKey: ["projects"] });
-  }
-
-  function handleError(err: unknown, fallback: string) {
-    const msg = err instanceof ApiError ? err.message : fallback;
-    toast.error(msg);
   }
 
   const nameMutation = useMutation({
