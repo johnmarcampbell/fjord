@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Grant, Space, User } from "@fjord/shared";
-import { api, ApiError } from "../lib/api.js";
+import { api } from "../lib/api.js";
+import { handleError } from "../lib/toastError.js";
 import { Combobox } from "./Combobox.js";
 
 function AvatarGlyph({ avatar }: { avatar: string }) {
@@ -33,11 +33,6 @@ export function SpaceAccessList({
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["space-access", space.id] });
-  }
-
-  function handleError(err: unknown, fallback: string) {
-    const msg = err instanceof ApiError ? err.message : fallback;
-    toast.error(msg);
   }
 
   const grantMutation = useMutation({
