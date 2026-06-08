@@ -28,11 +28,7 @@ import { resolveDropTarget, computeInsertPosition } from "../lib/dnd.js";
 
 const BOARD_COLUMNS = COLUMNS.filter((c) => c !== "Backlog");
 
-export function Board({
-  setOpenTaskId,
-}: {
-  setOpenTaskId: (id: string | null) => void;
-}) {
+export function Board() {
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
@@ -215,7 +211,6 @@ export function Board({
               projectById={projectById}
               usersById={usersById}
               showProject={!selectedProject}
-              onOpenTask={setOpenTaskId}
             />
           ))}
         </div>

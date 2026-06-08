@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import { toast } from "sonner";
 import type { Project, Task, User } from "@fjord/shared";
@@ -13,14 +14,13 @@ interface RowProps {
   task: Task;
   project: Project | undefined;
   assigneeLabel: string;
-  onOpen: () => void;
   onUnarchive: (id: string) => void;
 }
 
-function ArchiveRow({ task, project, assigneeLabel, onOpen, onUnarchive }: RowProps) {
+function ArchiveRow({ task, project, assigneeLabel, onUnarchive }: RowProps) {
   return (
-    <div
-      onClick={onOpen}
+    <Link
+      to={`/tasks/${task.id}`}
       className={clsx(
         "flex cursor-pointer items-center gap-3 rounded-card bg-surface px-3 py-2 shadow-card",
         "transition-all duration-150 hover:shadow-card-hover",
@@ -68,7 +68,10 @@ function ArchiveRow({ task, project, assigneeLabel, onOpen, onUnarchive }: RowPr
 
       <div
         className="flex flex-shrink-0 items-center"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
       >
         <button
           onClick={() => onUnarchive(task.id)}
@@ -77,11 +80,11 @@ function ArchiveRow({ task, project, assigneeLabel, onOpen, onUnarchive }: RowPr
           ← Unarchive
         </button>
       </div>
-    </div>
+    </Link>
   );
 }
 
-export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
+export function ArchiveView() {
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks, isLoading } = useArchivedTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
@@ -157,7 +160,6 @@ export function ArchiveView({ onOpenTask }: { onOpenTask: (id: string) => void }
                   task={task}
                   project={!selectedProject && task.project_id ? projectById.get(task.project_id) : undefined}
                   assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
-                  onOpen={() => onOpenTask(task.id)}
                   onUnarchive={handleUnarchive}
                 />
               ))}

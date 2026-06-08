@@ -10,7 +10,6 @@ import {
   type SortField,
 } from "../components/taskList.js";
 import { ProjectDetailHeader } from "../components/ProjectDetailHeader.js";
-import { TaskDrawer } from "../components/TaskDrawer.js";
 
 function EmptyState({ title, message }: { title: string; message: string }) {
   return (
@@ -35,7 +34,6 @@ function Skeleton() {
 
 export function ProjectPage() {
   const { id = "" } = useParams<{ id: string }>();
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("progress");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -87,8 +85,7 @@ export function ProjectPage() {
   if (!project) return <Skeleton />;
 
   return (
-    <>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-4">
           <Link
             to={`/spaces/${project.space_id}`}
@@ -119,20 +116,11 @@ export function ProjectPage() {
           ) : (
             <div className="flex flex-col gap-1.5">
               {sortedTasks.map((t) => (
-                <TaskRow key={t.id} task={t} users={users} onOpen={() => setOpenTaskId(t.id)} />
+                <TaskRow key={t.id} task={t} users={users} />
               ))}
             </div>
           )}
         </section>
-      </main>
-      {openTaskId && (
-        <TaskDrawer
-          taskId={openTaskId}
-          allTasks={tasks}
-          onClose={() => setOpenTaskId(null)}
-          onOpenTask={setOpenTaskId}
-        />
-      )}
-    </>
+    </main>
   );
 }

@@ -14,7 +14,6 @@ interface Props {
   projectById: Map<string, Project>;
   usersById: Map<string, User>;
   showProject: boolean;
-  onOpenTask: (id: string) => void;
 }
 
 export function ColumnView({
@@ -24,7 +23,6 @@ export function ColumnView({
   projectById,
   usersById,
   showProject,
-  onOpenTask,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col:${column}`,
@@ -85,7 +83,6 @@ export function ColumnView({
                 project={task.project_id ? projectById.get(task.project_id) : undefined}
                 showProject={showProject}
                 assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
-                onOpen={() => onOpenTask(task.id)}
               />
             ))}
           </div>
