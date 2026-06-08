@@ -12,7 +12,7 @@ import {
 } from "../lib/queries.js";
 import { useActiveSpace } from "../lib/SpaceContext.js";
 import { useCreateTask } from "../lib/mutations.js";
-import { Field, SectionLabel, TagInput } from "../components/TaskDetail.js";
+import { Field, SectionLabel, TagInput } from "../components/form-fields.js";
 import { DateTimePicker } from "../components/DateTimePicker.js";
 import { Markdown } from "../components/Markdown.js";
 
