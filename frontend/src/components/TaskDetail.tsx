@@ -5,7 +5,7 @@ import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { useTasks, useUsers, useProjects, useSpace, useSpaceAccess } from "../lib/queries.js";
 import { useCurrentUser } from "../lib/auth.js";
 import { useTimelineFilter } from "../lib/useTimelineFilter.js";
-import { collectTags } from "../lib/FilterContext.js";
+import { collectTags } from "../lib/taskFilters.js";
 import { createUserLookup, formatReporterLabel } from "../lib/userLabels.js";
 import { Markdown } from "./Markdown.js";
 import { Combobox } from "./Combobox.js";
