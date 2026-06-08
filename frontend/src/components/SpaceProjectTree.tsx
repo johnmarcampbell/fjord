@@ -29,12 +29,10 @@ export function SpaceProjectTree({
   projects,
   tasks,
   users,
-  onOpenTask,
 }: {
   projects: Project[];
   tasks: Task[];
   users: User[];
-  onOpenTask: (taskId: string) => void;
 }) {
   const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>("progress");
@@ -169,7 +167,6 @@ export function SpaceProjectTree({
                           key={t.id}
                           task={t}
                           users={users}
-                          onOpen={() => onOpenTask(t.id)}
                         />
                       ))
                     )}

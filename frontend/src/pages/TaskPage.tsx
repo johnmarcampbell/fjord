@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useTasks } from "../lib/queries.js";
 import { useTaskEditor } from "../lib/useTaskEditor.js";
 import { ApiError } from "../lib/api.js";
 import { TaskDetail } from "../components/TaskDetail.js";
-import { TaskDrawer } from "../components/TaskDrawer.js";
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -33,8 +31,7 @@ function BackLink() {
  * - Sets `document.title` to the task title; restores on unmount.
  * - Detects "deleted while viewing" by tracking whether the task was ever
  *   loaded; if it transitions to undefined after that, toast + redirect.
- * - Hosts a `TaskDrawer` overlay for blocker chip clicks so the in-page
- *   navigation stays consistent with the board (drawer-as-peek).
+ * - Blocker chips navigate to the blocker's own `/tasks/:id` page.
  *
  * Note: `useTaskEditor` is called both here (for gating) and inside
  * `TaskDetail` (for editing). The underlying React Query deduplicates,
@@ -45,13 +42,6 @@ export function TaskPage() {
   const navigate = useNavigate();
   const editor = useTaskEditor(id || null);
   const { task, isLoading, error } = editor;
-
-  // Blocker chip → drawer (peek). Always opens over the page; doesn't
-  // navigate away.
-  const [openBlockerId, setOpenBlockerId] = useState<string | null>(null);
-
-  // For the drawer's `allTasks` prop (blocker title resolution).
-  const { data: allTasks = [] } = useTasks(task?.space_id);
 
   // document.title
   useEffect(() => {
@@ -153,22 +143,12 @@ export function TaskPage() {
   }
 
   return (
-    <>
-      <PageShell>
-        <div className="mb-4">
-          <BackLink />
-        </div>
-        <TaskDetail taskId={id} onOpenBlockerInDrawer={setOpenBlockerId} />
-      </PageShell>
-      {openBlockerId && (
-        <TaskDrawer
-          taskId={openBlockerId}
-          allTasks={allTasks}
-          onClose={() => setOpenBlockerId(null)}
-          onOpenTask={setOpenBlockerId}
-        />
-      )}
-    </>
+    <PageShell>
+      <div className="mb-4">
+        <BackLink />
+      </div>
+      <TaskDetail taskId={id} />
+    </PageShell>
   );
 }
 

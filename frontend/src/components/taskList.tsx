@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Column, Task, User } from "@fjord/shared";
 
 export type SortField = "progress" | "due_date";
@@ -46,17 +47,14 @@ function formatDue(due: string | null): string {
 export function TaskRow({
   task,
   users,
-  onOpen,
 }: {
   task: Task;
   users: User[];
-  onOpen: () => void;
 }) {
   const assignee = users.find((u) => u.id === task.assigned_to);
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <Link
+      to={`/tasks/${task.id}`}
       className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-focus hover:bg-surface-hover"
     >
       <span className="flex-1 truncate text-sm font-medium text-ink">{task.title}</span>
@@ -69,7 +67,7 @@ export function TaskRow({
       <span className="shrink-0 w-24 truncate text-xs text-ink-muted">
         {assignee ? `@${assignee.handle}` : "—"}
       </span>
-    </button>
+    </Link>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Markdown } from "./Markdown.js";
 import { toast } from "sonner";
 import {
@@ -32,7 +33,6 @@ import {
 
 interface TaskDetailProps {
   taskId: string;
-  onOpenBlockerInDrawer: (id: string) => void;
 }
 
 /**
@@ -42,7 +42,7 @@ interface TaskDetailProps {
  * All mutation behavior (optimistic concurrency, conflict state, comments,
  * journal, blockers, archive/delete) is owned by `useTaskEditor`.
  */
-export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
+export function TaskDetail({ taskId }: TaskDetailProps) {
   const editor = useTaskEditor(taskId);
   const { task, events, conflict } = editor;
 
@@ -172,8 +172,8 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
                     key={id}
                     className="flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-xs font-medium"
                   >
-                    <button
-                      onClick={() => onOpenBlockerInDrawer(id)}
+                    <Link
+                      to={`/tasks/${id}`}
                       className={
                         blocker && isBlockerSatisfied(blocker)
                           ? "text-ink-subtle line-through hover:underline"
@@ -181,7 +181,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
                       }
                     >
                       {blocker?.title ?? id.slice(0, 8)}
-                    </button>
+                    </Link>
                     <button
                       onClick={() => editor.removeBlocker(id)}
                       className="text-ink-subtle transition-colors hover:text-danger"
@@ -381,7 +381,7 @@ export function TaskDetail({ taskId, onOpenBlockerInDrawer }: TaskDetailProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Shared presentational helpers — also imported by TaskDrawer.
+// Shared presentational helpers — also imported by NewTaskPage.
 // ---------------------------------------------------------------------------
 
 export function SectionLabel({

@@ -44,10 +44,10 @@ export interface UseTaskEditor {
 }
 
 /**
- * Single source of truth for task mutation behavior. Both `TaskDrawer` and
- * `TaskDetail` consume this so the optimistic-concurrency handling, conflict
- * state, comment/journal/blocker plumbing, and archive/delete flows live in
- * exactly one place.
+ * Single source of truth for task mutation behavior. `TaskDetail` (and
+ * `TaskPage`, for load gating) consume this so the optimistic-concurrency
+ * handling, conflict state, comment/journal/blocker plumbing, and
+ * archive/delete flows live in exactly one place.
  *
  * `update(patch)` reads the current `task.version` from the cache and forwards
  * to `useUpdateTask` — callers never pass `version`.

@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import { toast } from "sonner";
 import type { Project, Task } from "@fjord/shared";
@@ -35,7 +36,6 @@ interface Props {
   project: Project | undefined;
   showProject: boolean;
   assigneeLabel: string;
-  onOpen: () => void;
 }
 
 function CardContent({
@@ -126,7 +126,6 @@ export function TaskCard({
   project,
   showProject,
   assigneeLabel,
-  onOpen,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: "task", taskId: task.id } });
@@ -161,9 +160,10 @@ export function TaskCard({
       >
         <DragGripIcon />
       </div>
-      <div
+      <Link
+        to={`/tasks/${task.id}`}
+        draggable={false}
         {...bodyProps}
-        onClick={onOpen}
         className="flex-1 cursor-pointer px-3 py-2.5 sm:cursor-grab sm:active:cursor-grabbing"
       >
         <CardContent
@@ -173,7 +173,7 @@ export function TaskCard({
           showProject={showProject}
           assigneeLabel={assigneeLabel}
         />
-      </div>
+      </Link>
       {task.column === "Done" && (
         <button
           onClick={(e) => {

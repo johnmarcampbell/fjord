@@ -11,6 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { isTaskBlocked, type Column, type Project, type Task, type User } from "@fjord/shared";
@@ -44,7 +45,6 @@ interface RowProps {
   assigneeLabel: string;
   showProject: boolean;
   isBlocked: boolean;
-  onOpen: () => void;
   onPromote: PromoteHandler;
 }
 
@@ -54,8 +54,7 @@ function RowBody({
   assigneeLabel,
   showProject,
   isBlocked,
-  onPromote,
-}: Omit<RowProps, "onOpen">) {
+}: Omit<RowProps, "onPromote">) {
   return (
     <>
       {showProject && project && (
@@ -97,22 +96,33 @@ function RowBody({
           blocked
         </span>
       )}
-
-      <div className="hidden flex-shrink-0 items-center gap-1.5 sm:flex" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={() => onPromote(task, "To Do")}
-          className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
-        >
-          → To Do
-        </button>
-        <button
-          onClick={() => onPromote(task, "In Progress")}
-          className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
-        >
-          → In Progress
-        </button>
-      </div>
     </>
+  );
+}
+
+/**
+ * Quick-promote buttons (Backlog → To Do / In Progress). Rendered as a sibling
+ * of the row `<Link>`, never a descendant — a `<button>` inside an `<a>` is
+ * invalid and would trigger anchor navigation. As a sibling it needs no
+ * preventDefault/stopPropagation, and it sits outside the drag listeners so a
+ * click never starts a reorder.
+ */
+function PromoteActions({ task, onPromote }: { task: Task; onPromote: PromoteHandler }) {
+  return (
+    <div className="hidden flex-shrink-0 items-center gap-1.5 pr-3 sm:flex">
+      <button
+        onClick={() => onPromote(task, "To Do")}
+        className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
+      >
+        → To Do
+      </button>
+      <button
+        onClick={() => onPromote(task, "In Progress")}
+        className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-border-focus hover:bg-surface-hover hover:text-ink"
+      >
+        → In Progress
+      </button>
+    </div>
   );
 }
 
@@ -122,7 +132,6 @@ function BacklogRow({
   assigneeLabel,
   showProject,
   isBlocked,
-  onOpen,
   onPromote,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -155,9 +164,10 @@ function BacklogRow({
       >
         <DragGripIcon />
       </div>
-      <div
+      <Link
+        to={`/tasks/${task.id}`}
+        draggable={false}
         {...bodyProps}
-        onClick={onOpen}
         className="flex flex-1 cursor-pointer items-center gap-3 px-3 py-2 sm:cursor-grab sm:active:cursor-grabbing"
       >
         <RowBody
@@ -166,9 +176,9 @@ function BacklogRow({
           assigneeLabel={assigneeLabel}
           showProject={showProject}
           isBlocked={isBlocked}
-          onPromote={onPromote}
         />
-      </div>
+      </Link>
+      <PromoteActions task={task} onPromote={onPromote} />
     </div>
   );
 }
@@ -180,7 +190,7 @@ function BacklogRowOverlay({
   showProject,
   isBlocked,
   onPromote,
-}: Omit<RowProps, "onOpen">) {
+}: RowProps) {
   return (
     <div
       className={clsx(
@@ -198,9 +208,9 @@ function BacklogRowOverlay({
           assigneeLabel={assigneeLabel}
           showProject={showProject}
           isBlocked={isBlocked}
-          onPromote={onPromote}
         />
       </div>
+      <PromoteActions task={task} onPromote={onPromote} />
     </div>
   );
 }
@@ -211,7 +221,6 @@ function BacklogList({
   usersById,
   showProject,
   blockedIds,
-  onOpenTask,
   onPromote,
 }: {
   tasks: Task[];
@@ -219,7 +228,6 @@ function BacklogList({
   usersById: Map<string, User>;
   showProject: boolean;
   blockedIds: Set<string>;
-  onOpenTask: (id: string) => void;
   onPromote: PromoteHandler;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -247,7 +255,6 @@ function BacklogList({
               assigneeLabel={formatAssigneeLabel(usersById, task.assigned_to)}
               showProject={showProject}
               isBlocked={blockedIds.has(task.id)}
-              onOpen={() => onOpenTask(task.id)}
               onPromote={onPromote}
             />
           ))}
@@ -257,11 +264,7 @@ function BacklogList({
   );
 }
 
-export function BacklogView({
-  setOpenTaskId,
-}: {
-  setOpenTaskId: (id: string | null) => void;
-}) {
+export function BacklogView() {
   const { activeSpaceId } = useActiveSpace();
   const { data: tasks = [], isLoading, isError, error } = useTasks(activeSpaceId);
   const { data: projects = [] } = useProjects(activeSpaceId);
@@ -412,7 +415,6 @@ export function BacklogView({
               usersById={usersById}
               showProject={!selectedProject}
               blockedIds={blockedIds}
-              onOpenTask={setOpenTaskId}
               onPromote={handlePromote}
             />
           </div>

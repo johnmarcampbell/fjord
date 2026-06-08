@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api.js";
@@ -9,7 +9,6 @@ import { canManageSpace } from "../lib/policy.js";
 import { SpaceDetailHeader } from "../components/SpaceDetailHeader.js";
 import { SpaceAccessList } from "../components/SpaceAccessList.js";
 import { SpaceProjectTree } from "../components/SpaceProjectTree.js";
-import { TaskDrawer } from "../components/TaskDrawer.js";
 
 function EmptyState({ title, message }: { title: string; message: string }) {
   return (
@@ -34,7 +33,6 @@ function Skeleton() {
 
 export function SpaceDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const { activeSpaceId, setActiveSpaceId } = useActiveSpace();
 
   useEffect(() => {
@@ -94,25 +92,14 @@ export function SpaceDetailPage() {
   const owner = users.find((u) => u.id === space.created_by);
 
   return (
-    <>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <SpaceDetailHeader space={space} owner={owner} canEdit={canEdit} currentUser={me ?? undefined} />
-        <SpaceAccessList space={space} users={users} grants={grants} canManage={canEdit} />
-        <SpaceProjectTree
-          projects={projects}
-          tasks={tasks}
-          users={users}
-          onOpenTask={setOpenTaskId}
-        />
-      </main>
-      {openTaskId && (
-        <TaskDrawer
-          taskId={openTaskId}
-          allTasks={tasks}
-          onClose={() => setOpenTaskId(null)}
-          onOpenTask={setOpenTaskId}
-        />
-      )}
-    </>
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <SpaceDetailHeader space={space} owner={owner} canEdit={canEdit} currentUser={me ?? undefined} />
+      <SpaceAccessList space={space} users={users} grants={grants} canManage={canEdit} />
+      <SpaceProjectTree
+        projects={projects}
+        tasks={tasks}
+        users={users}
+      />
+    </main>
   );
 }
