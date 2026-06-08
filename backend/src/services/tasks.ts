@@ -702,9 +702,14 @@ function checkEventEditability(
   if (!EDITABLE_KINDS.has(event.kind)) throw new EventEditForbiddenError("not_editable_kind");
   if (event.actorId !== actor) throw new EventEditForbiddenError("not_author");
 
+  // Half-open window: editable iff elapsed < windowMs. Using `>=` (not `>`) makes
+  // `editWindowMinutes: 0` mean "no edits at all" rather than "only within the same
+  // millisecond as creation" — the latter is racy (creation and edit can land in the
+  // same ms on a fast machine). For non-zero windows this only differs at the exact
+  // millisecond boundary, which is unobservable in practice.
   const windowMs = editWindowMinutes * 60 * 1000;
   const createdMs = new Date(event.createdAt).getTime();
-  if (Date.now() - createdMs > windowMs) throw new EventEditForbiddenError("edit_window_expired");
+  if (Date.now() - createdMs >= windowMs) throw new EventEditForbiddenError("edit_window_expired");
 }
 
 function hasSubsequentActivity(db: DB, taskId: string, afterIso: string): boolean {
