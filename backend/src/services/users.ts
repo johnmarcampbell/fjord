@@ -33,6 +33,21 @@ export function resolveHandleCollision(
 }
 
 /**
+ * Best-effort handle candidate from a user id (and optional display name),
+ * before collision resolution: display-name slug, then id slug, then a
+ * `user-<id-prefix>` fallback. The result still needs `resolveHandleCollision`
+ * to guarantee uniqueness, non-reservedness, and the length cap.
+ */
+export function deriveHandle(id: string, displayName?: string): string {
+  const fromName = displayName ? slugify(displayName) : "";
+  return (
+    fromName ||
+    slugify(id) ||
+    `user-${id.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`
+  );
+}
+
+/**
  * Creates the Default Administrator user if it does not already exist.
  * Idempotent — safe to call on every startup.
  */
@@ -80,8 +95,7 @@ export function backfillUserProfiles(handle: DBHandle): void {
   for (const r of rows) {
     const updates: Partial<typeof users.$inferInsert> = {};
     if (!r.handle) {
-      const slug = slugify(r.displayName);
-      const candidate = slug || slugify(r.id) || `user-${r.id.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`;
+      const candidate = deriveHandle(r.id, r.displayName);
       const resolved = resolveHandleCollision(candidate, (h) => takenLower.has(h));
       updates.handle = resolved;
       takenLower.add(resolved);

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { idParam } from "./schemas.js";
 import { and, eq, isNull, or } from "drizzle-orm";
 import type { ApiTokenSummary, CreateApiTokenRequest } from "@fjord/shared";
 import { apiTokens, users } from "../db/schema.js";
@@ -31,7 +32,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
         description:
           "Returns the plaintext token exactly once. Caller must be the target user or an Admin.",
         tags: ["auth"],
-        params: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        params: idParam,
         body: {
           type: "object",
           required: ["name"],
@@ -98,7 +99,7 @@ export const tokensRoutes: FastifyPluginAsync = async (app) => {
         description:
           "Returns metadata only — never plaintext or hashes. Pass `?include_revoked=true` to include revoked tokens.",
         tags: ["auth"],
-        params: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        params: idParam,
         querystring: {
           type: "object",
           properties: { include_revoked: { type: "string", enum: ["true", "false"] } },

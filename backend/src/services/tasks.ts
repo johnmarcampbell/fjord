@@ -104,7 +104,7 @@ export function userCanAccessSpace(db: DB, userId: string, spaceId: string): boo
   return !!grant;
 }
 
-function assertAssigneeCanAccessSpace(db: DB, assigneeId: string, destSpaceId: string): void {
+export function assertAssigneeCanAccessSpace(db: DB, assigneeId: string, destSpaceId: string): void {
   if (userCanAccessSpace(db, assigneeId, destSpaceId)) return;
   const u = db
     .select({ handle: users.handle })
@@ -153,7 +153,7 @@ export function toEvent(row: typeof taskEvents.$inferSelect): TaskEvent {
  * `updatedAt` is always null here: events are immutable at creation. Only the
  * edit path (`editTaskEvent`) stamps `updatedAt`, and it updates the row directly.
  */
-function buildTaskEvent(args: {
+export function buildTaskEvent(args: {
   taskId: string;
   actorId: string;
   kind: TaskEvent["kind"];

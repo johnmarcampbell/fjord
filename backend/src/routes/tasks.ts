@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import { idParam } from "./schemas.js";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type {
   AddBlockerRequest,
@@ -8,10 +9,9 @@ import type {
   EventKind,
   UpdateTaskRequest,
 } from "@fjord/shared";
-import { COLUMNS, EVENT_KINDS } from "@fjord/shared";
+import { COLUMNS, EVENT_KINDS, type DomainErrorCode } from "@fjord/shared";
 import { taskEvents, tasks } from "../db/schema.js";
 import {
-  AssigneeNoAccessError,
   BlockerNotFoundError,
   CycleError,
   DependencyNotFoundError,
@@ -38,11 +38,10 @@ import {
   unarchiveTask,
   updateTask,
 } from "../services/tasks.js";
-import { SpaceArchivedError, UnknownSpaceError } from "../services/spaces.js";
 import { canAccessSpace } from "../auth/policy.js";
 import type { Actor } from "../auth/actor.js";
 import type { DB } from "../db/index.js";
-import { badRequest, conflict, forbidden, notFound } from "./http.js";
+import { badRequest, conflict, forbidden, mapSpaceWriteError, notFound } from "./http.js";
 
 const KNOWN_EVENT_KINDS: ReadonlySet<EventKind> = new Set(EVENT_KINDS);
 
@@ -85,20 +84,19 @@ function parseKindFilter(raw: string | undefined): EventKind[] | null {
 }
 
 function mapServiceError(err: unknown, reply: FastifyReply): void {
+  if (mapSpaceWriteError(reply, err)) return;
   if (err instanceof TaskNotFoundError) {
     notFound(reply, "Task");
   } else if (err instanceof VersionConflictError) {
-    reply
-      .code(409)
-      .send({ error: "Version conflict", code: "version_conflict", current_version: err.currentVersion });
+    reply.code(409).send({
+      error: "Version conflict",
+      code: "version_conflict" satisfies DomainErrorCode,
+      current_version: err.currentVersion,
+    });
   } else if (err instanceof UnknownUserError) {
     badRequest(reply, "Unknown assigned_to user");
   } else if (err instanceof UnknownProjectError) {
     badRequest(reply, "Unknown project_id");
-  } else if (err instanceof UnknownSpaceError) {
-    badRequest(reply, "Unknown space_id");
-  } else if (err instanceof SpaceArchivedError) {
-    badRequest(reply, "Target space is archived");
   } else if (err instanceof SpaceProjectMismatchError) {
     badRequest(reply, "space_id conflicts with the project's space; move the project instead");
   } else if (err instanceof BlockerNotFoundError) {
@@ -110,8 +108,6 @@ function mapServiceError(err: unknown, reply: FastifyReply): void {
   } else if (err instanceof DependencyNotFoundError) {
     notFound(reply, "Dependency");
   } else if (err instanceof TaskStateError) {
-    badRequest(reply, err.message);
-  } else if (err instanceof AssigneeNoAccessError) {
     badRequest(reply, err.message);
   } else if (err instanceof EventNotFoundError) {
     notFound(reply, "Event");
@@ -190,11 +186,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Get a task by id",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -248,11 +240,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Update a task (optimistic concurrency via version)",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           required: ["version"],
@@ -294,11 +282,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Delete a task",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -324,11 +308,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           "to filter by event kind — recommended for agents catching up on a task, " +
           "since it returns only the durable working notes and skips system noise.",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         querystring: {
           type: "object",
           properties: {
@@ -372,11 +352,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           "For an actor's own durable working notes — what they've tried, what worked, what didn't, " +
           "what to try next — use `POST /api/tasks/{id}/journal` instead.",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           required: ["body"],
@@ -415,11 +391,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           "Anyone may post a journal entry on any task, but the convention is that the journal " +
           "belongs to the assignee; non-assignee entries are rendered as side notes in the UI.",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           required: ["body"],
@@ -447,11 +419,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Add a blocking dependency: another task blocks this one",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           required: ["blocker_id"],
@@ -510,11 +478,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         description:
           "Archive a task. The task must be in the Done column or this request will fail with 400. Archived tasks are excluded from GET /api/tasks by default; pass include_archived=true to retrieve them.",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -536,11 +500,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Unarchive a task",
         tags: ["tasks"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {

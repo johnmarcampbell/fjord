@@ -8,8 +8,7 @@ import {
 import type { DB } from "../db/index.js";
 import type { EventBus } from "../event_bus.js";
 import { projects, spaces, taskEvents, tasks } from "../db/schema.js";
-import { newId, nowIso, userCanAccessSpace, AssigneeNoAccessError } from "./tasks.js";
-import { users } from "../db/schema.js";
+import { newId, nowIso, assertAssigneeCanAccessSpace, buildTaskEvent } from "./tasks.js";
 
 export class SpaceNotFoundError extends Error {
   readonly name = "SpaceNotFoundError";
@@ -215,16 +214,7 @@ export function moveProjectToSpace(
   for (const t of tasksToCheck) {
     if (!t.assignedTo || checked.has(t.assignedTo)) continue;
     checked.add(t.assignedTo);
-    if (!userCanAccessSpace(db, t.assignedTo, newSpaceId)) {
-      const u = db
-        .select({ handle: users.handle })
-        .from(users)
-        .where(eq(users.id, t.assignedTo))
-        .get();
-      throw new AssigneeNoAccessError(
-        `Assignee ${u?.handle ?? t.assignedTo} does not have access to destination space. Reassign or grant access first.`,
-      );
-    }
+    assertAssigneeCanAccessSpace(db, t.assignedTo, newSpaceId);
   }
 
   const oldSpaceId = project.spaceId;
@@ -245,18 +235,17 @@ export function moveProjectToSpace(
         .where(eq(tasks.id, t.id))
         .run();
       tx.insert(taskEvents)
-        .values({
-          id: newId(),
-          taskId: t.id,
-          actorId: actor,
-          kind: "space_changed",
-          createdAt: now,
-          body: null,
-          fromValue: oldSpaceId,
-          toValue: newSpaceId,
-          blockerId: null,
-          byAssignee: t.assignedTo === actor,
-        })
+        .values(
+          buildTaskEvent({
+            taskId: t.id,
+            actorId: actor,
+            kind: "space_changed",
+            byAssignee: t.assignedTo === actor,
+            createdAt: now,
+            fromValue: oldSpaceId,
+            toValue: newSpaceId,
+          }),
+        )
         .run();
     }
 

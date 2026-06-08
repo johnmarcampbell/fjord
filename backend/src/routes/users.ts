@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { idParam } from "./schemas.js";
 import { and, eq, ne, sql } from "drizzle-orm";
 import {
   DEFAULT_ADMINISTRATOR_ID,
@@ -54,11 +55,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Get a user by id",
         tags: ["users"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -162,11 +159,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         summary: "Update a user",
         description: "Update mutable user profile fields. `id` and `created_at` cannot be changed.",
         tags: ["users"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           properties: {
@@ -271,11 +264,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         description:
           "Marks the user as deleted by setting `deleted_at`, clearing `password_hash`, and deleting any active sessions. The row is retained so historical attribution on tasks and events stays intact. Idempotent: deleting an already-deleted user returns 204. The handle remains reserved (see ADR-0004).",
         tags: ["users"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {

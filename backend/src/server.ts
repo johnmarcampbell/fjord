@@ -22,12 +22,13 @@ import { nowIso } from "./services/tasks.js";
 import {
   DEFAULT_ADMINISTRATOR_ID,
   pickAvatar,
-  slugify,
+  type DomainErrorCode,
 } from "@fjord/shared";
 import {
   resolveHandleCollision,
   backfillUserProfiles,
   seedDefaultAdministrator,
+  deriveHandle,
 } from "./services/users.js";
 import { hashPassword } from "./services/passwords.js";
 import { actorRequiresPasswordSet, resolveActor, type Actor } from "./auth/actor.js";
@@ -132,9 +133,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<{
     // /api/auth/change-password and /api/auth/logout are exempt so they can complete the flow.
     if (isWrite && url !== "/api/auth/change-password" && url !== "/api/auth/logout" && url !== "/api/auth/logout-all") {
       if (actorRequiresPasswordSet(app.db, result.actor, app.demo)) {
-        return reply
-          .code(403)
-          .send({ error: "Set a password before making changes", code: "set_password_required" });
+        return reply.code(403).send({
+          error: "Set a password before making changes",
+          code: "set_password_required" satisfies DomainErrorCode,
+        });
       }
     }
   });
@@ -257,7 +259,7 @@ function seedUsers(
   for (const seed of seeds) {
     const existing = handle.db.select().from(users).where(eq(users.id, seed.id)).get();
     if (existing) continue;
-    const candidate = slugify(seed.id) || `user-${seed.id.slice(0, 8).toLowerCase().replace(/[^a-z0-9_-]/g, "")}`;
+    const candidate = deriveHandle(seed.id);
     const resolved = resolveHandleCollision(candidate, (h) => takenLower.has(h));
     takenLower.add(resolved);
     handle.db

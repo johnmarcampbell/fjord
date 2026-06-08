@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { idParam } from "./schemas.js";
 import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import type { CreateGrantRequest, CreateSpaceRequest, Grant, Space, UpdateSpaceRequest } from "@fjord/shared";
 import {
@@ -88,11 +89,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Get a space by id",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -134,11 +131,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Update a space",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           properties: {
@@ -163,11 +156,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Delete a space (only when it has no tasks; empty projects cascade)",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -195,11 +184,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Archive a space (only when every task in it is already archived)",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -223,11 +208,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Unarchive a space",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -247,11 +228,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "List access grants for a space",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
       },
     },
     async (req, reply) => {
@@ -274,11 +251,7 @@ export const spacesRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         summary: "Grant a user access to a space",
         tags: ["spaces"],
-        params: {
-          type: "object",
-          properties: { id: { type: "string" } },
-          required: ["id"],
-        },
+        params: idParam,
         body: {
           type: "object",
           required: ["user_id"],
