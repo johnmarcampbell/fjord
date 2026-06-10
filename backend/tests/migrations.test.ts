@@ -413,11 +413,14 @@ describe("schema drift repair", () => {
 // ledger-marking half (a) is what protects them — once repair has added a column
 // it claims the migration tag so the runner never re-applies that ADD COLUMN.
 describe("migration safety across drift repair (issue #107)", () => {
-  // Tags through 0006 — the schema state before the role/auth migrations.
-  const through0006 = allTags.filter((t) => t <= "0006_typical_giant_man");
-  // Tags through 0008 — what the ledger should hold once repair has stood in for
-  // the role/auth migrations.
-  const through0008 = allTags.filter((t) => t <= "0008_password_auth");
+  // The migrations whose tables/columns repairSchemaDrift also creates; repair
+  // records these tags in the ledger so the runner skips them next boot. Mirrors
+  // the tags inserted in repairSchemaDrift (db/index.ts).
+  const REPAIR_TAGS = ["0007_dizzy_komodo", "0008_password_auth"];
+  // The pre-role/auth baseline: every migration before the repair tags.
+  const through0006 = allTags.filter((t) => t < REPAIR_TAGS[0]);
+  // What the ledger should hold once repair has stood in for the repair tags.
+  const through0008 = [...through0006, ...REPAIR_TAGS];
 
   function applyTags(sqlite: DatabaseSync, tags: string[]): void {
     for (const tag of tags) applyMigration(sqlite, tag);
@@ -491,7 +494,7 @@ describe("migration safety across drift repair (issue #107)", () => {
     const isCreate = (stmt: string): boolean =>
       /^create\b/i.test(stmt.replace(/^(?:\s*--[^\n]*\n)+/, "").trimStart());
 
-    for (const tag of ["0007_dizzy_komodo", "0008_password_auth"]) {
+    for (const tag of REPAIR_TAGS) {
       const createStatements = splitStatements(
         readFileSync(join(migrationsDir, `${tag}.sql`), "utf-8"),
       ).filter(isCreate);
