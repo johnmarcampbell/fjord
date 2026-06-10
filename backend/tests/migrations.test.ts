@@ -11,13 +11,24 @@ import { openDatabase, runMigrations, applyMigrations, repairSchemaDrift } from 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "migrations");
 
-function applyMigration(sqlite: DatabaseSync, tag: string): void {
-  const sql = readFileSync(join(migrationsDir, `${tag}.sql`), "utf-8");
-  const statements = sql
+// All migration tags in lexical order, which is also application order. Derived
+// from the folder so newly added migrations are picked up automatically.
+const allTags = readdirSync(migrationsDir)
+  .filter((f) => f.endsWith(".sql"))
+  .map((f) => f.replace(/\.sql$/, ""))
+  .sort();
+
+/** Split a migration's SQL into individual statements, mirroring applyMigrations. */
+function splitStatements(sql: string): string[] {
+  return sql
     .split("--> statement-breakpoint")
     .map((s) => s.trim())
     .filter(Boolean);
-  for (const stmt of statements) sqlite.exec(stmt);
+}
+
+function applyMigration(sqlite: DatabaseSync, tag: string): void {
+  const sql = readFileSync(join(migrationsDir, `${tag}.sql`), "utf-8");
+  for (const stmt of splitStatements(sql)) sqlite.exec(stmt);
 }
 
 describe("migration 0004_spaces", () => {
@@ -214,11 +225,6 @@ describe("runMigrations integration", () => {
     readFileSync(join(migrationsDir, "meta", "_journal.json"), "utf-8"),
   ).entries as { when: number; tag: string }[];
 
-  const allTags = readdirSync(migrationsDir)
-    .filter((f) => f.endsWith(".sql"))
-    .map((f) => f.replace(/\.sql$/, ""))
-    .sort();
-
   it("fresh database: applies all migrations and populates __fjord_migrations", () => {
     const handle = openDatabase(":memory:");
     runMigrations(handle);
@@ -387,6 +393,117 @@ describe("schema drift repair", () => {
     expect(userSpaceAccessTable).toBeTruthy();
     expect(sessionsTable).toBeTruthy();
     expect(apiTokensTable).toBeTruthy();
+
+    sqlite.close();
+  });
+});
+
+// Regression coverage for the startup crash described in issue #107: when
+// repairSchemaDrift creates objects that a not-yet-tracked migration also
+// creates, a later migration run must not collide with them.
+//
+// The fix has two complementary halves and these tests pin down both:
+//   (a) repairSchemaDrift records 0007/0008 in the ledger when it stands in for
+//       them, so the runner skips those migrations next boot; and
+//   (b) the CREATE TABLE/INDEX statements in 0007/0008 use IF NOT EXISTS, so
+//       re-running them against pre-existing objects is harmless.
+//
+// Note on scope: SQLite has no `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, so the
+// column-adding statements in 0007/0008 are *not* idempotent on their own. The
+// ledger-marking half (a) is what protects them — once repair has added a column
+// it claims the migration tag so the runner never re-applies that ADD COLUMN.
+describe("migration safety across drift repair (issue #107)", () => {
+  // The migrations whose tables/columns repairSchemaDrift also creates; repair
+  // records these tags in the ledger so the runner skips them next boot. Mirrors
+  // the tags inserted in repairSchemaDrift (db/index.ts).
+  const REPAIR_TAGS = ["0007_dizzy_komodo", "0008_password_auth"];
+  // The pre-role/auth baseline: every migration before the repair tags.
+  const through0006 = allTags.filter((t) => t < REPAIR_TAGS[0]);
+  // What the ledger should hold once repair has stood in for the repair tags.
+  const through0008 = [...through0006, ...REPAIR_TAGS];
+
+  function applyTags(sqlite: DatabaseSync, tags: string[]): void {
+    for (const tag of tags) applyMigration(sqlite, tag);
+  }
+
+  /** Create the ledger and record `tags` as applied, mirroring applyMigrations. */
+  function seedLedger(sqlite: DatabaseSync, tags: string[]): void {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS __fjord_migrations (
+        tag TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      )
+    `);
+    const insert = sqlite.prepare("INSERT INTO __fjord_migrations (tag, applied_at) VALUES (?, ?)");
+    for (const tag of tags) insert.run(tag, "2025-01-01T00:00:00Z");
+  }
+
+  function ledgerTags(sqlite: DatabaseSync): string[] {
+    return (
+      sqlite.prepare("SELECT tag FROM __fjord_migrations ORDER BY tag").all() as { tag: string }[]
+    ).map((r) => r.tag);
+  }
+
+  it("repairSchemaDrift records exactly the migrations it stands in for", () => {
+    // A DB migrated only through 0006: its ledger knows nothing of 0007/0008.
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
+    applyTags(sqlite, through0006);
+    seedLedger(sqlite, through0006);
+
+    repairSchemaDrift(sqlite);
+
+    // Having created 0007/0008's objects, repair must claim their tags — and only
+    // those — so the migration runner skips exactly those migrations next boot.
+    expect(ledgerTags(sqlite)).toEqual(through0008);
+
+    sqlite.close();
+  });
+
+  it("re-boots cleanly after an earlier startup's repair created the role/auth schema", () => {
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
+    applyTags(sqlite, through0006);
+    seedLedger(sqlite, through0006);
+
+    // Earlier startup: repair detects the missing role/auth schema, creates it
+    // (columns and tables atomically), and marks 0007/0008 applied.
+    repairSchemaDrift(sqlite);
+
+    // Next startup: the runner must not replay 0007/0008 — a replay would crash
+    // on `ALTER TABLE ... ADD COLUMN` for the already-present role/created_by/
+    // password_hash columns — but must still apply anything newer (0009+).
+    expect(() => {
+      applyMigrations(sqlite, migrationsDir);
+      repairSchemaDrift(sqlite);
+    }).not.toThrow();
+
+    expect(ledgerTags(sqlite)).toEqual(allTags);
+
+    sqlite.close();
+  });
+
+  it("re-running the CREATE statements in 0007/0008 is idempotent", () => {
+    // The original crash was a bare `CREATE TABLE` in 0007/0008 colliding with a
+    // table repair had already created. These are the only migrations whose
+    // objects repairSchemaDrift also creates, so they're the only ones that can
+    // collide — guard against a regression that drops the IF NOT EXISTS clauses.
+    const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: true });
+    applyTags(sqlite, allTags);
+
+    // A statement is a CREATE once any leading SQL comments are stripped, so a
+    // future reformat that prefixes a comment line won't silently hide one.
+    const isCreate = (stmt: string): boolean =>
+      /^create\b/i.test(stmt.replace(/^(?:\s*--[^\n]*\n)+/, "").trimStart());
+
+    for (const tag of REPAIR_TAGS) {
+      const createStatements = splitStatements(
+        readFileSync(join(migrationsDir, `${tag}.sql`), "utf-8"),
+      ).filter(isCreate);
+      // Guard against the filter silently matching nothing (e.g. a parser change).
+      expect(createStatements.length).toBeGreaterThan(0);
+      for (const stmt of createStatements) {
+        expect(() => sqlite.exec(stmt)).not.toThrow();
+      }
+    }
 
     sqlite.close();
   });
