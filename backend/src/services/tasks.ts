@@ -5,6 +5,7 @@ import {
   canArchive,
   type Column,
   type CreateTaskRequest,
+  type StreamEvent,
   type Task,
   type TaskEvent,
   type UpdateTaskRequest,
@@ -304,63 +305,92 @@ export function wouldCreateCycle(db: DB, blockerId: string, blockedId: string): 
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
-export function createTask(
-  db: DB,
-  events: EventBus,
-  actor: string,
-  body: CreateTaskRequest,
-): Task {
-  const column = (body.column ?? "Backlog") as Column;
+/** Everything a Task mutation needs: the database and the bus to announce
+ * committed changes on. Routes pass `{ db: app.db, bus: app.events }`. */
+export interface TaskCtx {
+  db: DB;
+  bus: EventBus;
+}
 
-  if (body.assigned_to) requireUser(db, body.assigned_to);
-  if (body.project_id) requireProject(db, body.project_id);
+type PublishFn = (event: StreamEvent) => void;
 
-  let spaceId: string;
-  if (body.project_id) {
-    spaceId = getProjectSpace(db, body.project_id);
-    if (body.space_id && body.space_id !== spaceId) throw new SpaceProjectMismatchError();
-  } else if (body.space_id) {
-    spaceId = body.space_id;
-  } else {
-    spaceId = DEFAULT_SPACE_ID;
-  }
-  assertSpaceWriteable(db, spaceId);
+/**
+ * Run a Task mutation: the body's writes (task rows + task events) commit in a
+ * single transaction, and the stream events it `publish`es are delivered to
+ * the bus only after COMMIT — never before, never on rollback. Every exported
+ * mutation in this file goes through here; there is no unguarded write path.
+ *
+ * The body's entire world is the two arguments it receives: the db and the
+ * publish channel. SQLite transactions are connection-scoped, so every
+ * statement issued on `db` inside the callback participates without
+ * threading drizzle's `tx` through the helpers.
+ */
+function runTaskMutation<T>(ctx: TaskCtx, fn: (db: DB, publish: PublishFn) => T): T {
+  const pending: StreamEvent[] = [];
+  // Void-returning callback: drizzle's sync-driver types reject an unresolved
+  // generic return (their async-callback guard), so the result rides a local.
+  let result!: T;
+  ctx.db.transaction(() => {
+    result = fn(ctx.db, (event) => pending.push(event));
+  });
+  for (const event of pending) ctx.bus.publish(event);
+  return result;
+}
 
-  const id = newId();
-  const now = nowIso();
-  const position = columnHeadPosition(db, column);
-  const row = {
-    id,
-    title: body.title,
-    description: body.description ?? "",
-    column,
-    position,
-    reportedBy: actor,
-    assignedTo: body.assigned_to ?? null,
-    dueAt: body.due_at ?? null,
-    projectId: body.project_id ?? null,
-    tags: JSON.stringify(body.tags ?? []),
-    createdAt: now,
-    updatedAt: now,
-    version: 1,
-    archived: false,
-    archivedAt: null,
-    spaceId,
-  };
-  db.insert(tasks).values(row).run();
-  db.insert(taskEvents)
-    .values(
-      buildTaskEvent({
-        taskId: id,
-        actorId: actor,
-        kind: "task_created",
-        byAssignee: row.assignedTo === actor,
-        createdAt: now,
-      }),
-    )
-    .run();
-  events.publish({ type: "task.created", task_id: id, space_id: spaceId });
-  return hydrateTask(db, { ...row });
+export function createTask(ctx: TaskCtx, actor: string, body: CreateTaskRequest): Task {
+  return runTaskMutation(ctx, (db, publish) => {
+    const column = (body.column ?? "Backlog") as Column;
+
+    if (body.assigned_to) requireUser(db, body.assigned_to);
+    if (body.project_id) requireProject(db, body.project_id);
+
+    let spaceId: string;
+    if (body.project_id) {
+      spaceId = getProjectSpace(db, body.project_id);
+      if (body.space_id && body.space_id !== spaceId) throw new SpaceProjectMismatchError();
+    } else if (body.space_id) {
+      spaceId = body.space_id;
+    } else {
+      spaceId = DEFAULT_SPACE_ID;
+    }
+    assertSpaceWriteable(db, spaceId);
+
+    const id = newId();
+    const now = nowIso();
+    const position = columnHeadPosition(db, column);
+    const row = {
+      id,
+      title: body.title,
+      description: body.description ?? "",
+      column,
+      position,
+      reportedBy: actor,
+      assignedTo: body.assigned_to ?? null,
+      dueAt: body.due_at ?? null,
+      projectId: body.project_id ?? null,
+      tags: JSON.stringify(body.tags ?? []),
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+      archived: false,
+      archivedAt: null,
+      spaceId,
+    };
+    db.insert(tasks).values(row).run();
+    db.insert(taskEvents)
+      .values(
+        buildTaskEvent({
+          taskId: id,
+          actorId: actor,
+          kind: "task_created",
+          byAssignee: row.assignedTo === actor,
+          createdAt: now,
+        }),
+      )
+      .run();
+    publish({ type: "task.created", task_id: id, space_id: spaceId });
+    return hydrateTask(db, { ...row });
+  });
 }
 
 /**
@@ -449,57 +479,60 @@ function emitChangeEvents(
 }
 
 export function updateTask(
-  db: DB,
-  events: EventBus,
+  ctx: TaskCtx,
   actor: string,
   id: string,
   body: UpdateTaskRequest,
 ): Task {
-  const existing = getTaskOrThrow(db, id);
-  if (existing.version !== body.version) throw new VersionConflictError(existing.version);
+  return runTaskMutation(ctx, (db, publish) => {
+    const existing = getTaskOrThrow(db, id);
+    if (existing.version !== body.version) throw new VersionConflictError(existing.version);
 
-  if (body.assigned_to != null) requireUser(db, body.assigned_to);
-  if (body.project_id != null) requireProject(db, body.project_id);
+    if (body.assigned_to != null) requireUser(db, body.assigned_to);
+    if (body.project_id != null) requireProject(db, body.project_id);
 
-  const now = nowIso();
-  const nextColumn = (body.column ?? existing.column) as Column;
-  let nextPosition = existing.position;
-  if (body.position !== undefined) {
-    nextPosition = body.position;
-  } else if (body.column && body.column !== existing.column) {
-    nextPosition = columnTailPosition(db, nextColumn);
-  }
+    const now = nowIso();
+    const nextColumn = (body.column ?? existing.column) as Column;
+    let nextPosition = existing.position;
+    if (body.position !== undefined) {
+      nextPosition = body.position;
+    } else if (body.column && body.column !== existing.column) {
+      nextPosition = columnTailPosition(db, nextColumn);
+    }
 
-  const target = resolveTargetSpace(db, existing, body);
+    const target = resolveTargetSpace(db, existing, body);
 
-  const newTagsArr =
-    body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
+    const newTagsArr =
+      body.tags !== undefined ? body.tags : (JSON.parse(existing.tags) as string[]);
 
-  const updates = {
-    title: body.title ?? existing.title,
-    description: body.description ?? existing.description,
-    column: nextColumn,
-    position: nextPosition,
-    assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
-    dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
-    projectId: target.projectId,
-    spaceId: target.spaceId,
-    tags: JSON.stringify(newTagsArr),
-    updatedAt: now,
-    version: existing.version + 1,
-  };
-  db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
+    const updates = {
+      title: body.title ?? existing.title,
+      description: body.description ?? existing.description,
+      column: nextColumn,
+      position: nextPosition,
+      assignedTo: body.assigned_to === undefined ? existing.assignedTo : body.assigned_to,
+      dueAt: body.due_at === undefined ? existing.dueAt : body.due_at,
+      projectId: target.projectId,
+      spaceId: target.spaceId,
+      tags: JSON.stringify(newTagsArr),
+      updatedAt: now,
+      version: existing.version + 1,
+    };
+    db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 
-  emitChangeEvents(db, actor, id, now, existing, updates);
+    emitChangeEvents(db, actor, id, now, existing, updates);
 
-  events.publish({ type: "task.updated", task_id: id, version: updates.version, space_id: target.spaceId });
-  return hydrateTask(db, { ...existing, ...updates });
+    publish({ type: "task.updated", task_id: id, version: updates.version, space_id: target.spaceId });
+    return hydrateTask(db, { ...existing, ...updates });
+  });
 }
 
-export function deleteTask(db: DB, events: EventBus, id: string): void {
-  const task = getTaskOrThrow(db, id);
-  db.delete(tasks).where(eq(tasks.id, id)).run();
-  events.publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
+export function deleteTask(ctx: TaskCtx, id: string): void {
+  runTaskMutation(ctx, (db, publish) => {
+    const task = getTaskOrThrow(db, id);
+    db.delete(tasks).where(eq(tasks.id, id)).run();
+    publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
+  });
 }
 
 /**
@@ -509,7 +542,7 @@ export function deleteTask(db: DB, events: EventBus, id: string): void {
  */
 function addTimelineEntry(
   db: DB,
-  events: EventBus,
+  publish: PublishFn,
   actor: string,
   taskId: string,
   kind: "comment" | "journal_entry",
@@ -524,7 +557,7 @@ function addTimelineEntry(
     body,
   });
   db.insert(taskEvents).values(event).run();
-  events.publish({
+  publish({
     type: "task.event_added",
     task_id: taskId,
     event_id: event.id,
@@ -535,104 +568,109 @@ function addTimelineEntry(
 }
 
 export function addComment(
-  db: DB,
-  events: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   body: string,
 ): TaskEvent {
-  return addTimelineEntry(db, events, actor, taskId, "comment", body);
+  return runTaskMutation(ctx, (db, publish) =>
+    addTimelineEntry(db, publish, actor, taskId, "comment", body),
+  );
 }
 
 export function addJournalEntry(
-  db: DB,
-  events: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   body: string,
 ): TaskEvent {
-  return addTimelineEntry(db, events, actor, taskId, "journal_entry", body);
+  return runTaskMutation(ctx, (db, publish) =>
+    addTimelineEntry(db, publish, actor, taskId, "journal_entry", body),
+  );
 }
 
 export function addBlocker(
-  db: DB,
-  events: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   blockerId: string,
 ): Task {
-  const blocked = getTaskOrThrow(db, taskId);
-  if (!db.select().from(tasks).where(eq(tasks.id, blockerId)).get()) throw new BlockerNotFoundError();
-  if (wouldCreateCycle(db, blockerId, taskId)) throw new CycleError();
+  return runTaskMutation(ctx, (db, publish) => {
+    const blocked = getTaskOrThrow(db, taskId);
+    if (!db.select().from(tasks).where(eq(tasks.id, blockerId)).get()) throw new BlockerNotFoundError();
+    if (wouldCreateCycle(db, blockerId, taskId)) throw new CycleError();
 
-  const existingDep = db
-    .select()
-    .from(taskDependencies)
-    .where(
-      and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
-    )
-    .get();
-  if (existingDep) throw new DuplicateDependencyError();
+    const existingDep = db
+      .select()
+      .from(taskDependencies)
+      .where(
+        and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
+      )
+      .get();
+    if (existingDep) throw new DuplicateDependencyError();
 
-  db.insert(taskDependencies).values({ blockerId, blockedId: taskId }).run();
-  const event = buildTaskEvent({
-    taskId,
-    actorId: actor,
-    kind: "blocker_added",
-    byAssignee: blocked.assignedTo === actor,
-    blockerId,
+    db.insert(taskDependencies).values({ blockerId, blockedId: taskId }).run();
+    const event = buildTaskEvent({
+      taskId,
+      actorId: actor,
+      kind: "blocker_added",
+      byAssignee: blocked.assignedTo === actor,
+      blockerId,
+    });
+    db.insert(taskEvents).values(event).run();
+    publish({
+      type: "task.event_added",
+      task_id: taskId,
+      event_id: event.id,
+      kind: "blocker_added",
+      space_id: blocked.spaceId,
+    });
+    publish({ type: "task.updated", task_id: taskId, version: blocked.version, space_id: blocked.spaceId });
+    return hydrateTask(db, blocked);
   });
-  db.insert(taskEvents).values(event).run();
-  events.publish({
-    type: "task.event_added",
-    task_id: taskId,
-    event_id: event.id,
-    kind: "blocker_added",
-    space_id: blocked.spaceId,
-  });
-  events.publish({ type: "task.updated", task_id: taskId, version: blocked.version, space_id: blocked.spaceId });
-  return hydrateTask(db, blocked);
 }
 
 export function removeBlocker(
-  db: DB,
-  events: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   blockerId: string,
 ): void {
-  const dep = db
-    .select()
-    .from(taskDependencies)
-    .where(
-      and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
-    )
-    .get();
-  if (!dep) throw new DependencyNotFoundError();
+  runTaskMutation(ctx, (db, publish) => {
+    const dep = db
+      .select()
+      .from(taskDependencies)
+      .where(
+        and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
+      )
+      .get();
+    if (!dep) throw new DependencyNotFoundError();
 
-  db.delete(taskDependencies)
-    .where(
-      and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
-    )
-    .run();
+    db.delete(taskDependencies)
+      .where(
+        and(eq(taskDependencies.blockerId, blockerId), eq(taskDependencies.blockedId, taskId)),
+      )
+      .run();
 
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  const event = buildTaskEvent({
-    taskId,
-    actorId: actor,
-    kind: "blocker_removed",
-    byAssignee: task?.assignedTo === actor,
-    blockerId,
+    // The dependency row's FK guarantees the task exists.
+    const task = getTaskOrThrow(db, taskId);
+    const event = buildTaskEvent({
+      taskId,
+      actorId: actor,
+      kind: "blocker_removed",
+      byAssignee: task.assignedTo === actor,
+      blockerId,
+    });
+    db.insert(taskEvents).values(event).run();
+    publish({
+      type: "task.event_added",
+      task_id: taskId,
+      event_id: event.id,
+      kind: "blocker_removed",
+      space_id: task.spaceId,
+    });
+    publish({ type: "task.updated", task_id: taskId, version: task.version, space_id: task.spaceId });
   });
-  db.insert(taskEvents).values(event).run();
-  events.publish({
-    type: "task.event_added",
-    task_id: taskId,
-    event_id: event.id,
-    kind: "blocker_removed",
-    space_id: task?.spaceId ?? "",
-  });
-  events.publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0, space_id: task?.spaceId ?? "" });
 }
 
 /**
@@ -642,7 +680,7 @@ export function removeBlocker(
  */
 function setArchived(
   db: DB,
-  events: EventBus,
+  publish: PublishFn,
   actor: string,
   taskId: string,
   archived: boolean,
@@ -672,23 +710,23 @@ function setArchived(
     createdAt: now,
   });
   db.insert(taskEvents).values(event).run();
-  events.publish({
+  publish({
     type: "task.event_added",
     task_id: taskId,
     event_id: event.id,
     kind: archived ? "task_archived" : "task_unarchived",
     space_id: task.spaceId,
   });
-  events.publish({ type: "task.updated", task_id: taskId, version: changes.version, space_id: task.spaceId });
+  publish({ type: "task.updated", task_id: taskId, version: changes.version, space_id: task.spaceId });
   return hydrateTask(db, { ...task, ...changes });
 }
 
-export function archiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
-  return setArchived(db, events, actor, taskId, true);
+export function archiveTask(ctx: TaskCtx, actor: string, taskId: string): Task {
+  return runTaskMutation(ctx, (db, publish) => setArchived(db, publish, actor, taskId, true));
 }
 
-export function unarchiveTask(db: DB, events: EventBus, actor: string, taskId: string): Task {
-  return setArchived(db, events, actor, taskId, false);
+export function unarchiveTask(ctx: TaskCtx, actor: string, taskId: string): Task {
+  return runTaskMutation(ctx, (db, publish) => setArchived(db, publish, actor, taskId, false));
 }
 
 const EDITABLE_KINDS = new Set(["comment", "journal_entry"]);
@@ -722,45 +760,47 @@ function hasSubsequentActivity(db: DB, taskId: string, afterIso: string): boolea
 }
 
 export function editTaskEvent(
-  db: DB,
-  bus: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   eventId: string,
   body: string,
   editWindowMinutes: number,
 ): TaskEvent {
-  const task = getTaskOrThrow(db, taskId);
-  const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
-  if (!event || event.taskId !== taskId) throw new EventNotFoundError();
+  return runTaskMutation(ctx, (db, publish) => {
+    const task = getTaskOrThrow(db, taskId);
+    const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
+    if (!event || event.taskId !== taskId) throw new EventNotFoundError();
 
-  checkEventEditability(db, event, actor, editWindowMinutes);
+    checkEventEditability(db, event, actor, editWindowMinutes);
 
-  const now = nowIso();
-  db.update(taskEvents).set({ body, updatedAt: now }).where(eq(taskEvents.id, eventId)).run();
-  bus.publish({ type: "task.event_updated", task_id: taskId, event_id: eventId, space_id: task.spaceId });
+    const now = nowIso();
+    db.update(taskEvents).set({ body, updatedAt: now }).where(eq(taskEvents.id, eventId)).run();
+    publish({ type: "task.event_updated", task_id: taskId, event_id: eventId, space_id: task.spaceId });
 
-  return toEvent({ ...event, body, updatedAt: now });
+    return toEvent({ ...event, body, updatedAt: now });
+  });
 }
 
 export function deleteTaskEvent(
-  db: DB,
-  bus: EventBus,
+  ctx: TaskCtx,
   actor: string,
   taskId: string,
   eventId: string,
   editWindowMinutes: number,
 ): void {
-  const task = getTaskOrThrow(db, taskId);
-  const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
-  if (!event || event.taskId !== taskId) throw new EventNotFoundError();
+  runTaskMutation(ctx, (db, publish) => {
+    const task = getTaskOrThrow(db, taskId);
+    const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
+    if (!event || event.taskId !== taskId) throw new EventNotFoundError();
 
-  checkEventEditability(db, event, actor, editWindowMinutes);
+    checkEventEditability(db, event, actor, editWindowMinutes);
 
-  if (hasSubsequentActivity(db, taskId, event.createdAt)) {
-    throw new EventEditForbiddenError("subsequent_activity");
-  }
+    if (hasSubsequentActivity(db, taskId, event.createdAt)) {
+      throw new EventEditForbiddenError("subsequent_activity");
+    }
 
-  db.delete(taskEvents).where(eq(taskEvents.id, eventId)).run();
-  bus.publish({ type: "task.event_deleted", task_id: taskId, event_id: eventId, space_id: task.spaceId });
+    db.delete(taskEvents).where(eq(taskEvents.id, eventId)).run();
+    publish({ type: "task.event_deleted", task_id: taskId, event_id: eventId, space_id: task.spaceId });
+  });
 }

@@ -87,7 +87,7 @@ Exports:
 - [backend/src/routes/stream.ts](backend/src/routes/stream.ts) — GET /api/events/stream (SSE endpoint)
 
 ### Services
-- [backend/src/services/tasks.ts](backend/src/services/tasks.ts) — Business logic for task mutations (ensure task events are recorded, version bumping, cycle detection for blockers, etc.)
+- [backend/src/services/tasks.ts](backend/src/services/tasks.ts) — Business logic for task mutations (ensure task events are recorded, version bumping, cycle detection for blockers, etc.). Every exported write is a **Task mutation** (see CONTEXT.md): its row writes and task events commit in a single transaction via the internal `runTaskMutation` wrapper, and stream events are published only after commit — never on rollback. New mutations must go through the same wrapper.
 - [backend/src/services/passwords.ts](backend/src/services/passwords.ts) — scrypt hashing in the self-describing format from [ADR-0009](docs/adr/0009-password-hash-format.md)
 - [backend/src/services/sessions.ts](backend/src/services/sessions.ts) — server-side session lifecycle
 - [backend/src/services/api_tokens.ts](backend/src/services/api_tokens.ts) — token generation (dual `lookup_hash` + `token_hash`), verify, revoke
