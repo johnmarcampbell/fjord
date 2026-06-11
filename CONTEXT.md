@@ -137,7 +137,24 @@ working memory for itself, not cross-actor communication.
 
 **Task event**:
 A timeline entry on a **Task**: either a **Comment**, a **Journal entry**, or
-a system-recorded change (column change, blocker added, etc.).
+a system-recorded change (column change, blocker added, etc.). Persisted;
+distinct from **Stream event**.
+
+**Stream event**:
+A transient notification published on the in-memory event bus and delivered
+to connected clients over SSE (e.g. `task.updated`). Carries ids only —
+clients re-fetch in response; nothing is persisted. Distinct from
+**Task event** (a persisted timeline entry).
+_Avoid_: SSE message, notification.
+
+**Task mutation**:
+A guarded, atomic change to a **Task**. The task-row write and the **Task
+events** it implies commit in a single transaction, and the resulting
+**Stream events** are published only after commit — never before, never on
+rollback. Every write path into a task is a Task mutation; the service's
+exported entry points enforce this by construction (there is no unguarded
+write to reach for).
+_Avoid_: task update (that names one specific mutation), task change.
 
 ## Relationships
 
@@ -150,6 +167,8 @@ a system-recorded change (column change, blocker added, etc.).
 - A human **User** has at most one **Password** (nullable) and zero or more
   active **Sessions**. An **Agent** **User** has no **Password**.
 - Any **User** has zero or more **API tokens**.
+- A **Task mutation** atomically records one or more **Task events** and, after
+  commit, publishes one or more **Stream events**.
 
 ## Flagged ambiguities
 

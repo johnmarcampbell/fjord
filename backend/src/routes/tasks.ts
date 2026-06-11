@@ -141,6 +141,8 @@ function normalizeBodyNewlines(text: string): string {
 }
 
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
+  const ctx = { db: app.db, bus: app.events };
+
   app.get(
     "/api/tasks",
     {
@@ -228,7 +230,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       }
       try {
         reply.code(201);
-        return createTask(app.db, app.events, actor.id, body);
+        return createTask(ctx, actor.id, body);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -270,7 +272,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
         return forbidden(reply);
       }
       try {
-        return updateTask(app.db, app.events, actor.id, id, body);
+        return updateTask(ctx, actor.id, id, body);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -290,7 +292,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { id } = req.params as { id: string };
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
-        deleteTask(app.db, app.events, id);
+        deleteTask(ctx, id);
         reply.code(204);
       } catch (err) {
         mapServiceError(err, reply);
@@ -368,7 +370,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { body } = req.body as AddCommentRequest;
       try {
         reply.code(201);
-        return addComment(app.db, app.events, actor, id, normalizeBodyNewlines(body));
+        return addComment(ctx, actor, id, normalizeBodyNewlines(body));
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -407,7 +409,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { body } = req.body as AddJournalEntryRequest;
       try {
         reply.code(201);
-        return addJournalEntry(app.db, app.events, actor, id, normalizeBodyNewlines(body));
+        return addJournalEntry(ctx, actor, id, normalizeBodyNewlines(body));
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -435,7 +437,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { blocker_id: blockerId } = req.body as AddBlockerRequest;
       try {
         reply.code(201);
-        return addBlocker(app.db, app.events, actor, id, blockerId);
+        return addBlocker(ctx, actor, id, blockerId);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -463,7 +465,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       };
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
-        removeBlocker(app.db, app.events, actor, id, blockerId);
+        removeBlocker(ctx, actor, id, blockerId);
         reply.code(204);
       } catch (err) {
         mapServiceError(err, reply);
@@ -488,7 +490,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         reply.code(200);
-        return archiveTask(app.db, app.events, actor, id);
+        return archiveTask(ctx, actor, id);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -510,7 +512,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
         reply.code(200);
-        return unarchiveTask(app.db, app.events, actor, id);
+        return unarchiveTask(ctx, actor, id);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -547,7 +549,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       const { body } = req.body as { body: string };
       try {
-        return editTaskEvent(app.db, app.events, actor, id, eventId, body, app.config.editWindowMinutes);
+        return editTaskEvent(ctx, actor, id, eventId, body, app.config.editWindowMinutes);
       } catch (err) {
         mapServiceError(err, reply);
       }
@@ -580,7 +582,7 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
       const { id, event_id: eventId } = req.params as { id: string; event_id: string };
       if (!loadTaskForActor(app.db, req.actor!, id, reply)) return;
       try {
-        deleteTaskEvent(app.db, app.events, actor, id, eventId, app.config.editWindowMinutes);
+        deleteTaskEvent(ctx, actor, id, eventId, app.config.editWindowMinutes);
         reply.code(204);
       } catch (err) {
         mapServiceError(err, reply);
