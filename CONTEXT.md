@@ -151,9 +151,11 @@ _Avoid_: SSE message, notification.
 A guarded, atomic change to a **Task**. The task-row write and the **Task
 events** it implies commit in a single transaction, and the resulting
 **Stream events** are published only after commit — never before, never on
-rollback. Every write path into a task is a Task mutation; the service's
-exported entry points enforce this by construction (there is no unguarded
-write to reach for).
+rollback. Every exported write in the tasks service (`services/tasks.ts`)
+is a Task mutation, enforced by construction. One task-writing path lives
+outside that seam today: moving a **Project** between **Spaces**
+(`services/spaces.ts`) updates its tasks following the same discipline by
+hand — see the follow-up note in `docs/plans/task-mutation-seam.md`.
 _Avoid_: task update (that names one specific mutation), task change.
 
 ## Relationships

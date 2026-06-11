@@ -214,6 +214,13 @@ Run: `npm test` from the repo root (builds shared, runs backend vitest).
 
 ## Out of scope (tracked separately)
 
+- Generalizing `runTaskMutation` and routing `moveProjectToSpace`
+  (`backend/src/services/spaces.ts`) through it — that path updates task
+  rows, inserts `space_changed` task events, and publishes `task.updated`,
+  hand-rolling the same transaction + publish-after-commit idiom the seam
+  exists to own. The wrapper has nothing task-specific in it; generalize it
+  the next time the spaces service is touched. (Review follow-up from
+  PR #148.)
 - Batch `hydrateTask` (N+1 on `GET /api/tasks`) — candidate #4 from the
   architecture review.
 - Unifying route error mapping (`mapServiceError` + `routes/errors.ts`) —

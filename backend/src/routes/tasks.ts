@@ -37,6 +37,7 @@ import {
   toEvent,
   unarchiveTask,
   updateTask,
+  type TaskCtx,
 } from "../services/tasks.js";
 import { canAccessSpace } from "../auth/policy.js";
 import type { Actor } from "../auth/actor.js";
@@ -141,7 +142,7 @@ function normalizeBodyNewlines(text: string): string {
 }
 
 export const tasksRoutes: FastifyPluginAsync = async (app) => {
-  const ctx = { db: app.db, bus: app.events };
+  const ctx: TaskCtx = { db: app.db, bus: app.events };
 
   app.get(
     "/api/tasks",

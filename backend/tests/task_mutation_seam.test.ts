@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { DEFAULT_ADMINISTRATOR_ID, type StreamEvent } from "@fjord/shared";
 import { openDatabase, runMigrations } from "../src/db/index.js";
@@ -9,7 +9,14 @@ import {
   VersionConflictError,
   addBlocker,
   addComment,
+  addJournalEntry,
+  archiveTask,
   createTask,
+  deleteTask,
+  deleteTaskEvent,
+  editTaskEvent,
+  removeBlocker,
+  unarchiveTask,
   updateTask,
   type TaskCtx,
 } from "../src/services/tasks.js";
@@ -124,6 +131,83 @@ describe("task mutation seam", () => {
       expect(published).toHaveLength(0);
       expect(ctx.db.select().from(taskEvents).all()).toHaveLength(0);
     } finally {
+      close();
+    }
+  });
+
+  it("every mutation kind publishes its expected stream events, in order", () => {
+    const { ctx, published, close } = makeCtx();
+    try {
+      const expectPublished = (...types: Array<StreamEvent["type"]>) => {
+        expect(published.map((e) => e.type)).toEqual(types);
+        published.length = 0;
+      };
+
+      const t = createTask(ctx, ADMIN, { title: "main" });
+      expectPublished("task.created");
+      const blocker = createTask(ctx, ADMIN, { title: "blocker" });
+      expectPublished("task.created");
+
+      updateTask(ctx, ADMIN, t.id, { version: t.version, column: "Done" });
+      expectPublished("task.updated");
+
+      const comment = addComment(ctx, ADMIN, t.id, "hello");
+      expectPublished("task.event_added");
+
+      editTaskEvent(ctx, ADMIN, t.id, comment.id, "edited", 5);
+      expectPublished("task.event_updated");
+
+      deleteTaskEvent(ctx, ADMIN, t.id, comment.id, 5);
+      expectPublished("task.event_deleted");
+
+      addJournalEntry(ctx, ADMIN, t.id, "note to self");
+      expectPublished("task.event_added");
+
+      addBlocker(ctx, ADMIN, t.id, blocker.id);
+      expectPublished("task.event_added", "task.updated");
+
+      removeBlocker(ctx, ADMIN, t.id, blocker.id);
+      expectPublished("task.event_added", "task.updated");
+
+      archiveTask(ctx, ADMIN, t.id);
+      expectPublished("task.event_added", "task.updated");
+
+      unarchiveTask(ctx, ADMIN, t.id);
+      expectPublished("task.event_added", "task.updated");
+
+      deleteTask(ctx, t.id);
+      expectPublished("task.deleted");
+    } finally {
+      close();
+    }
+  });
+
+  it("a throwing subscriber neither fails the mutation nor starves other subscribers", () => {
+    const { ctx, published, close } = makeCtx();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      // Subscribed after makeCtx's collector and before this test's collector:
+      // both neighbours must still receive every event.
+      ctx.bus.subscribe(() => {
+        throw new Error("boom");
+      });
+      const after: StreamEvent[] = [];
+      ctx.bus.subscribe((e) => after.push(e));
+
+      const t = createTask(ctx, ADMIN, { title: "T" });
+      const blocker = createTask(ctx, ADMIN, { title: "B" });
+      addBlocker(ctx, ADMIN, t.id, blocker.id);
+
+      expect(published.map((e) => e.type)).toEqual([
+        "task.created",
+        "task.created",
+        "task.event_added",
+        "task.updated",
+      ]);
+      expect(after).toEqual(published);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
       close();
     }
   });

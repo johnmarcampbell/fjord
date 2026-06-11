@@ -320,25 +320,25 @@ type PublishFn = (event: StreamEvent) => void;
  * the bus only after COMMIT — never before, never on rollback. Every exported
  * mutation in this file goes through here; there is no unguarded write path.
  *
- * The body keeps using `ctx.db` directly: SQLite transactions are
- * connection-scoped, so every statement issued inside the callback
- * participates without threading drizzle's `tx` through the helpers.
+ * The body's entire world is the two arguments it receives: the db and the
+ * publish channel. SQLite transactions are connection-scoped, so every
+ * statement issued on `db` inside the callback participates without
+ * threading drizzle's `tx` through the helpers.
  */
-function runTaskMutation<T>(ctx: TaskCtx, fn: (publish: PublishFn) => T): T {
+function runTaskMutation<T>(ctx: TaskCtx, fn: (db: DB, publish: PublishFn) => T): T {
   const pending: StreamEvent[] = [];
   // Void-returning callback: drizzle's sync-driver types reject an unresolved
   // generic return (their async-callback guard), so the result rides a local.
   let result!: T;
   ctx.db.transaction(() => {
-    result = fn((event) => pending.push(event));
+    result = fn(ctx.db, (event) => pending.push(event));
   });
   for (const event of pending) ctx.bus.publish(event);
   return result;
 }
 
 export function createTask(ctx: TaskCtx, actor: string, body: CreateTaskRequest): Task {
-  return runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  return runTaskMutation(ctx, (db, publish) => {
     const column = (body.column ?? "Backlog") as Column;
 
     if (body.assigned_to) requireUser(db, body.assigned_to);
@@ -484,8 +484,7 @@ export function updateTask(
   id: string,
   body: UpdateTaskRequest,
 ): Task {
-  return runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  return runTaskMutation(ctx, (db, publish) => {
     const existing = getTaskOrThrow(db, id);
     if (existing.version !== body.version) throw new VersionConflictError(existing.version);
 
@@ -529,9 +528,9 @@ export function updateTask(
 }
 
 export function deleteTask(ctx: TaskCtx, id: string): void {
-  runTaskMutation(ctx, (publish) => {
-    const task = getTaskOrThrow(ctx.db, id);
-    ctx.db.delete(tasks).where(eq(tasks.id, id)).run();
+  runTaskMutation(ctx, (db, publish) => {
+    const task = getTaskOrThrow(db, id);
+    db.delete(tasks).where(eq(tasks.id, id)).run();
     publish({ type: "task.deleted", task_id: id, space_id: task.spaceId });
   });
 }
@@ -574,8 +573,8 @@ export function addComment(
   taskId: string,
   body: string,
 ): TaskEvent {
-  return runTaskMutation(ctx, (publish) =>
-    addTimelineEntry(ctx.db, publish, actor, taskId, "comment", body),
+  return runTaskMutation(ctx, (db, publish) =>
+    addTimelineEntry(db, publish, actor, taskId, "comment", body),
   );
 }
 
@@ -585,8 +584,8 @@ export function addJournalEntry(
   taskId: string,
   body: string,
 ): TaskEvent {
-  return runTaskMutation(ctx, (publish) =>
-    addTimelineEntry(ctx.db, publish, actor, taskId, "journal_entry", body),
+  return runTaskMutation(ctx, (db, publish) =>
+    addTimelineEntry(db, publish, actor, taskId, "journal_entry", body),
   );
 }
 
@@ -596,8 +595,7 @@ export function addBlocker(
   taskId: string,
   blockerId: string,
 ): Task {
-  return runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  return runTaskMutation(ctx, (db, publish) => {
     const blocked = getTaskOrThrow(db, taskId);
     if (!db.select().from(tasks).where(eq(tasks.id, blockerId)).get()) throw new BlockerNotFoundError();
     if (wouldCreateCycle(db, blockerId, taskId)) throw new CycleError();
@@ -638,8 +636,7 @@ export function removeBlocker(
   taskId: string,
   blockerId: string,
 ): void {
-  runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  runTaskMutation(ctx, (db, publish) => {
     const dep = db
       .select()
       .from(taskDependencies)
@@ -655,12 +652,13 @@ export function removeBlocker(
       )
       .run();
 
-    const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+    // The dependency row's FK guarantees the task exists.
+    const task = getTaskOrThrow(db, taskId);
     const event = buildTaskEvent({
       taskId,
       actorId: actor,
       kind: "blocker_removed",
-      byAssignee: task?.assignedTo === actor,
+      byAssignee: task.assignedTo === actor,
       blockerId,
     });
     db.insert(taskEvents).values(event).run();
@@ -669,9 +667,9 @@ export function removeBlocker(
       task_id: taskId,
       event_id: event.id,
       kind: "blocker_removed",
-      space_id: task?.spaceId ?? "",
+      space_id: task.spaceId,
     });
-    publish({ type: "task.updated", task_id: taskId, version: task?.version ?? 0, space_id: task?.spaceId ?? "" });
+    publish({ type: "task.updated", task_id: taskId, version: task.version, space_id: task.spaceId });
   });
 }
 
@@ -724,11 +722,11 @@ function setArchived(
 }
 
 export function archiveTask(ctx: TaskCtx, actor: string, taskId: string): Task {
-  return runTaskMutation(ctx, (publish) => setArchived(ctx.db, publish, actor, taskId, true));
+  return runTaskMutation(ctx, (db, publish) => setArchived(db, publish, actor, taskId, true));
 }
 
 export function unarchiveTask(ctx: TaskCtx, actor: string, taskId: string): Task {
-  return runTaskMutation(ctx, (publish) => setArchived(ctx.db, publish, actor, taskId, false));
+  return runTaskMutation(ctx, (db, publish) => setArchived(db, publish, actor, taskId, false));
 }
 
 const EDITABLE_KINDS = new Set(["comment", "journal_entry"]);
@@ -769,8 +767,7 @@ export function editTaskEvent(
   body: string,
   editWindowMinutes: number,
 ): TaskEvent {
-  return runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  return runTaskMutation(ctx, (db, publish) => {
     const task = getTaskOrThrow(db, taskId);
     const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
     if (!event || event.taskId !== taskId) throw new EventNotFoundError();
@@ -792,8 +789,7 @@ export function deleteTaskEvent(
   eventId: string,
   editWindowMinutes: number,
 ): void {
-  runTaskMutation(ctx, (publish) => {
-    const db = ctx.db;
+  runTaskMutation(ctx, (db, publish) => {
     const task = getTaskOrThrow(db, taskId);
     const event = db.select().from(taskEvents).where(eq(taskEvents.id, eventId)).get();
     if (!event || event.taskId !== taskId) throw new EventNotFoundError();
