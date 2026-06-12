@@ -1,155 +1,154 @@
+<div align="center">
+
 # fjord
 
-A tiny Kanban board built for collaboration between one or two humans and a small
-fleet of agents. Humans authenticate with handle + password and get a session
-cookie; agents and CLI callers use API tokens.
+**A Kanban board where humans and agents are first-class collaborators.**
 
-## Stack
+Per-user auth for people *and* their agents · real-time over SSE · optimistic concurrency · blocking as a graph — in a single SQLite file.
 
-- **Backend**: Node 24, TypeScript, Fastify, Drizzle ORM, node:sqlite
-- **Frontend**: React, Vite, TypeScript, Tailwind, dnd-kit, React Query
-- **DB**: SQLite (single file)
-- **Layout**: npm workspaces (`shared`, `backend`, `frontend`)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Node](https://img.shields.io/badge/Node-24-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Fastify](https://img.shields.io/badge/Fastify-000000?logo=fastify&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-single%20file-003B57?logo=sqlite&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-vitest-6E9F18?logo=vitest&logoColor=white)
 
-## Local development
+![Dragging a card across the board](docs/images/board-drag.gif)
+
+</div>
+
+## What is fjord?
+
+Most boards treat automation as a bolt-on: a webhook here, a bot account there. fjord starts from the opposite premise — that a board is increasingly worked by **people and agents side by side**, and both deserve the same first-class footing.
+
+So a human signs in with a handle and password and gets an HttpOnly session cookie; an agent or CLI authenticates with a `Bearer fjord_…` API token. Same tasks, same comments, same event stream, same permission model — the only difference is how you prove who you are. Every change a person drags on the board, an agent can make through a typed, documented API a second later, and everyone watching sees it live.
+
+It's deliberately small: five fixed columns, one SQLite file, no microservices. The interesting part isn't the surface area — it's that the collaboration model holds up under both kinds of actor.
+
+## Highlights
+
+- **Two ways to authenticate, one identity model.** Humans use password + session cookie; agents and CLI callers use revocable API tokens with optional expiry. Cookie-authenticated writes carry a CSRF guard (`X-Requested-With: fjord`); token callers are exempt because they hold no ambient credential.
+- **Real-time by default.** Every mutation publishes to a Server-Sent Events stream, scoped to the spaces you can see. Open two tabs — or a human and an agent — and the board stays in sync without polling.
+- **Optimistic concurrency, not last-write-wins.** Every task carries a `version`; a stale `PATCH` returns `409` with the current version so the caller can re-fetch and retry. No silent clobbering when a person and an agent edit the same card.
+- **Blocking is a graph.** Tasks block other tasks, cycles (including self-edges) are rejected, and "blocked" is *derived* from whether any blocker has reached `Done` — never a flag that drifts out of sync.
+- **A journal *and* comments.** Comments are cross-actor conversation; the journal is an actor's durable working notes — first-class working memory for an agent reasoning across sessions.
+- **Spaces, roles, and soft-deleted users.** Admin/Member roles, per-space access grants, and users that soft-delete so historical attribution on tasks and events keeps rendering.
+
+## A closer look
+
+### The board
+
+Drag a card across columns and the move is committed with optimistic concurrency and broadcast to every connected client. Cards show their project, assignee (`@handle`, human or agent), tags, blocked state, and comment/journal counts at a glance.
+
+### Anatomy of a task
+
+<img src="docs/images/task-detail.png" alt="Task detail with the journal timeline" width="820" />
+
+A shareable, full-page view per task: description, status, assignee, blockers, tags — and a unified **timeline** that splits into *Comments*, *Journal*, and *System* events. Above, an agent's journal entries (`@backend-dev`) capture its reasoning as it works the bug; a non-assignee's note is dimmed. This is the human/agent collaboration model made visible.
+
+### Built for agents
+
+<img src="docs/images/api-tokens.png" alt="API token management bound to an agent handle" width="640" />
+
+Mint a token for any agent and it authenticates as `@that-handle` from scripts, CI, or an autonomous loop. Tokens are listable, revocable, carry an optional expiry, and the plaintext is shown exactly once. The full API is self-documenting — an interactive [Scalar](https://github.com/scalar/scalar) reference lives at `/api/docs`, generated from the OpenAPI spec.
+
+## Quickstart
 
 ```bash
 npm install
 npm run dev
 ```
 
-This runs:
+- Backend (Fastify) on `http://localhost:3000`, frontend (Vite) on `http://localhost:5173`.
+- Open `http://localhost:5173`. On a fresh install the `default-administrator` exists with no password — the first sign-in goes through immediately and forces you to set one before any write succeeds. Set `FJORD_BOOTSTRAP_PASSWORD` on first boot to seed a known password instead.
 
-- Backend on `http://localhost:3000` (Fastify, with `pino-pretty` logs)
-- Frontend on `http://localhost:5173` (Vite dev server, proxies `/api` → 3000)
+Want to poke at a fully-populated board with zero setup? Run it in demo mode:
 
-Open `http://localhost:5173`. On a fresh install the `default-administrator`
-exists with no password; the first sign-in goes through immediately and forces
-you to set a password before any write request will succeed. To seed a known
-password ahead of time, set `FJORD_BOOTSTRAP_PASSWORD` on the first boot (see
-**Configuration** below).
+```bash
+npm run demo   # seeds a rich demo dataset and auto-logs you in
+```
 
-## Tests
+Run the tests (Vitest against an in-memory SQLite DB via `app.inject()`):
 
 ```bash
 npm test
 ```
 
-Vitest runs against an in-memory SQLite DB via `app.inject()`.
+## How it's built
 
-## Production build
+A single repository, three npm workspaces:
+
+| Workspace   | What's in it                                                                 |
+| ----------- | ---------------------------------------------------------------------------- |
+| `shared/`   | TypeScript types and constants shared across the wire (`Task`, `User`, …)    |
+| `backend/`  | Node 24 · Fastify · Drizzle ORM · `node:sqlite` · scrypt · SSE event bus     |
+| `frontend/` | React 18 · Vite · React Query · dnd-kit · Tailwind CSS                        |
+
+The backend is the single deployable: it serves the API *and* the built React app on one port, with migrations auto-applied at startup against a single SQLite file.
 
 ```bash
 npm run build
 FJORD_STATIC_DIR=./frontend/dist FJORD_DB_PATH=./data/fjord.db npm start
 ```
 
-In production the backend serves the React build itself and is the single port
-to expose.
-
-## Docker
+Or with Docker — the image bundles the backend and the frontend build; mount a volume at `/data` to persist:
 
 ```bash
 docker build -t fjord .
 docker run -p 3000:3000 -v $(pwd)/data:/data fjord
 ```
 
-The image bundles the backend and the frontend build. SQLite lives at
-`/data/fjord.db`; mount a volume there to persist across restarts.
+## API
+
+All authenticated endpoints accept either an `fjord_session` cookie (humans) or `Authorization: Bearer fjord_…` (agents and CLI). Cookie-authenticated writes additionally require `X-Requested-With: fjord`. Interactive docs live at `/api/docs`; the machine-readable spec at `/api/docs/openapi.json`.
+
+```http
+GET    /api/tasks                      # list (each with blocked_by / blocking)
+POST   /api/tasks                      # create
+PATCH  /api/tasks/:id                  # update — requires `version` (409 on mismatch)
+DELETE /api/tasks/:id                  # hard delete
+GET    /api/tasks/:id/events           # comment + system-event timeline
+POST   /api/tasks/:id/comments         # cross-actor markdown comment
+POST   /api/tasks/:id/journal          # durable working note (agent memory)
+POST   /api/tasks/:id/blockers         # add a blocker_id (cycle-checked)
+POST   /api/users/:id/tokens           # mint an API token (shown once)
+GET    /api/events/stream              # Server-Sent Events
+```
+
+A few mechanics worth knowing:
+
+- **Optimistic concurrency** — every task has a `version` that increments on each write; `PATCH` requires the version you last saw and returns `409` (with the current version) on mismatch.
+- **Blocked-by / blocking** — stored once in a `task_dependencies(blocker_id, blocked_id)` table; both directions are derived. A task renders as **blocked** when any blocker isn't in `Done`. Adding a dependency that would form a cycle returns `400`.
+- **Fixed columns** — `Backlog`, `To Do`, `In Progress`, `In Review`, `Done`. Order within a column is a float `position`; new tasks land at the top of `Backlog`.
 
 ## Configuration
 
 All config is read at startup from environment variables (Zod-validated).
 
-| Variable                | Default                  | Notes                                       |
-| ----------------------- | ------------------------ | ------------------------------------------- |
-| `FJORD_PORT`           | `3000`                   | HTTP listen port                            |
-| `FJORD_HOST`           | `0.0.0.0`                | HTTP listen host                            |
-| `FJORD_DB_PATH`        | `./data/fjord.db`       | SQLite file path; use `:memory:` for tests  |
-| `FJORD_LOG_LEVEL`      | `info`                   | `fatal`/`error`/`warn`/`info`/`debug`/`trace` |
-| `FJORD_CORS_ORIGINS`   | _(off)_                  | Comma-separated origins to allow            |
-| `FJORD_SEED_USERS`     | _(none)_                 | e.g. `alice:human,agent-coder:agent`        |
-| `FJORD_STATIC_DIR`     | _(none)_                 | Path to built frontend assets to serve      |
-| `FJORD_BOOTSTRAP_PASSWORD` | _(none)_             | Set the `default-administrator` password on first boot if it is still unset. Ignored on subsequent boots and in demo mode. |
-| `FJORD_SESSION_IDLE_DAYS`  | `30`                 | Idle expiry for session cookies             |
-| `NODE_ENV`              | `development`            |                                             |
-
-`FJORD_SEED_USERS` only inserts users that don't already exist; it's safe to
-keep set across restarts.
+| Variable                   | Default            | Notes                                                              |
+| -------------------------- | ------------------ | ----------------------------------------------------------------- |
+| `FJORD_PORT`               | `3000`             | HTTP listen port                                                  |
+| `FJORD_HOST`               | `0.0.0.0`          | HTTP listen host                                                  |
+| `FJORD_DB_PATH`            | `./data/fjord.db`  | SQLite file path; use `:memory:` for tests                        |
+| `FJORD_LOG_LEVEL`          | `info`             | `fatal`/`error`/`warn`/`info`/`debug`/`trace`                     |
+| `FJORD_CORS_ORIGINS`       | _(off)_            | Comma-separated origins to allow                                  |
+| `FJORD_SEED_USERS`         | _(none)_           | e.g. `alice:human,agent-coder:agent` (idempotent)                 |
+| `FJORD_STATIC_DIR`         | _(none)_           | Path to the built frontend to serve                               |
+| `FJORD_BOOTSTRAP_PASSWORD` | _(none)_           | Seeds the `default-administrator` password on first boot if unset |
+| `FJORD_SESSION_IDLE_DAYS`  | `30`               | Idle expiry for session cookies                                   |
+| `NODE_ENV`                 | `development`      |                                                                   |
 
 ## Recovery
 
-If you lose access to the admin account (forgotten password, no one with Admin
-role left who can reset it), run the recovery script against the on-disk
-database:
+Locked out of the admin account with no one left to reset it? Run the recovery script against the on-disk database — it clears `default-administrator`'s password and deletes its sessions, so the next `admin` login goes through and force-sets a new one:
 
 ```bash
 FJORD_DB_PATH=./data/fjord.db npm run reset-admin-password
 ```
 
-This clears `default-administrator`'s `password_hash` and deletes its sessions.
-The next login as `admin` will succeed without a password and the UI will
-force-set a new one. To seed a known password instead, restart the server with
-`FJORD_BOOTSTRAP_PASSWORD=<value>` set and the same `FJORD_DB_PATH`.
-
-Docker:
+In Docker:
 
 ```bash
-docker run --rm -v $(pwd)/data:/data \
-  -e FJORD_DB_PATH=/data/fjord.db \
+docker run --rm -v $(pwd)/data:/data -e FJORD_DB_PATH=/data/fjord.db \
   fjord npm run reset-admin-password
 ```
-
-## API
-
-Interactive docs: `http://<host>/api/docs` (Scalar API Reference from
-auto-generated OpenAPI). Machine-readable spec at `/api/docs/openapi.json`.
-Cookie-authenticated writes additionally require `X-Requested-With:
-fjord`; bearer-authenticated writes do not. See `POST /api/auth/login`
-to obtain a session, and `POST /api/users/:id/tokens` to mint an API token.
-
-Key endpoints:
-
-- `GET /api/tasks` — list all tasks (each with `blocked_by` and `blocking`)
-- `POST /api/tasks` — create
-- `PATCH /api/tasks/:id` — update; requires `version` for optimistic concurrency (409 on mismatch)
-- `DELETE /api/tasks/:id` — hard delete
-- `GET /api/tasks/:id/events` — comment + system-event timeline
-- `POST /api/tasks/:id/comments` — append a markdown comment
-- `POST /api/tasks/:id/blockers` — add a `blocker_id` (cycle-checked)
-- `DELETE /api/tasks/:id/blockers/:blocker_id`
-- `GET /api/events/stream` — Server-Sent Events; emits `task.created`,
-  `task.updated`, `task.deleted`, `task.event_added` notifications. Clients use
-  these as cache-invalidation signals and re-fetch.
-
-### Optimistic concurrency
-
-Each task has a `version` integer that increments on every write. `PATCH`
-requires the version the caller last saw; mismatch returns `409` with the
-current version so the caller can re-fetch and retry.
-
-### Blocked-by / blocking
-
-Stored once in a `task_dependencies(blocker_id, blocked_id)` table; both views
-are derived. A task is rendered as **blocked** in the UI when any of its
-blockers is not in the `Done` column. Adding a dependency that would create a
-cycle (including a self-edge) returns `400`.
-
-### Columns
-
-Fixed set: `Backlog`, `To Do`, `In Progress`, `In Review`, `Done`. Ordering
-within a column is manual via a float `position`; new tasks default to the top
-of `Backlog`.
-
-## What's intentionally not in v1
-
-File attachments, search, configurable columns/labels, per-user views, MCP
-server, backups, and frontend component/E2E tests. Federated identity (OIDC /
-SAML), 2FA, and email-based password reset are also out of scope — recovery is
-admin-mediated (see **Recovery**).
-
-## Container note
-
-This Dockerfile builds the Kanban app only. The Openclaw integration is
-expected to live in a separate downstream Dockerfile that uses this image as
-a base or combines its artifacts with Openclaw.
