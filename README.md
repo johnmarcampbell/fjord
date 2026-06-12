@@ -152,7 +152,3 @@ In Docker:
 docker run --rm -v $(pwd)/data:/data -e FJORD_DB_PATH=/data/fjord.db \
   fjord npm run reset-admin-password
 ```
-
-## What's intentionally not in v1
-
-File attachments, search, configurable columns/labels, per-user views, an MCP server, backups, and frontend component/E2E tests. Federated identity (OIDC/SAML), 2FA, and email-based password reset are out of scope too — recovery is admin-mediated (see above). The goal was to get the human/agent collaboration model right first, not to maximize surface area.
