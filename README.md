@@ -156,9 +156,3 @@ docker run --rm -v $(pwd)/data:/data -e FJORD_DB_PATH=/data/fjord.db \
 ## What's intentionally not in v1
 
 File attachments, search, configurable columns/labels, per-user views, an MCP server, backups, and frontend component/E2E tests. Federated identity (OIDC/SAML), 2FA, and email-based password reset are out of scope too — recovery is admin-mediated (see above). The goal was to get the human/agent collaboration model right first, not to maximize surface area.
-
----
-
-<div align="center">
-<sub>fjord is designed to deploy alongside <b>Openclaw</b> with first-class authentication. The Dockerfile here builds the board itself; the Openclaw integration lives in a downstream image that builds on it.</sub>
-</div>
