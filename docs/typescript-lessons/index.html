@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link active" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>TypeScript by fjord</b> · a guided course</div>
+        </div>
+        <main class="content">
+
+<div class="hero">
+  <div class="lesson-eyebrow"><span>A guided course</span><span class="badge start">Start here</span></div>
+  <h1>Learn TypeScript by reading fjord</h1>
+  <p class="lede">A progressive course that teaches TypeScript using real code from this codebase as the examples — so you learn the language and the project at the same time. Built for someone who knows Python well and TypeScript not at all.</p>
+</div>
+
+<p>Work top to bottom: each lesson assumes the previous ones. Code samples are quoted verbatim from the repo with a <span class="fileref">file:line</span> caption so you can open the real thing alongside. Look for the coloured callouts:</p>
+<ul>
+  <li><strong style="color:var(--py)">🐍 Python analogy</strong> — the nearest idea you already know.</li>
+  <li><strong style="color:var(--idiom)">✓ Idiom &amp; best practice</strong> — how good TypeScript is actually written.</li>
+  <li><strong style="color:var(--gotcha)">⚠ Gotcha</strong> — the traps that bite newcomers.</li>
+  <li><strong style="color:var(--accent)">⛓ In the fjord codebase</strong> — how the concept shows up here specifically.</li>
+</ul>
+
+<h2>The two lists this course braids together</h2>
+<p>The lessons deliberately interleave two syllabuses: the TypeScript concepts a good developer needs, taught through the implementation details you need to work on fjord.</p>
+<div class="two-cols">
+  <div class="list-card">
+    <h3>1 · TypeScript concepts</h3>
+    <p style="color:var(--ink-muted);font-size:.85rem;margin-top:0">basic → intermediate → advanced</p>
+    <ol>
+      <li>The type system, strict mode, structural typing, inference</li>
+      <li>Interfaces &amp; object shapes; optional vs nullable</li>
+      <li>Union &amp; literal types</li>
+      <li>Functions, <code>async</code>/<code>await</code>, <code>Promise&lt;T&gt;</code></li>
+      <li><code>as const</code> &amp; deriving types from values</li>
+      <li>Narrowing &amp; type guards</li>
+      <li>Generics &amp; constraints</li>
+      <li>Utility types (<code>Pick</code>, <code>Omit</code>, <code>Partial</code>…)</li>
+      <li>Discriminated unions &amp; exhaustiveness</li>
+      <li>Classes, custom errors, <code>unknown</code></li>
+      <li>Modules, <code>import type</code>, the monorepo</li>
+      <li><code>keyof</code>/indexed access, Zod, Drizzle inference, <code>satisfies</code></li>
+      <li>React + TypeScript</li>
+    </ol>
+  </div>
+  <div class="list-card">
+    <h3>2 · fjord implementation details</h3>
+    <p style="color:var(--ink-muted);font-size:.85rem;margin-top:0">used as the examples, left to right</p>
+    <ul>
+      <li>The shared workspace as the single source of truth</li>
+      <li>The five fixed <code>Column</code>s, derived from <code>COLUMNS</code></li>
+      <li>The <code>Task</code> model &amp; optimistic concurrency (<code>version</code>)</li>
+      <li>Domain validation via the <code>Validated&lt;T,C&gt;</code> result type</li>
+      <li>The blocking graph &amp; derived blocked state</li>
+      <li>Config loading &amp; validation with Zod</li>
+      <li>Drizzle schema &amp; inferred row types</li>
+      <li>Typed domain errors → HTTP mapping</li>
+      <li>The Task-mutation seam (<code>runTaskMutation</code>)</li>
+      <li>The event bus &amp; <code>StreamEvent</code> union; SSE filtering</li>
+      <li>The actor / auth model</li>
+      <li>The frontend <code>api</code> wrapper &amp; <code>ApiError</code></li>
+      <li>React Query, optimistic updates, context, <code>useTaskEditor</code></li>
+    </ul>
+  </div>
+</div>
+
+<h2>The lessons</h2>
+<div class="start-grid">
+<a class="start-row" href="01-why-typescript.html">
+        <span class="n">1</span>
+        <span class="meta">
+          <span class="t">Why TypeScript exists <span class="badge basic" style="margin-left:.4rem">Basic</span></span>
+          <span class="d">Static types over JavaScript, structural typing, inference, and the all-important fact that types vanish at runtime.</span>
+        </span>
+      </a>
+<a class="start-row" href="02-interfaces.html">
+        <span class="n">2</span>
+        <span class="meta">
+          <span class="t">Interfaces &amp; object shapes <span class="badge basic" style="margin-left:.4rem">Basic</span></span>
+          <span class="d">Describing the shape of data with interfaces — optional fields, nullability, readonly, and extends. The Task and User models.</span>
+        </span>
+      </a>
+<a class="start-row" href="03-unions-literals.html">
+        <span class="n">3</span>
+        <span class="meta">
+          <span class="t">Union &amp; literal types <span class="badge basic" style="margin-left:.4rem">Basic</span></span>
+          <span class="d">The feature that makes TypeScript feel different from everything else: types built from specific values, combined with |.</span>
+        </span>
+      </a>
+<a class="start-row" href="04-functions-async.html">
+        <span class="n">4</span>
+        <span class="meta">
+          <span class="t">Functions, async &amp; Promises <span class="badge basic" style="margin-left:.4rem">Basic</span></span>
+          <span class="d">Typing parameters and return values, default params, void/never, and the async/await + Promise&lt;T&gt; model that runs the backend.</span>
+        </span>
+      </a>
+<a class="start-row" href="05-as-const.html">
+        <span class="n">5</span>
+        <span class="meta">
+          <span class="t">as const &amp; deriving types from values <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">The single-source-of-truth trick: write the list of values once, derive the type from it automatically. typeof and indexed access.</span>
+        </span>
+      </a>
+<a class="start-row" href="06-narrowing.html">
+        <span class="n">6</span>
+        <span class="meta">
+          <span class="t">Narrowing &amp; type guards <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">How TypeScript follows your control flow to turn 'string | null' into 'string'. Truthiness, typeof, instanceof, in, custom guards, and the ! escape hatch.</span>
+        </span>
+      </a>
+<a class="start-row" href="07-generics.html">
+        <span class="n">7</span>
+        <span class="meta">
+          <span class="t">Generics <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">Functions and types parameterised by other types. The api.request&lt;T&gt; wrapper, the runTaskMutation&lt;T&gt; seam, and a generic &lt;T&gt; React component.</span>
+        </span>
+      </a>
+<a class="start-row" href="08-utility-types.html">
+        <span class="n">8</span>
+        <span class="meta">
+          <span class="t">Utility types <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">Built-in type transformers — Pick, Omit, Partial, Readonly, Record — that build new types from existing ones instead of repeating yourself.</span>
+        </span>
+      </a>
+<a class="start-row" href="09-discriminated-unions.html">
+        <span class="n">9</span>
+        <span class="meta">
+          <span class="t">Discriminated unions &amp; exhaustiveness <span class="badge advanced" style="margin-left:.4rem">Advanced</span></span>
+          <span class="d">The pattern that models 'one of several shapes, tagged by a field' — StreamEvent, the Validated result type — plus compiler-checked exhaustiveness with never.</span>
+        </span>
+      </a>
+<a class="start-row" href="10-classes-errors.html">
+        <span class="n">10</span>
+        <span class="meta">
+          <span class="t">Classes &amp; error handling <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">Classes, parameter properties, and the custom-Error pattern that lets the service layer throw typed domain errors the routes map to HTTP — plus the transactional mutation seam.</span>
+        </span>
+      </a>
+<a class="start-row" href="11-modules-monorepo.html">
+        <span class="n">11</span>
+        <span class="meta">
+          <span class="t">Modules, imports &amp; the monorepo <span class="badge intermediate" style="margin-left:.4rem">Intermediate</span></span>
+          <span class="d">ES modules, named vs default exports, import type, the surprising .js extension on relative imports, and how @fjord/shared ties the workspaces together.</span>
+        </span>
+      </a>
+<a class="start-row" href="12-boundary-types.html">
+        <span class="n">12</span>
+        <span class="meta">
+          <span class="t">Advanced types at the runtime boundary <span class="badge advanced" style="margin-left:.4rem">Advanced</span></span>
+          <span class="d">keyof &amp; indexed access, typeof-for-types, Zod runtime validation with inferred types, Drizzle's $inferSelect/$inferInsert, and the snake_case ↔ camelCase mapping seam.</span>
+        </span>
+      </a>
+<a class="start-row" href="13-react-typescript.html">
+        <span class="n">13</span>
+        <span class="meta">
+          <span class="t">React + TypeScript <span class="badge advanced" style="margin-left:.4rem">Advanced</span></span>
+          <span class="d">Where it all lands on the frontend: typed props, generic hooks (useState/useRef), typed events, React Query, typed context, and the useTaskEditor orchestrator.</span>
+        </span>
+      </a>
+</div>
+
+<hr class="sep" />
+<p style="color:var(--ink-muted);font-size:.9rem">Tip: the <strong>☰</strong> button (top-left) collapses the contents sidebar. On any lesson page the sidebar expands to show that lesson's sections, and they highlight as you scroll. This site is fully self-contained — no internet required.</p>
+
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

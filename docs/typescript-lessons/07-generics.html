@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generics · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link active" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>Lesson 7</b> · Generics</div>
+        </div>
+        <main class="content">
+
+<div class="lesson-eyebrow">
+  <span>Lesson 7 of 13</span>
+  <span class="badge intermediate">Intermediate</span>
+</div>
+<h1>Generics</h1>
+
+<p class="lede">A generic is a type with a hole in it — a placeholder filled in at the point of use. It's how you write one function that stays fully type-safe across many concrete types.</p>
+
+<h2 id="why">Why generics<a class="anchor" href="#why">#</a></h2>
+<p>You've used generics already: <code>string[]</code> is sugar for <code>Array&lt;string&gt;</code>, <code>Promise&lt;Buffer&gt;</code> is a promise parameterised by <code>Buffer</code>. The angle brackets hold a <em>type argument</em>. Writing your own generic means introducing a type <em>parameter</em>, conventionally <code>T</code>:</p>
+<pre><code>function identity&amp;lt;T&amp;gt;(value: T): T {
+  return value;   // works for any T, and the return type matches the input
+}
+const a = identity("hi");   // T inferred as string  → a: string
+const b = identity(42);     // T inferred as number  → b: number</code></pre>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>This is <code>typing.TypeVar</code> + <code>Generic</code> in Python: <code>T = TypeVar("T"); def identity(value: T) -&gt; T:</code>. Same concept, lighter syntax — and inference usually fills <code>T</code> in for you, so you rarely write the type argument explicitly.</p>
+</div>
+
+<h2 id="request">The api <code>request&lt;T&gt;</code> wrapper<a class="anchor" href="#request">#</a></h2>
+<p>The frontend's entire HTTP layer is one generic function. <code>T</code> is "the shape this endpoint returns":</p>
+<div class="code-caption">frontend/src/lib/api.ts:47</div><pre><code>async function request&amp;lt;T&amp;gt;(path: string, init: RequestInit = {}): Promise&amp;lt;T&amp;gt; {
+  const headers = new Headers(init.headers);
+  if (init.body) headers.set("Content-Type", "application/json");
+  if (isWriteMethod(init.method)) headers.set(CSRF_HEADER, CSRF_VALUE);
+  const res = await fetch(path, { ...init, credentials: "include", headers });
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    if (res.status === 401) dispatchLogout();
+    const message = (body &amp;amp;&amp;amp; (body.error || body.message)) || `HTTP ${res.status}`;
+    throw new ApiError(res.status, message, body);
+  }
+  return body as T;   // we *assert* the parsed JSON matches T (see the warning)
+}</code></pre>
+<p>Each endpoint method supplies the concrete <code>T</code>, and callers get a precisely-typed result with zero extra annotation:</p>
+<div class="code-caption">frontend/src/lib/api.ts:64</div><pre><code>export const api = {
+  listUsers: () =&amp;gt; request&amp;lt;User[]&amp;gt;("/api/users"),
+  createUser: (body: CreateUserRequest) =&amp;gt;
+    request&amp;lt;User&amp;gt;("/api/users", { method: "POST", body: JSON.stringify(body) }),
+  deleteUser: (id: string) =&amp;gt;
+    request&amp;lt;void&amp;gt;(`/api/users/${id}`, { method: "DELETE" }),
+};</code></pre>
+<p><code>api.listUsers()</code> is typed <code>Promise&lt;User[]&gt;</code>; <code>api.createUser(body)</code> is <code>Promise&lt;User&gt;</code>. One wrapper, total type safety across dozens of endpoints.</p>
+<div class="callout gotcha"><div class="callout-head">⚠ Gotcha</div>
+<p>Notice <code>return body as T</code>. That <code>as T</code> is a <strong>type assertion</strong> — you're <em>telling</em> the compiler the parsed JSON is a <code>T</code>; nothing checks it at runtime (remember lesson 1: types are erased). It's a deliberate trust boundary: the frontend trusts the backend's contract. If you needed to defend against a lying server, you'd validate with Zod here instead (lesson 12).</p>
+</div>
+
+<h2 id="constraints">Constraints with <code>extends</code><a class="anchor" href="#constraints">#</a></h2>
+<p>Sometimes <code>T</code> can't be <em>anything</em> — it must at least have certain capabilities. <code>T extends Constraint</code> bounds it. fjord's click-outside hook only makes sense for DOM elements, and defaults <code>T</code> when unspecified:</p>
+<div class="code-caption">frontend/src/lib/useClickOutside.ts:10</div><pre><code>export function useClickOutside&amp;lt;T extends HTMLElement = HTMLElement&amp;gt;(
+  active: boolean,
+  onDismiss: () =&amp;gt; void,
+): RefObject&amp;lt;T&amp;gt; {
+  const ref = useRef&amp;lt;T&amp;gt;(null);
+  // …
+  return ref;   // a ref the caller can attach to a &amp;lt;div&amp;gt;, &amp;lt;input&amp;gt;, etc.
+}</code></pre>
+<p>Read <code>&lt;T extends HTMLElement = HTMLElement&gt;</code> as "<code>T</code> is some kind of HTML element; if you don't say which, assume the base <code>HTMLElement</code>." The same generic shape powers a reusable component — a <code>Combobox</code> that works for a list of <em>any</em> item type:</p>
+<div class="code-caption">frontend/src/components/Combobox.tsx:3</div><pre><code>interface ComboboxProps&amp;lt;T&amp;gt; {
+  items: T[];
+  getLabel: (item: T) =&amp;gt; string;
+  onSelect: (item: T) =&amp;gt; void;
+  placeholder?: string;
+}
+export function Combobox&amp;lt;T&amp;gt;({ items, getLabel, onSelect }: ComboboxProps&amp;lt;T&amp;gt;) { … }</code></pre>
+<p>Use it with <code>User</code>s, <code>Project</code>s, whatever — <code>T</code> flows through and <code>getLabel</code>/<code>onSelect</code> stay type-checked against the item type you passed.</p>
+
+<h2 id="mutation"><code>runTaskMutation&lt;T&gt;</code>: a generic seam<a class="anchor" href="#mutation">#</a></h2>
+<p>The backend's most important internal function is generic. Every task write runs through it; <code>T</code> is "whatever the body produces" (a <code>Task</code>, a <code>TaskEvent</code>, nothing…):</p>
+<div class="code-caption">backend/src/services/tasks.ts:328</div><pre><code>function runTaskMutation&amp;lt;T&amp;gt;(ctx: TaskCtx, fn: (db: DB, publish: PublishFn) =&amp;gt; T): T {
+  const pending: StreamEvent[] = [];
+  let result!: T;
+  ctx.db.transaction(() =&amp;gt; {
+    result = fn(ctx.db, (event) =&amp;gt; pending.push(event));  // run the body in a txn
+  });
+  for (const event of pending) ctx.bus.publish(event);     // publish only after COMMIT
+  return result;
+}</code></pre>
+<p>Because it's generic, the wrapper imposes the transaction-and-publish discipline without caring what each mutation returns — <code>createTask</code> gets back a <code>Task</code>, <code>addComment</code> gets back a <code>TaskEvent</code>, and both are correctly typed. This is the architectural "Task mutation seam" from CONTEXT.md; we'll return to its <em>behaviour</em> in lesson 10.</p>
+
+<h2 id="containers">Generic containers: <code>Map</code>, <code>Set</code><a class="anchor" href="#containers">#</a></h2>
+<p>The built-in collections are generic, and fjord annotates them explicitly when inference needs help:</p>
+<pre><code>const visited = new Set&amp;lt;string&amp;gt;();              // a set of strings
+const stack: string[] = [blockedId];
+const taskById = new Map&amp;lt;string, Pick&amp;lt;Task, "column" | "archived"&amp;gt;&amp;gt;();
+//                    ↑ keys are string, values are a partial Task</code></pre>
+<p><code>Map&lt;K, V&gt;</code> and <code>Set&lt;T&gt;</code> carry their element types, so <code>taskById.get(id)</code> returns <code>V | undefined</code> and the compiler makes you handle the miss. (That <code>Pick&lt;…&gt;</code> is a utility type — exactly the next lesson.)</p>
+
+
+<div class="pager">
+  <a class="prev" href="06-narrowing.html"><div class="dir">← Previous</div><div class="lbl">Narrowing &amp; type guards</div></a>
+  <a class="next" href="08-utility-types.html"><div class="dir">Next →</div><div class="lbl">Utility types</div></a>
+</div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>
