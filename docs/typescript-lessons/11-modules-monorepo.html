@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modules, imports &amp; the monorepo · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link active" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>Lesson 11</b> · Modules, imports &amp; the monorepo</div>
+        </div>
+        <main class="content">
+
+<div class="lesson-eyebrow">
+  <span>Lesson 11 of 13</span>
+  <span class="badge intermediate">Intermediate</span>
+</div>
+<h1>Modules, imports &amp; the monorepo</h1>
+
+<p class="lede">Module mechanics are the least glamorous TypeScript topic and the one most likely to confuse a newcomer to this repo — especially the <code>.js</code> extensions on TypeScript imports. Let's demystify it.</p>
+
+<h2 id="esm">ES modules: <code>import</code> / <code>export</code><a class="anchor" href="#esm">#</a></h2>
+<p>Every <code>.ts</code> file is a module. Anything marked <code>export</code> is public; everything else is private to the file. You bring names in with <code>import</code>:</p>
+<div class="code-caption">backend/src/server.ts</div><pre><code>import { eq } from "drizzle-orm";
+import { users } from "../db/schema.js";
+import { EventBus } from "./event_bus.js";</code></pre>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>Direct parallels to Python: <code>export</code> ≈ a top-level name in a module (Python exports everything not underscore-prefixed; TS exports only what you mark). <code>import { eq } from "drizzle-orm"</code> ≈ <code>from drizzle_orm import eq</code>. <code>import * as schema from "./schema.js"</code> ≈ <code>import schema</code> / <code>from . import schema</code>.</p>
+</div>
+
+<h2 id="named-default">Named vs default exports<a class="anchor" href="#named-default">#</a></h2>
+<p>Two flavors:</p>
+<ul>
+  <li><strong>Named</strong>: <code>export function foo()</code> / <code>export const bar</code>, imported with braces: <code>import { foo, bar } from "…"</code>. The name must match. This is what fjord uses almost everywhere.</li>
+  <li><strong>Default</strong>: <code>export default …</code>, imported <em>without</em> braces and renameable: <code>import Fastify from "fastify"</code>. Common for a library's single main export.</li>
+</ul>
+<div class="code-caption">backend/src/server.ts:3</div><pre><code>import Fastify, { type FastifyInstance } from "fastify";
+//     ↑ default     ↑ a named (type) export, in the same statement</code></pre>
+<div class="callout idiom"><div class="callout-head">✓ Idiom &amp; best practice</div>
+<p>fjord favors <strong>named exports</strong> for app code — they're greppable, autocomplete well, and rename safely. Default exports are mostly left to third-party libraries and React component files. When in doubt, export by name.</p>
+</div>
+
+<h2 id="import-type"><code>import type</code><a class="anchor" href="#import-type">#</a></h2>
+<p>Because types are erased (lesson 1!), importing something <em>only</em> for its type shouldn't generate a runtime <code>import</code>. <code>import type</code> (or an inline <code>type</code> modifier) makes that explicit, and the compiler strips it entirely:</p>
+<div class="code-caption">backend/src/routes/tasks.ts:1</div><pre><code>import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { Actor } from "../auth/actor.js";
+import type { DB } from "../db/index.js";
+
+// inline form — mix value and type imports in one line:
+import { openDatabase, runMigrations, type DB, type DBHandle } from "./db/index.js";</code></pre>
+<p>This matters under <code>isolatedModules</code> (set in fjord's tsconfig): the compiler processes each file alone and needs you to be explicit about which imports are type-only so it can erase them safely. It's also good documentation — <code>import type</code> signals "this is a compile-time-only dependency."</p>
+
+<h2 id="js-ext">Why imports end in <code>.js</code> (not <code>.ts</code>)<a class="anchor" href="#js-ext">#</a></h2>
+<p>This is the single most "wait, what?" thing in the backend. You'll see TypeScript files importing their siblings with a <code>.js</code> extension:</p>
+<pre><code>import { users } from "../db/schema.js";   // …but the file is schema.ts!</code></pre>
+<p>The reason: TypeScript deliberately does <em>not</em> rewrite import paths. The <em>output</em> of compiling <code>schema.ts</code> is <code>schema.js</code>, and that's what actually exists when Node runs the compiled backend. So you write the path to the <em>emitted</em> file. You're importing "what this will be at runtime", and the compiler maps <code>./schema.js</code> back to <code>./schema.ts</code> for type-checking. Native ES modules in Node require the extension, so it can't be omitted.</p>
+<div class="callout gotcha"><div class="callout-head">⚠ Gotcha</div>
+<p>Write <code>.js</code>, never <code>.ts</code>, in relative import paths in the backend — even though you're pointing at a <code>.ts</code> file. It looks wrong; it's correct. (The frontend, bundled by Vite, is more relaxed and usually omits extensions — another reason the two workspaces feel slightly different.)</p>
+</div>
+
+<h2 id="shared"><code>@fjord/shared</code> &amp; barrel files<a class="anchor" href="#shared">#</a></h2>
+<p>Both backend and frontend import shared types by a <em>package name</em>, not a relative path — that's the workspace boundary doing its job:</p>
+<div class="code-caption">backend/src/routes/tasks.ts / server.ts</div><pre><code>import { COLUMNS, EVENT_KINDS, type DomainErrorCode } from "@fjord/shared";
+import {
+  DEFAULT_ADMINISTRATOR_ID, pickAvatar, type DomainErrorCode,
+} from "@fjord/shared";</code></pre>
+<p><code>@fjord/shared</code> resolves to the <span class="fileref">shared/</span> workspace via npm. Its single <span class="fileref">shared/src/index.ts</span> re-exports everything — that's a <strong>barrel file</strong>: one entry point that gathers a module's public surface so consumers have a single import source. The backend also barrels its schema:</p>
+<div class="code-caption">backend/src/db/index.ts:39</div><pre><code>export * as schema from "./schema.js";   // re-export the whole module as a namespace</code></pre>
+<p>Now <code>schema.users</code>, <code>schema.tasks</code>, etc. are all reachable through one import. Barrels keep import lists short and give you one obvious place to look for "what does this module offer".</p>
+
+
+<div class="pager">
+  <a class="prev" href="10-classes-errors.html"><div class="dir">← Previous</div><div class="lbl">Classes &amp; error handling</div></a>
+  <a class="next" href="12-boundary-types.html"><div class="dir">Next →</div><div class="lbl">Advanced types at the runtime boundary</div></a>
+</div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

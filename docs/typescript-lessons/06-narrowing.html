@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Narrowing &amp; type guards · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link active" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>Lesson 6</b> · Narrowing &amp; type guards</div>
+        </div>
+        <main class="content">
+
+<div class="lesson-eyebrow">
+  <span>Lesson 6 of 13</span>
+  <span class="badge intermediate">Intermediate</span>
+</div>
+<h1>Narrowing &amp; type guards</h1>
+
+<p class="lede">Strict null checks force you to handle <code>null</code> — but the compiler is smart enough to <em>track</em> your checks. Once you've tested a value, TypeScript narrows its type for the rest of that branch.</p>
+
+<h2 id="what">What narrowing is<a class="anchor" href="#what">#</a></h2>
+<p>"Narrowing" is the compiler following your control flow and shrinking a type within a branch. After <code>if (x !== null)</code>, inside the <code>if</code> the type of <code>x</code> no longer includes <code>null</code>. You don't cast anything — the compiler just <em>knows</em>.</p>
+
+<h2 id="truthiness">Truthiness &amp; null checks<a class="anchor" href="#truthiness">#</a></h2>
+<div class="code-caption">backend/src/auth/actor.ts:100</div><pre><code>export function actorRequiresPasswordSet(db: DB, actor: Actor, demo: boolean): boolean {
+  if (demo) return false;
+  const row = db.select({ passwordHash: users.passwordHash, kind: users.kind })
+    .from(users).where(eq(users.id, actor.id)).get();
+  if (!row) return false;          // row: Row | undefined  →  after this, row: Row
+  if (row.kind !== "human") return false;  // narrows the kind union
+  return row.passwordHash === null;
+}</code></pre>
+<p>The <code>if (!row) return false</code> is an <strong>early return</strong> that eliminates <code>undefined</code>; below it, <code>row</code> is the non-null row type and <code>row.passwordHash</code> is safe to touch. This "guard clause then proceed" shape is everywhere in the backend.</p>
+<div class="code-caption">backend/src/services/users.ts:88</div><pre><code>for (const r of rows) {
+  if (r.handle) takenLower.add(r.handle.toLowerCase());
+  //  ↑ r.handle is 'string | null'; inside the if it's narrowed to 'string',
+  //    so .toLowerCase() is allowed.
+}</code></pre>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>Same instinct as Python's <code>if row is None: return</code> then proceed, or <code>if r.handle:</code>. The difference: in Python this is just runtime logic; in TS the <em>type</em> of the variable actually changes below the check, and the compiler enforces that you did the check before the dereference.</p>
+</div>
+
+<h2 id="in">The <code>in</code> operator<a class="anchor" href="#in">#</a></h2>
+<p>For a union of object shapes, testing whether a <em>property exists</em> narrows which member you have. fjord's auth resolver returns "either an actor or an error", and the caller narrows with <code>in</code>:</p>
+<div class="code-caption">backend/src/auth/actor.ts:27</div><pre><code>export type ResolveActorResult =
+  | { actor: Actor }
+  | { error: string; status: 401 };
+
+// at the call site:
+if ("error" in result) {
+  return reply.code(result.status).send({ error: result.error });
+  //                 ↑ TS knows result is the {error, status} shape here
+}
+req.actor = result.actor;  // and the {actor} shape here</code></pre>
+<p>This is a <strong>discriminated union</strong> narrowed structurally — a pattern important enough to get its own lesson (9).</p>
+
+<h2 id="instanceof"><code>instanceof</code> for classes<a class="anchor" href="#instanceof">#</a></h2>
+<p>For real runtime classes (like Error subclasses), <code>instanceof</code> narrows to the specific class — and gives you access to that class's extra fields. fjord maps domain errors to HTTP responses this way:</p>
+<div class="code-caption">backend/src/routes/tasks.ts:88</div><pre><code>if (err instanceof TaskNotFoundError) {
+  notFound(reply, "Task");
+} else if (err instanceof VersionConflictError) {
+  reply.code(409).send({
+    error: "Version conflict",
+    code: "version_conflict" satisfies DomainErrorCode,
+    current_version: err.currentVersion,   // ← only exists on VersionConflictError
+  });
+} else if (err instanceof EventEditForbiddenError) {
+  if (err.code === "not_author") { /* … */ }   // err.code typed &amp; narrowed
+}</code></pre>
+<p>Inside the <code>VersionConflictError</code> branch, <code>err.currentVersion</code> is reachable because the compiler knows <code>err</code> is that class. We'll build those error classes in lesson 10.</p>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p><code>err instanceof VersionConflictError</code> is precisely Python's <code>except VersionConflictError as err:</code> / <code>isinstance(err, VersionConflictError)</code> — and just like Python, after the check you can read the subclass-specific attributes.</p>
+</div>
+
+<h2 id="guards">User-defined type guards (<code>x is T</code>)<a class="anchor" href="#guards">#</a></h2>
+<p>You can teach the compiler your own narrowing rule by writing a function whose return type is a <strong>type predicate</strong>: <code>param is T</code>. When it returns <code>true</code>, the compiler narrows the argument to <code>T</code>.</p>
+<pre><code>// A plain boolean function checks a condition:
+function isBlockerSatisfied(blocker: Pick&amp;lt;Task, "column" | "archived"&amp;gt;): boolean {
+  return blocker.column === "Done" || blocker.archived;
+}
+
+// A *type guard* additionally re-types its argument for the caller:
+function isColumn(x: string): x is Column {
+  return (COLUMNS as readonly string[]).includes(x);
+}
+// after `if (isColumn(raw))`, `raw` is typed Column, not string</code></pre>
+<p>fjord's <code>isBlockerSatisfied</code> (real, in <span class="fileref">shared</span>) is an ordinary predicate; the <code>isColumn</code> form shows the <code>is</code> syntax you'll reach for when validating untrusted input into a precise type.</p>
+
+<h2 id="bang">The non-null assertion <code>!</code><a class="anchor" href="#bang">#</a></h2>
+<p>Sometimes <em>you</em> know a value isn't null but the compiler can't prove it. A trailing <code>!</code> says "trust me, this isn't null/undefined" and removes them from the type:</p>
+<div class="code-caption">backend/src/services/tasks.ts:293</div><pre><code>const current = stack.pop()!;       // pop() is T | undefined; we just checked length
+if (ch.codePointAt(0)! &amp;gt; 127) { … } // codePointAt may be undefined; index is valid here</code></pre>
+<div class="callout gotcha"><div class="callout-head">⚠ Gotcha</div>
+<p><code>!</code> is an <em>unchecked</em> override of the type system — if you're wrong, you get the exact runtime crash strict-null-checks was meant to prevent. Use it only when an invariant guarantees non-null (e.g. right after a <code>while (stack.length)</code>). Prefer a real check when you can. Treat every <code>!</code> as a small note that says "I checked this by hand."</p>
+</div>
+
+
+<div class="pager">
+  <a class="prev" href="05-as-const.html"><div class="dir">← Previous</div><div class="lbl">as const &amp; deriving types from values</div></a>
+  <a class="next" href="07-generics.html"><div class="dir">Next →</div><div class="lbl">Generics</div></a>
+</div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

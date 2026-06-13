@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Union &amp; literal types · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link active" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>Lesson 3</b> · Union &amp; literal types</div>
+        </div>
+        <main class="content">
+
+<div class="lesson-eyebrow">
+  <span>Lesson 3 of 13</span>
+  <span class="badge basic">Basic</span>
+</div>
+<h1>Union &amp; literal types</h1>
+
+<p class="lede">If you learn one thing that makes TypeScript click, it's this: a type can be a <em>specific value</em>, and you can OR types together with <code>|</code>. Whole categories of bug disappear.</p>
+
+<h2 id="literals">Literal types<a class="anchor" href="#literals">#</a></h2>
+<p>A type doesn't have to be "some string". It can be <em>the exact string</em> <code>"Admin"</code>. That's a <strong>literal type</strong> — a type with exactly one value:</p>
+<pre><code>type Role = "Admin";       // the ONLY value this type allows is "Admin"
+const r: Role = "Admin";   // ok
+// const r: Role = "admin"; // ✗ Type '"admin"' is not assignable to type '"Admin"'</code></pre>
+<p>On its own that's a curiosity. Combined with unions, it's transformative.</p>
+
+<h2 id="unions">Unions with <code>|</code><a class="anchor" href="#unions">#</a></h2>
+<p>A <strong>union</strong> type is "one of these". Read <code>|</code> as "or":</p>
+<div class="code-caption">shared/src/index.ts:11</div><pre><code>export type UserKind = "human" | "agent";
+export type Role = "Admin" | "Member";</code></pre>
+<p>A <code>UserKind</code> is <em>either</em> the string <code>"human"</code> or the string <code>"agent"</code> — and nothing else. Pass <code>"robot"</code> and the build fails. Your editor autocompletes the two valid options. There is no separate enum class to import, no constant to typo.</p>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>This is Python's <code>Literal["human", "agent"]</code> from <code>typing</code>, or an <code>enum.Enum</code> — but more ergonomic. In Python you'd often reach for an <code>Enum</code> class and write <code>UserKind.HUMAN</code>; in TS the <em>string itself</em> is the value, so you just write <code>"human"</code> and the type system guarantees it's valid. No import, no <code>.value</code>.</p>
+</div>
+
+<h2 id="fixed-columns">Modelling the five fixed columns<a class="anchor" href="#fixed-columns">#</a></h2>
+<p>fjord's columns are a fixed set — a core product constraint ("configurable columns: not supported"). The type makes that constraint <em>unbreakable</em>:</p>
+<pre><code>export type Column = "Backlog" | "To Do" | "In Progress" | "In Review" | "Done";</code></pre>
+<p>Now <code>Task.column</code> is typed <code>Column</code>. A typo like <code>"In progress"</code> (lowercase p) won't compile. A function that handles columns can be checked for handling <em>all five</em> (we'll see exhaustiveness in lesson 9). And your editor offers the five options as you type.</p>
+<div class="callout codebase"><div class="callout-head">⛓ In the fjord codebase</div>
+<p>In reality fjord doesn't hand-write that union — it <em>derives</em> it from the <code>COLUMNS</code> array so the list and the type can never drift apart. That's lesson 5. But the resulting <code>Column</code> type is exactly the five-way union above.</p>
+</div>
+
+<h2 id="null-unions">Unions with <code>null</code><a class="anchor" href="#null-unions">#</a></h2>
+<p>You've already seen the most common union in the codebase: a real type OR <code>null</code>.</p>
+<pre><code>assigned_to: string | null;   // a user id, or null when unassigned
+due_at: string | null;        // an ISO date, or null when no due date</code></pre>
+<p>Under <code>strictNullChecks</code> (which fjord has on), this is enforced: if a field is <code>string | null</code>, you <em>cannot</em> call <code>.toUpperCase()</code> on it until you've proven it isn't null. The compiler forces the null-check. That's the next lesson — narrowing.</p>
+
+<div class="callout gotcha"><div class="callout-head">⚠ Gotcha</div>
+<p>TypeScript has <em>two</em> "empty" values: <code>null</code> and <code>undefined</code>. They're distinct types. fjord leans on <code>null</code> for "intentionally absent" stored values and <code>undefined</code> for "not provided / optional" (the <code>?</code> from lesson 2). Don't assume they're interchangeable — <code>string | null</code> will reject <code>undefined</code>.</p>
+</div>
+
+<h2 id="why">Why this beats string constants<a class="anchor" href="#why">#</a></h2>
+<p>In dynamically-typed code you'd guard against bad column names with runtime checks, tests, and hope. With literal unions the guarantee moves to compile time and costs nothing at runtime. The set of valid values <em>is</em> the type. This idea — types as precise sets of allowed values — underpins the discriminated unions, the domain error codes, and the event kinds you'll meet throughout fjord.</p>
+<pre><code>export type DomainErrorCode =
+  | "handle_invalid" | "handle_reserved" | "handle_taken"
+  | "avatar_invalid" | "set_password_required" | "version_conflict"
+  | "subsequent_activity" | "edit_window_expired";</code></pre>
+<p>Every error the domain can raise, enumerated as a type. A route that returns <code>code: "verison_conflict"</code> (typo) won't compile. That's the payoff.</p>
+
+
+<div class="pager">
+  <a class="prev" href="02-interfaces.html"><div class="dir">← Previous</div><div class="lbl">Interfaces &amp; object shapes</div></a>
+  <a class="next" href="04-functions-async.html"><div class="dir">Next →</div><div class="lbl">Functions, async &amp; Promises</div></a>
+</div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

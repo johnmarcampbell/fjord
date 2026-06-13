@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Classes &amp; error handling · TypeScript by fjord</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="layout">
+    
+  <aside class="sidebar">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+      <span class="logo">⛰️</span>
+      <span>
+        <div class="title">TypeScript by fjord</div>
+        <div class="subtitle">Learn TS from a real codebase</div>
+      </span>
+    </a>
+    <nav class="nav">
+      <a class="lesson-link" href="index.html">
+        <span class="num">★</span><span>Overview &amp; the two lists</span>
+      </a>
+      <div class="nav-group-label">Basics</div>
+      <a class="lesson-link" href="01-why-typescript.html">
+        <span class="num">1</span><span>Why TypeScript exists</span>
+      </a>
+      <div class="subtoc"><a href="01-why-typescript.html#what">What TypeScript is</a><a href="01-why-typescript.html#structural">Structural ('duck') typing</a><a href="01-why-typescript.html#inference">Inference: you annotate less than you think</a><a href="01-why-typescript.html#strict">Strict mode — how fjord is configured</a><a href="01-why-typescript.html#erased">Types are erased at runtime</a><a href="01-why-typescript.html#build">The build &amp; the three workspaces</a></div>
+      <a class="lesson-link" href="02-interfaces.html">
+        <span class="num">2</span><span>Interfaces &amp; object shapes</span>
+      </a>
+      <div class="subtoc"><a href="02-interfaces.html#interface">The interface keyword</a><a href="02-interfaces.html#optional">Optional vs nullable (? vs | null)</a><a href="02-interfaces.html#task">Reading a real model: Task</a><a href="02-interfaces.html#extends">Composition with extends</a><a href="02-interfaces.html#type-vs-interface">interface vs type</a><a href="02-interfaces.html#readonly">readonly &amp; immutability</a></div>
+      <a class="lesson-link" href="03-unions-literals.html">
+        <span class="num">3</span><span>Union &amp; literal types</span>
+      </a>
+      <div class="subtoc"><a href="03-unions-literals.html#literals">Literal types</a><a href="03-unions-literals.html#unions">Unions with |</a><a href="03-unions-literals.html#fixed-columns">Modelling the five fixed columns</a><a href="03-unions-literals.html#null-unions">Unions with null</a><a href="03-unions-literals.html#why">Why this beats string constants</a></div>
+      <a class="lesson-link" href="04-functions-async.html">
+        <span class="num">4</span><span>Functions, async &amp; Promises</span>
+      </a>
+      <div class="subtoc"><a href="04-functions-async.html#params">Typing parameters &amp; returns</a><a href="04-functions-async.html#defaults">Optional &amp; default parameters</a><a href="04-functions-async.html#void-never">void and never</a><a href="04-functions-async.html#promises">Promise&lt;T&gt;, async &amp; await</a><a href="04-functions-async.html#fn-types">Functions as values (callback types)</a></div>
+      <div class="nav-group-label">Intermediate</div>
+      <a class="lesson-link" href="05-as-const.html">
+        <span class="num">5</span><span>as const &amp; deriving types from values</span>
+      </a>
+      <div class="subtoc"><a href="05-as-const.html#problem">The drift problem</a><a href="05-as-const.html#as-const">What as const does</a><a href="05-as-const.html#typeof">typeof: from a value to its type</a><a href="05-as-const.html#indexed">Indexed access: [number]</a><a href="05-as-const.html#payoff">The payoff across the codebase</a></div>
+      <a class="lesson-link" href="06-narrowing.html">
+        <span class="num">6</span><span>Narrowing &amp; type guards</span>
+      </a>
+      <div class="subtoc"><a href="06-narrowing.html#what">What narrowing is</a><a href="06-narrowing.html#truthiness">Truthiness &amp; null checks</a><a href="06-narrowing.html#in">The in operator</a><a href="06-narrowing.html#instanceof">instanceof for classes</a><a href="06-narrowing.html#guards">User-defined type guards (x is T)</a><a href="06-narrowing.html#bang">The non-null assertion !</a></div>
+      <a class="lesson-link" href="07-generics.html">
+        <span class="num">7</span><span>Generics</span>
+      </a>
+      <div class="subtoc"><a href="07-generics.html#why">Why generics</a><a href="07-generics.html#request">The api request&lt;T&gt; wrapper</a><a href="07-generics.html#constraints">Constraints with extends</a><a href="07-generics.html#mutation">runTaskMutation&lt;T&gt;: a generic seam</a><a href="07-generics.html#containers">Generic containers: Map, Set</a></div>
+      <a class="lesson-link" href="08-utility-types.html">
+        <span class="num">8</span><span>Utility types</span>
+      </a>
+      <div class="subtoc"><a href="08-utility-types.html#idea">Types that transform types</a><a href="08-utility-types.html#pick">Pick&lt;T, K&gt;</a><a href="08-utility-types.html#omit">Omit&lt;T, K&gt;</a><a href="08-utility-types.html#partial">Partial&lt;T&gt; &amp; Required&lt;T&gt;</a><a href="08-utility-types.html#record-readonly">Record, Readonly &amp; friends</a></div>
+      <a class="lesson-link active" href="10-classes-errors.html">
+        <span class="num">10</span><span>Classes &amp; error handling</span>
+      </a>
+      <div class="subtoc"><a href="10-classes-errors.html#classes">Classes &amp; parameter properties</a><a href="10-classes-errors.html#errors">Custom Error classes</a><a href="10-classes-errors.html#carry">Errors that carry data</a><a href="10-classes-errors.html#mapping">Throw in the service, map in the route</a><a href="10-classes-errors.html#seam">The mutation seam in practice</a></div>
+      <a class="lesson-link" href="11-modules-monorepo.html">
+        <span class="num">11</span><span>Modules, imports &amp; the monorepo</span>
+      </a>
+      <div class="subtoc"><a href="11-modules-monorepo.html#esm">ES modules: import / export</a><a href="11-modules-monorepo.html#named-default">Named vs default exports</a><a href="11-modules-monorepo.html#import-type">import type</a><a href="11-modules-monorepo.html#js-ext">Why imports end in .js</a><a href="11-modules-monorepo.html#shared">@fjord/shared &amp; barrels</a></div>
+      <div class="nav-group-label">Advanced</div>
+      <a class="lesson-link" href="09-discriminated-unions.html">
+        <span class="num">9</span><span>Discriminated unions &amp; exhaustiveness</span>
+      </a>
+      <div class="subtoc"><a href="09-discriminated-unions.html#idea">A tag field + a union</a><a href="09-discriminated-unions.html#stream">StreamEvent: the canonical example</a><a href="09-discriminated-unions.html#result">Validated&lt;T,C&gt;: results without exceptions</a><a href="09-discriminated-unions.html#exhaustive">Exhaustiveness with never</a><a href="09-discriminated-unions.html#satisfies">satisfies for safe tags</a></div>
+      <a class="lesson-link" href="12-boundary-types.html">
+        <span class="num">12</span><span>Advanced types at the runtime boundary</span>
+      </a>
+      <div class="subtoc"><a href="12-boundary-types.html#indexed">keyof &amp; indexed access types</a><a href="12-boundary-types.html#typeof-type">typeof in type position, again</a><a href="12-boundary-types.html#zod">Zod: parse, don't validate</a><a href="12-boundary-types.html#drizzle">Drizzle's inferred row types</a><a href="12-boundary-types.html#mapping">The mapping seam: DB ↔ API</a></div>
+      <a class="lesson-link" href="13-react-typescript.html">
+        <span class="num">13</span><span>React + TypeScript</span>
+      </a>
+      <div class="subtoc"><a href="13-react-typescript.html#props">Typing component props</a><a href="13-react-typescript.html#hooks">Hooks: useState &amp; useRef generics</a><a href="13-react-typescript.html#events">Typed event handlers</a><a href="13-react-typescript.html#query">React Query: typed server state</a><a href="13-react-typescript.html#optimistic">Optimistic updates &amp; ApiError</a><a href="13-react-typescript.html#context">Typed context &amp; a hook contract</a></div>
+    </nav>
+  </aside>
+    <div class="content-wrap">
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="topbar">
+          <button class="icon-btn" data-toggle-nav title="Toggle contents (sidebar)">☰</button>
+          <div class="crumb"><b>Lesson 10</b> · Classes &amp; error handling</div>
+        </div>
+        <main class="content">
+
+<div class="lesson-eyebrow">
+  <span>Lesson 10 of 13</span>
+  <span class="badge intermediate">Intermediate</span>
+</div>
+<h1>Classes &amp; error handling</h1>
+
+<p class="lede">TypeScript classes will feel familiar from Python, with a couple of conveniences. fjord uses them sparingly but pointedly — most of all for a clean, typed error architecture.</p>
+
+<h2 id="classes">Classes &amp; parameter properties<a class="anchor" href="#classes">#</a></h2>
+<p>Classes look much like Python's, but TS adds a shorthand that removes the boilerplate of "assign every constructor argument to <code>this</code>". Mark a constructor parameter <code>public</code>/<code>private</code>/<code>readonly</code> and it becomes a field automatically:</p>
+<div class="code-caption">backend/src/event_bus.ts:6</div><pre><code>export class EventBus {
+  private emitter = new EventEmitter();   // a private field with an initializer
+
+  constructor() {
+    this.emitter.setMaxListeners(100);
+  }
+
+  publish(event: StreamEvent): void {
+    this.emitter.emit(EVENT_NAME, event);
+  }
+}</code></pre>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>Python equivalent: <code>class EventBus:</code> with <code>self._emitter = …</code> in <code>__init__</code>. The "parameter property" shorthand (next section) is like Python's <code>@dataclass</code> auto-assigning fields — <code>def __init__(self, status): self.status = status</code> collapses to one line.</p>
+</div>
+
+<h2 id="errors">Custom Error classes<a class="anchor" href="#errors">#</a></h2>
+<p>fjord's service layer never returns HTTP status codes — it throws <em>typed</em> errors that describe <em>what went wrong in domain terms</em>. Each is a tiny class extending the built-in <code>Error</code>:</p>
+<div class="code-caption">backend/src/services/tasks.ts:20</div><pre><code>export class TaskNotFoundError extends Error {
+  readonly name = "TaskNotFoundError";
+}
+export class UnknownUserError extends Error {
+  readonly name = "UnknownUserError";
+}
+export class CycleError extends Error {
+  readonly name = "CycleError";
+}</code></pre>
+<p>The <code>readonly name = "…"</code> overrides <code>Error.name</code> so logs and debuggers show the specific class. These empty subclasses exist purely so callers can distinguish them with <code>instanceof</code> (lesson 6).</p>
+
+<h2 id="carry">Errors that carry data<a class="anchor" href="#carry">#</a></h2>
+<p>When an error needs to convey more than its identity, a parameter property carries it. The version-conflict error packs the current version so the route can tell the client what to re-sync to:</p>
+<div class="code-caption">backend/src/services/tasks.ts:24</div><pre><code>export class VersionConflictError extends Error {
+  readonly name = "VersionConflictError";
+  constructor(public readonly currentVersion: number) {
+    super();
+  }
+}
+
+export class EventEditForbiddenError extends Error {
+  readonly name = "EventEditForbiddenError";
+  constructor(
+    public readonly code:
+      | "subsequent_activity" | "edit_window_expired"
+      | "not_author" | "not_editable_kind",
+  ) {
+    super(code);
+  }
+}</code></pre>
+<p>That <code>public readonly currentVersion: number</code> in the constructor signature <em>is</em> the field declaration, assignment, and parameter all at once. And <code>EventEditForbiddenError.code</code> is a literal union — so after you've narrowed to that class, <code>err.code</code> is itself one of four exact strings you can switch on exhaustively.</p>
+
+<div class="callout py"><div class="callout-head">🐍 Python analogy</div>
+<p>Same as Python's <code>class VersionConflictError(Exception):</code> with <code>def __init__(self, current_version): self.current_version = current_version</code>. The TS <code>public readonly</code> shorthand is the only real difference — and <code>super()</code> is the <code>Error</code> base constructor, like <code>super().__init__()</code>.</p>
+</div>
+
+<h2 id="mapping">Throw in the service, map in the route<a class="anchor" href="#mapping">#</a></h2>
+<p>This separation is a core fjord pattern. Services speak <em>domain</em>; a single route-layer function translates each domain error into an HTTP response. You saw the start of it in lesson 6 — here's the shape of the whole translator:</p>
+<div class="code-caption">backend/src/routes/tasks.ts:88</div><pre><code>function mapServiceError(err: unknown, reply: FastifyReply): void {
+  if (mapSpaceWriteError(reply, err)) return;
+  if (err instanceof TaskNotFoundError) {
+    notFound(reply, "Task");
+  } else if (err instanceof VersionConflictError) {
+    reply.code(409).send({
+      error: "Version conflict",
+      code: "version_conflict" satisfies DomainErrorCode,
+      current_version: err.currentVersion,
+    });
+  } else if (err instanceof CycleError) {
+    badRequest(reply, "Adding this dependency would create a cycle");
+  } else if (err instanceof EventEditForbiddenError) {
+    if (err.code === "not_author") forbidden(reply, "…");
+    // …each err.code handled
+  } else {
+    throw err;   // unknown error: let it propagate to the framework handler
+  }
+}</code></pre>
+<p>Two things worth copying: the parameter is typed <code>unknown</code> (the honest type of "a caught value" — you must narrow before using it, which <code>instanceof</code> does), and the final <code>else throw err</code> re-raises anything unrecognised rather than swallowing it. <strong>Never silently absorb an error you didn't expect.</strong></p>
+<div class="callout gotcha"><div class="callout-head">⚠ Gotcha</div>
+<p>In <code>catch (err)</code>, <code>err</code> is typed <code>unknown</code> in this codebase's strict setup — you can't assume it's an <code>Error</code>. That's why everything goes through <code>instanceof</code> checks. Reaching for <code>err.message</code> directly won't compile until you've proven <code>err</code> is an <code>Error</code>.</p>
+</div>
+
+<h2 id="seam">The mutation seam in practice<a class="anchor" href="#seam">#</a></h2>
+<p>Now lesson 7's generic <code>runTaskMutation&lt;T&gt;</code> pays off behaviorally. Every task write is wrapped so its row changes <em>and</em> its task events commit atomically, and stream events publish <strong>only after COMMIT</strong>:</p>
+<div class="code-caption">backend/src/services/tasks.ts:565</div><pre><code>export function addComment(ctx: TaskCtx, actor: string, taskId: string, body: string): TaskEvent {
+  return runTaskMutation(ctx, (db, publish) =&amp;gt;
+    addTimelineEntry(db, publish, actor, taskId, "comment", body),
+  );
+}</code></pre>
+<p>The body receives <code>(db, publish)</code> and does its work; if it throws (say, <code>TaskNotFoundError</code>), the transaction rolls back and <em>nothing</em> is published — subscribers never hear about a write that didn't happen. The error then bubbles up to <code>mapServiceError</code>. Types, classes, generics, and error handling all converging on one guarantee: <strong>committed-or-silent, never half-announced.</strong></p>
+
+
+<div class="pager">
+  <a class="prev" href="09-discriminated-unions.html"><div class="dir">← Previous</div><div class="lbl">Discriminated unions &amp; exhaustiveness</div></a>
+  <a class="next" href="11-modules-monorepo.html"><div class="dir">Next →</div><div class="lbl">Modules, imports &amp; the monorepo</div></a>
+</div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>
